@@ -19,7 +19,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../utils/firebase';
 import { Colors } from '../../constants/theme';
 import { useRouter } from 'expo-router';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '../../components/ui/icon-symbol';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -177,11 +177,11 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <SafeAreaView style={styles.backButtonContainer}>
+        <View style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/')}>
             <IconSymbol name="chevron.left" size={24} color="#fff" />
           </TouchableOpacity>
-        </SafeAreaView>
+        </View>
 
         <View style={styles.logoContainer}>
           <Image 
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   backButtonContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 10 : 40,
+    top: Platform.OS === 'ios' ? 60 : 40,
     left: 20,
     zIndex: 10,
   },

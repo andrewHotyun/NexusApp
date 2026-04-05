@@ -11,7 +11,8 @@ const MAPPING = {
   'house.fill': 'home',
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
-  'chevron.right': 'chevron-right',
+  'chevron.right': 'chevron-right', // In Material icons, this is okay
+  'chevron.left': 'chevron-left',   // but some systems prefer chevron-left
   'envelope.fill': 'email',
   'lock.fill': 'lock',
   'person.fill': 'person',
@@ -19,10 +20,22 @@ const MAPPING = {
   'gift.fill': 'cake',
   'message.fill': 'chat',
   'globe.americas.fill': 'public',
-  'bubble.left.and.bubble.right.fill': 'chat-bubble-outline',
+  'bubble.left.and.bubble.right.fill': 'chat',
   'bubble.left.fill': 'chat-bubble',
   'camera.fill': 'photo-camera',
   'person.text.rectangle.fill': 'contact-page',
+  'person.2.fill': 'people',
+  'person.badge.plus': 'person-add',
+  'bell.fill': 'notifications',
+  'video.fill': 'videocam',
+  'arrow.left': 'arrow-back',
+  'eye.fill': 'visibility',
+  'eye.slash.fill': 'visibility-off',
+  'rectangle.portrait.and.arrow.right': 'logout',
+  'star.fill': 'star',
+  'heart.fill': 'favorite',
+  'gearshape.fill': 'settings',
+  'translate': 'translate',
 };
 
 /**

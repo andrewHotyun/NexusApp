@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '../../components/ui/icon-symbol';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
@@ -225,11 +225,11 @@ export default function RegisterScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <SafeAreaView style={styles.backButtonContainer}>
+      <View style={styles.backButtonContainer}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/')}>
           <IconSymbol name="chevron.left" size={24} color="#fff" />
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   },
   backButtonContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 10 : 40,
+    top: Platform.OS === 'ios' ? 60 : 40,
     left: 20,
     zIndex: 10,
   },

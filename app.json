@@ -8,7 +8,7 @@
     "scheme": "nexus",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#030e21",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -46,7 +46,7 @@
       "expo-localization"
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": false
     }
   }

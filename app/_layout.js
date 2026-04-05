@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import * as SplashScreen from 'expo-splash-screen';
 import { auth, db } from '../utils/firebase';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useColorScheme } from '../hooks/use-color-scheme';
 import '../i18n'; // Initialize i18n
 import LoadingScreen from '../components/ui/LoadingScreen';
 
@@ -51,6 +51,8 @@ const NexusDefaultTheme = {
   },
 };
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [user, setUser] = useState(null);
@@ -58,20 +60,26 @@ export default function RootLayout() {
   const [userChecked, setUserChecked] = useState(false);
   const router = useRouter();
   const segments = useSegments();
+  const pathname = usePathname();
 
   useEffect(() => {
-    console.log("[Nexus] Initializing application...");
+    console.log("[Nexus] Initializing auth state...");
     const unsubscribe = onAuthStateChanged(auth, (u) => {
+      console.log("[Nexus] Auth state changed, user:", u?.uid || "null");
       setUser(u);
-      setUserChecked(false); // Reset check when auth state changes
+      if (!u) {
+        setUserChecked(true);
+      } else {
+        setUserChecked(false); 
+      }
       
-      // Explicit delay of 1.5s to show the beautiful branded pulse
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (initializing) {
-          console.log("[Nexus] 1.5s delay over, entering app.");
+          console.log("[Nexus] 1.5s splash delay finished.");
           setInitializing(false);
         }
       }, 1500);
+      return () => clearTimeout(timeout);
     });
     return unsubscribe;
   }, []);
@@ -81,43 +89,26 @@ export default function RootLayout() {
     if (initializing || !user || userChecked) return;
 
     const checkUserStatus = async () => {
+      console.log("[Nexus] Checking user status in Firestore for UID:", user.uid);
       try {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          console.log("[Nexus] User status:", userData.status);
 
-          // Check for blocked account
-          if (userData.status === 'blocked') {
-            console.log("[Nexus] User account is blocked. Signing out.");
+          if (userData.status === 'blocked' || userData.status === 'deleted' || userData.deletionInfo?.status === 'pending_deletion') {
+            console.warn("[Nexus] Access denied (status/deletion). Signing out.");
             await auth.signOut();
             setUserChecked(true);
             return;
           }
 
-          // Check for deleted account
-          if (userData.status === 'deleted') {
-            console.log("[Nexus] User account is deleted. Signing out.");
-            await auth.signOut();
-            setUserChecked(true);
-            return;
-          }
-
-          // Check for pending deletion
-          if (userData.deletionInfo?.status === 'pending_deletion') {
-            console.log("[Nexus] User account is pending deletion. Signing out.");
-            await auth.signOut();
-            setUserChecked(true);
-            return;
-          }
-
-          // Check if woman user hasn't submitted verification yet
           if (userData.gender === 'woman' && userData.verificationSubmitted === false) {
             const rootSegment = segments[0];
-            // Only redirect if not already on verification screen
             if (rootSegment !== 'auth') {
-              console.log("[Nexus] Unverified woman user, redirecting to verification.");
+              console.log("[Nexus] Verification required. Redirecting.");
               router.replace({
                 pathname: '/auth/verification',
                 params: { userId: user.uid }
@@ -127,10 +118,9 @@ export default function RootLayout() {
             }
           }
         }
-
         setUserChecked(true);
       } catch (error) {
-        console.error("[Nexus] Error checking user status:", error);
+        console.error("[Nexus] Profile check error:", error);
         setUserChecked(true);
       }
     };
@@ -143,11 +133,24 @@ export default function RootLayout() {
     if (initializing || !userChecked) return;
 
     const rootSegment = segments[0];
+    
+    // CASE: Logged out
+    if (!user) {
+      // If we are NOT on the index page AND not in auth folder, push to landing
+      if (segments.length > 0 && rootSegment !== 'auth') {
+        console.log("[Nexus] Force logout redirect from:", segments.join('/'));
+        router.replace('/');
+      }
+      return;
+    }
 
+    // CASE: Logged in
     if (user) {
-      // If we are on index or auth (and not verification), redirect to main app
-      if (!rootSegment || (rootSegment === 'auth' && segments[1] !== 'verification')) {
-        router.replace('/(tabs)');
+      const authSubSegment = segments[1];
+      // If we are on landing or auth screens, push to main app (excluding verification)
+      if (!rootSegment || (rootSegment === 'auth' && authSubSegment !== 'verification')) {
+        console.log("[Nexus] Login redirect to (tabs)/chats");
+        router.replace('/(tabs)/chats');
       }
     }
   }, [user, initializing, userChecked, segments]);
@@ -157,21 +160,23 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? NexusDarkTheme : NexusDefaultTheme}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: '#030e21' }
-        }}
-      >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/verification" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? NexusDarkTheme : NexusDefaultTheme}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#030e21' }
+          }}
+        >
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/verification" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
