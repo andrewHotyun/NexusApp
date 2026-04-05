@@ -36,6 +36,17 @@ const MAPPING = {
   'heart.fill': 'favorite',
   'gearshape.fill': 'settings',
   'translate': 'translate',
+  'plus': 'add',
+  'folder.fill': 'folder',
+  'photo.on.rectangle.angled': 'collections',
+  'play.fill': 'play-arrow',
+  'photo': 'photo',
+  'chevron.down': 'expand-more',
+  'trash.fill': 'delete',
+  'person.crop.circle.badge.xmark': 'person-off',
+  'checkmark': 'check',
+  'xmark': 'close',
+  'magnifyingglass': 'search',
 };
 
 /**

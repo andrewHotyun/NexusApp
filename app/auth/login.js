@@ -11,7 +11,8 @@ import {
   Image,
   SafeAreaView,
   Alert,
-  Modal
+  Modal,
+  StatusBar
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
@@ -20,6 +21,7 @@ import { auth, db } from '../../utils/firebase';
 import { Colors } from '../../constants/theme';
 import { useRouter } from 'expo-router';
 import { IconSymbol } from '../../components/ui/icon-symbol';
+import { ActionModal } from '../../components/ui/ActionModal';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -28,6 +30,9 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [actionModal, setActionModal] = useState({ 
+    visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true 
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
@@ -84,8 +89,28 @@ export default function LoginScreen() {
 
       // Check for pending deletion
       if (userDoc.exists() && userDoc.data().deletionInfo?.status === 'pending_deletion') {
-        setUserToRecover(user);
-        setShowRecoveryModal(true);
+        setActionModal({
+          visible: true,
+          title: t('auth.accountRecovery', 'Account Recovery'),
+          message: t('auth.accountRecoveryDesc', 'Your account is scheduled for deletion. Do you want to recover it?'),
+          confirmText: t('auth.recoverAccount', 'Recover Account'),
+          showCancel: true,
+          onConfirm: async () => {
+            try {
+              const userDocRef = doc(db, 'users', user.uid);
+              await updateDoc(userDocRef, { deletionInfo: null });
+              // Success automatically navigates via _layout
+            } catch (error) {
+              console.error("Recovery error:", error);
+              setActionModal({
+                visible: true,
+                title: t('common.error'),
+                message: t('auth.recoverFailed', 'Failed to recover account. Please try again'),
+                showCancel: false
+              });
+            }
+          }
+        });
         setLoading(false);
         return;
       }
@@ -137,45 +162,46 @@ export default function LoginScreen() {
 
   const handleForgotPassword = () => {
     if (!email.trim()) {
-      Alert.alert(
-        t('auth.forgotPassword', 'Forgot Password'),
-        t('auth.enterEmailFirst', 'Please enter your email address first'),
-        [{ text: 'OK' }]
-      );
+      setActionModal({
+        visible: true,
+        title: t('auth.forgotPassword', 'Forgot Password'),
+        message: t('auth.enterEmailFirst', 'Please enter your email address first'),
+        showCancel: false
+      });
       return;
     }
 
-    Alert.alert(
-      t('auth.forgotPassword', 'Forgot Password'),
-      t('auth.resetConfirm', 'Send password reset link to {{email}}?', { email: email.trim() }),
-      [
-        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
-        {
-          text: t('common.send', 'Send'),
-          onPress: async () => {
-            try {
-              await sendPasswordResetEmail(auth, email.trim());
-              Alert.alert(
-                t('common.success', 'Success'),
-                t('auth.resetSent', 'Password reset link sent to your email')
-              );
-            } catch (err) {
-              Alert.alert(
-                t('common.error', 'Error'),
-                getErrorMessage(err.code)
-              );
-            }
-          }
+    setActionModal({
+      visible: true,
+      title: t('auth.forgotPassword', 'Forgot Password'),
+      message: t('auth.resetConfirm', 'Send password reset link to {{email}}?', { email: email.trim() }),
+      confirmText: t('common.send', 'Send'),
+      showCancel: true,
+      onConfirm: async () => {
+        try {
+          await sendPasswordResetEmail(auth, email.trim());
+          setActionModal({
+            visible: true,
+            title: t('common.success', 'Success'),
+            message: t('auth.resetSent', 'Password reset link sent to your email'),
+            showCancel: false
+          });
+        } catch (err) {
+          setActionModal({
+            visible: true,
+            title: t('common.error', 'Error'),
+            message: getErrorMessage(err.code),
+            showCancel: false
+          });
         }
-      ]
-    );
+      }
+    });
   };
 
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.content}>
         <View style={styles.backButtonContainer}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/')}>
@@ -242,8 +268,7 @@ export default function LoginScreen() {
           <TouchableOpacity 
             style={styles.loginButton} 
             onPress={handleLogin}
-            disabled={loading}
-          >
+            disabled={loading}>
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -260,28 +285,17 @@ export default function LoginScreen() {
         </View>
       </View>
 
-      {/* Account Recovery Modal */}
-      <Modal
-        visible={showRecoveryModal}
-        transparent
-        animationType="fade"
-        onRequestClose={handleLogoutAndCancel}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={handleLogoutAndCancel}>
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{t('auth.accountRecovery', 'Account Recovery')}</Text>
-            <Text style={styles.modalDescription}>
-              {t('auth.accountRecoveryDesc', 'Your account is scheduled for deletion. Do you want to recover it?')}
-            </Text>
-            <TouchableOpacity style={styles.recoverButton} onPress={handleRecoverAccount}>
-              <Text style={styles.recoverButtonText}>{t('auth.recoverAccount', 'Recover Account')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <ActionModal
+        visible={actionModal.visible}
+        title={actionModal.title}
+        message={actionModal.message}
+        confirmText={actionModal.confirmText}
+        cancelText={t('common.cancel')}
+        isDestructive={actionModal.isDestructive}
+        showCancel={actionModal.showCancel}
+        onConfirm={actionModal.onConfirm}
+        onClose={() => setActionModal(prev => ({ ...prev, visible: false }))}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -303,7 +317,7 @@ const styles = StyleSheet.create({
   },
   backButtonContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
+    top: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 15,
     left: 20,
     zIndex: 10,
   },

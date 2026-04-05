@@ -292,7 +292,7 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#030e21' },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
-  header: { alignItems: 'center', marginTop: Platform.OS === 'android' ? 60 : 40 },
+  header: { alignItems: 'center', marginTop: Platform.OS === 'android' ? StatusBar.currentHeight + 25 : 40 },
   logo: { width: 280, height: 84 },
   
   // Planet Simulator Styles
@@ -389,6 +389,6 @@ const styles = StyleSheet.create({
   primaryButton: { backgroundColor: '#e5566f', height: 62, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#e5566f', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 15, elevation: 8 },
   primaryButtonText: { color: '#fff', fontSize: 18, fontWeight: '800' },
   secondaryButton: { height: 44, alignItems: 'center', justifyContent: 'center' },
-  secondaryButtonText: { color: '#64748b', fontSize: 15 },
+  secondaryButtonText: { color: '#94a3b8', fontSize: 15, fontWeight: '500' },
   loginLink: { color: '#0ef0ff', fontWeight: '800' },
 });

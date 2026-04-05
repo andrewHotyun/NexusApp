@@ -10,8 +10,8 @@ export default function LoadingScreen() {
   const opacity = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    // Hide the native splash immediately to show this branded screen
-    SplashScreen.hideAsync().catch(() => {});
+    // We handle splash removal in the layout instead to avoid native race conditions
+    // SplashScreen.hideAsync().catch(() => {});
 
     Animated.loop(
       Animated.sequence([

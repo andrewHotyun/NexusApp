@@ -8,7 +8,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  SafeAreaView
+  SafeAreaView,
+  Platform,
+  StatusBar
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,6 +20,7 @@ import { doc, updateDoc, addDoc, collection, serverTimestamp, getDoc } from 'fir
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { Colors } from '../../constants/theme';
 import { useTranslation } from 'react-i18next';
+import { ActionModal } from '../../components/ui/ActionModal';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -30,14 +33,19 @@ export default function VerificationScreen() {
   const [idPhoto, setIdPhoto] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [actionModal, setActionModal] = useState({ 
+    visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true 
+  });
 
   const pickImage = async (type) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        t('verification.permissionDenied', 'Permission Denied'),
-        t('verification.permissionDeniedDesc', 'We need access to your gallery to upload photos.')
-      );
+      setActionModal({
+        visible: true,
+        title: t('verification.permissionDenied', 'Permission Denied'),
+        message: t('verification.permissionDeniedDesc', 'We need access to your gallery to upload photos.'),
+        showCancel: false
+      });
       return;
     }
 
@@ -117,11 +125,13 @@ export default function VerificationScreen() {
         verificationStatus: 'pending'
       });
 
-      Alert.alert(
-        t('common.success', 'Success'),
-        t('verification.submitted', 'Your verification has been submitted. You can now use the app while we review it.'),
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
-      );
+      setActionModal({
+        visible: true,
+        title: t('common.success', 'Success'),
+        message: t('verification.submitted', 'Your verification has been submitted. You can now use the app while we review it.'),
+        showCancel: false,
+        onConfirm: () => router.replace('/(tabs)')
+      });
     } catch (err) {
       console.error(err);
       setError(t('verification.uploadFailed', 'Something went wrong. Please try again.'));
@@ -161,8 +171,7 @@ export default function VerificationScreen() {
           <Text style={styles.hint}>{t('verification.selfieHint', 'Make sure your face is clearly visible')}</Text>
           <TouchableOpacity 
             style={[styles.uploadBox, selfie && styles.uploadBoxActive]} 
-            onPress={() => pickImage('selfie')}
-          >
+            onPress={() => pickImage('selfie')}>
             {selfie ? (
               <Image source={{ uri: selfie.uri }} style={styles.preview} />
             ) : (
@@ -179,8 +188,7 @@ export default function VerificationScreen() {
           <Text style={styles.hint}>{t('verification.idHint', 'Ensure all text on your ID is readable')}</Text>
           <TouchableOpacity 
             style={[styles.uploadBox, idPhoto && styles.uploadBoxActive]} 
-            onPress={() => pickImage('id')}
-          >
+            onPress={() => pickImage('id')}>
             {idPhoto ? (
               <Image source={{ uri: idPhoto.uri }} style={styles.preview} />
             ) : (
@@ -195,8 +203,7 @@ export default function VerificationScreen() {
         <TouchableOpacity 
           style={[styles.submitButton, loading && styles.submitButtonDisabled]} 
           onPress={handleSubmit}
-          disabled={loading}
-        >
+          disabled={loading}>
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -212,6 +219,17 @@ export default function VerificationScreen() {
           {t('verification.footerNote', 'Your data is secure and will only be used for verification purposes.')}
         </Text>
       </ScrollView>
+      <ActionModal
+        visible={actionModal.visible}
+        title={actionModal.title}
+        message={actionModal.message}
+        confirmText={actionModal.confirmText}
+        cancelText={t('common.cancel')}
+        isDestructive={actionModal.isDestructive}
+        showCancel={actionModal.showCancel}
+        onConfirm={actionModal.onConfirm}
+        onClose={() => setActionModal(prev => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
@@ -220,6 +238,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#030e21',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 8 : 0,
   },
   scrollContent: {
     padding: 24,
@@ -340,8 +359,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   skipText: {
-    color: '#7f8c8d',
+    color: '#bdc3c7',
     fontSize: 14,
+    fontWeight: '600',
   },
   footerNote: {
     color: '#475569',

@@ -3,8 +3,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Country, City } from 'country-state-city';
+import { SearchablePicker } from '../../components/ui/SearchablePicker';
 import {
   ActivityIndicator,
   Alert,
@@ -17,10 +19,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  StatusBar
 } from 'react-native';
 import { Colors } from '../../constants/theme';
 import { auth, db } from '../../utils/firebase';
+import { ActionModal } from '../../components/ui/ActionModal';
 
 export default function RegisterScreen() {
   const { t } = useTranslation();
@@ -36,13 +40,38 @@ export default function RegisterScreen() {
   // New fields from web parity
   const [age, setAge] = useState('');
   const [country, setCountry] = useState('');
+  const [countryIso, setCountryIso] = useState('');
   const [city, setCity] = useState('');
   const [chatType, setChatType] = useState('normal');
   const [avatar, setAvatar] = useState(null);
 
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
+
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [actionModal, setActionModal] = useState({ 
+    visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true 
+  });
+
+  // Memoized country data for the picker
+  const allCountries = useMemo(() => {
+    return Country.getAllCountries().map(c => ({
+      label: `${c.flag} ${c.name}`,
+      value: c.name,
+      isoCode: c.isoCode
+    }));
+  }, []);
+
+  // Memoized city data based on selected country
+  const allCities = useMemo(() => {
+    if (!countryIso) return [];
+    return City.getCitiesOfCountry(countryIso).map(c => ({
+      label: c.name,
+      value: c.name
+    }));
+  }, [countryIso]);
 
   // Firebase error code handling matching web version
   const getErrorMessage = (errorCode) => {
@@ -65,7 +94,13 @@ export default function RegisterScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('auth.permissionDenied', 'Sorry, we need camera roll permissions to make this work!'));
+      setActionModal({
+        visible: true,
+        title: t('auth.permissionDenied'),
+        message: t('auth.permissionDenied', 'Sorry, we need camera roll permissions to make this work!'),
+        confirmText: t('common.ok'),
+        showCancel: false
+      });
       return;
     }
 
@@ -73,7 +108,7 @@ export default function RegisterScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 1.0,
       base64: true,
     });
 
@@ -223,8 +258,7 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.backButtonContainer}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/')}>
           <IconSymbol name="chevron.left" size={24} color="#fff" />
@@ -242,7 +276,6 @@ export default function RegisterScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* Avatar Picker */}
           <TouchableOpacity style={styles.avatarPicker} onPress={pickImage}>
             {avatar ? (
               <Image source={{ uri: avatar.uri }} style={styles.avatarImage} />
@@ -254,7 +287,6 @@ export default function RegisterScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Name Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('auth.name', 'Your Name')}</Text>
             <View style={[styles.inputContainer, fieldErrors.name && styles.inputError]}>
@@ -270,7 +302,6 @@ export default function RegisterScreen() {
             {fieldErrors.name && <Text style={styles.fieldError}>{fieldErrors.name}</Text>}
           </View>
 
-          {/* Email Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('auth.email', 'Email')}</Text>
             <View style={[styles.inputContainer, fieldErrors.email && styles.inputError]}>
@@ -288,7 +319,6 @@ export default function RegisterScreen() {
             {fieldErrors.email && <Text style={styles.fieldError}>{fieldErrors.email}</Text>}
           </View>
 
-          {/* Password Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('auth.password', 'Password')}</Text>
             <View style={[styles.inputContainer, fieldErrors.password && styles.inputError]}>
@@ -312,7 +342,6 @@ export default function RegisterScreen() {
             {fieldErrors.password && <Text style={styles.fieldError}>{fieldErrors.password}</Text>}
           </View>
 
-          {/* Age Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('auth.age', 'Age')}</Text>
             <View style={[styles.inputContainer, fieldErrors.age && styles.inputError]}>
@@ -330,22 +359,19 @@ export default function RegisterScreen() {
             {fieldErrors.age && <Text style={styles.fieldError}>{fieldErrors.age}</Text>}
           </View>
 
-          {/* Gender Selection */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t('auth.gender', 'Gender')}</Text>
             <View style={styles.genderButtons}>
               <TouchableOpacity
                 style={[styles.genderButton, gender === 'man' && styles.genderButtonActive]}
-                onPress={() => setGender('man')}
-              >
+                onPress={() => setGender('man')}>
                 <Text style={[styles.genderButtonText, gender === 'man' && styles.genderButtonTextActive]}>
                   {t('auth.male', 'Man')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.genderButton, gender === 'woman' && styles.genderButtonActive]}
-                onPress={() => setGender('woman')}
-              >
+                onPress={() => setGender('woman')}>
                 <Text style={[styles.genderButtonText, gender === 'woman' && styles.genderButtonTextActive]}>
                   {t('auth.female', 'Woman')}
                 </Text>
@@ -357,34 +383,71 @@ export default function RegisterScreen() {
           <View style={styles.row}>
             <View style={styles.rowItem}>
               <Text style={styles.label}>{t('auth.country', 'Country')}</Text>
-              <View style={[styles.inputContainer, fieldErrors.country && styles.inputError]}>
+              <TouchableOpacity 
+                style={[styles.inputContainer, fieldErrors.country && styles.inputError]}
+                onPress={() => setShowCountryPicker(true)}>
                 <IconSymbol name="flag.fill" size={18} color="#7f8c8d" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ukraine"
-                  placeholderTextColor="#7f8c8d"
-                  value={country}
-                  onChangeText={(v) => { setCountry(v); clearFieldError('country'); }}
-                />
-              </View>
+                <Text style={[styles.pickerValueText, !country && styles.pickerPlaceholderText]}>
+                  {country || t('auth.countryPlaceholder', 'Select...')}
+                </Text>
+                <IconSymbol name="chevron.down" size={14} color="#7f8c8d" />
+              </TouchableOpacity>
               {fieldErrors.country && <Text style={styles.fieldError}>{fieldErrors.country}</Text>}
             </View>
 
             <View style={styles.rowItem}>
               <Text style={styles.label}>{t('auth.city', 'City')}</Text>
-              <View style={[styles.inputContainer, fieldErrors.city && styles.inputError]}>
+              <TouchableOpacity 
+                style={[styles.inputContainer, fieldErrors.city && styles.inputError]}
+                onPress={() => {
+                  if (!countryIso) {
+                    setActionModal({
+                      visible: true,
+                      title: t('common.attention'),
+                      message: t('auth.errorSelectCountryFirst', 'Please select a country first'),
+                      confirmText: t('common.ok'),
+                      showCancel: false
+                    });
+                    return;
+                  }
+                  setShowCityPicker(true);
+                }}>
                 <IconSymbol name="flag.fill" size={18} color="#7f8c8d" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Kyiv"
-                  placeholderTextColor="#7f8c8d"
-                  value={city}
-                  onChangeText={(v) => { setCity(v); clearFieldError('city'); }}
-                />
-              </View>
+                <Text style={[styles.pickerValueText, !city && styles.pickerPlaceholderText, !countryIso && styles.pickerDisabledText]}>
+                  {city || t('auth.cityPlaceholder', 'Select...')}
+                </Text>
+                <IconSymbol name="chevron.down" size={14} color="#7f8c8d" />
+              </TouchableOpacity>
               {fieldErrors.city && <Text style={styles.fieldError}>{fieldErrors.city}</Text>}
             </View>
           </View>
+
+          {/* Location Pickers */}
+          <SearchablePicker
+            visible={showCountryPicker}
+            onClose={() => setShowCountryPicker(false)}
+            title={t('auth.selectCountry', 'Select Country')}
+            data={allCountries}
+            selectedValue={country}
+            onSelect={(item) => {
+              setCountry(item.value);
+              setCountryIso(item.isoCode);
+              setCity(''); // Reset city when country changes
+              clearFieldError('country');
+            }}
+          />
+
+          <SearchablePicker
+            visible={showCityPicker}
+            onClose={() => setShowCityPicker(false)}
+            title={t('auth.selectCity', 'Select City')}
+            data={allCities}
+            selectedValue={city}
+            onSelect={(item) => {
+              setCity(item.value);
+              clearFieldError('city');
+            }}
+          />
 
           {/* Chat Type Selection */}
           <View style={styles.inputGroup}>
@@ -392,8 +455,7 @@ export default function RegisterScreen() {
             <View style={styles.typeButtons}>
               <TouchableOpacity
                 style={[styles.typeButton, chatType === 'normal' && styles.typeButtonActive]}
-                onPress={() => setChatType('normal')}
-              >
+                onPress={() => setChatType('normal')}>
                 <IconSymbol name="message.fill" size={18} color={chatType === 'normal' ? '#fff' : '#7f8c8d'} style={{ marginRight: 8 }} />
                 <Text style={[styles.typeButtonText, chatType === 'normal' && styles.typeButtonTextActive]}>
                   {t('auth.normal', 'Normal')}
@@ -401,8 +463,7 @@ export default function RegisterScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.typeButton, chatType === '18+' && styles.typeButtonActive]}
-                onPress={() => setChatType('18+')}
-              >
+                onPress={() => setChatType('18+')}>
                 <IconSymbol name="message.fill" size={18} color={chatType === '18+' ? '#fff' : '#7f8c8d'} style={{ marginRight: 8 }} />
                 <Text style={[styles.typeButtonText, chatType === '18+' && styles.typeButtonTextActive]}>
                   {t('auth.erotic', '18+')}
@@ -414,8 +475,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             style={styles.registerButton}
             onPress={handleRegister}
-            disabled={loading}
-          >
+            disabled={loading}>
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -431,6 +491,17 @@ export default function RegisterScreen() {
           </View>
         </View>
       </ScrollView>
+      <ActionModal
+        visible={actionModal.visible}
+        title={actionModal.title}
+        message={actionModal.message}
+        confirmText={actionModal.confirmText}
+        cancelText={t('common.cancel')}
+        isDestructive={actionModal.isDestructive}
+        showCancel={actionModal.showCancel}
+        onConfirm={actionModal.onConfirm}
+        onClose={() => setActionModal(prev => ({ ...prev, visible: false }))}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -450,7 +521,7 @@ const styles = StyleSheet.create({
   },
   backButtonContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
+    top: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 15,
     left: 20,
     zIndex: 10,
   },
@@ -583,6 +654,17 @@ const styles = StyleSheet.create({
   },
   genderButtonTextActive: {
     color: '#fff',
+  },
+  pickerValueText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 15,
+  },
+  pickerPlaceholderText: {
+    color: '#7f8c8d',
+  },
+  pickerDisabledText: {
+    opacity: 0.5,
   },
   typeButtons: {
     flexDirection: 'row',

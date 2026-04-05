@@ -6,13 +6,14 @@ import { StatusBar } from 'expo-status-bar';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import * as SplashScreen from 'expo-splash-screen';
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 import { auth, db } from '../utils/firebase';
 import { useColorScheme } from '../hooks/use-color-scheme';
 import '../i18n'; // Initialize i18n
 import LoadingScreen from '../components/ui/LoadingScreen';
-
-// Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
 
 // Custom theme defined safely to avoid "Property doesn't exist" errors
 const NexusDarkTheme = {
@@ -61,6 +62,18 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (!initializing) {
+      // Add a tiny delay to ensure the native component has fully mounted
+      const timer = setTimeout(() => {
+        SplashScreen.hideAsync().catch((err) => {
+          console.warn("[Nexus] Splash hide failed (safe to ignore in some envs):", err.message);
+        });
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [initializing]);
 
   useEffect(() => {
     console.log("[Nexus] Initializing auth state...");
@@ -166,8 +179,7 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: '#030e21' }
-          }}
-        >
+          }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="auth/login" options={{ headerShown: false }} />

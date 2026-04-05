@@ -29,13 +29,11 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile }) {
       transparent={true}
       animationType="slide"
       statusBarTranslucent={true}
-      onRequestClose={onClose}
-    >
+      onRequestClose={onClose}>
       <TouchableOpacity 
         style={styles.overlay} 
         activeOpacity={1} 
-        onPress={onClose}
-      >
+        onPress={onClose}>
         <View style={styles.sheetContainer}>
           <TouchableOpacity activeOpacity={1} style={styles.sheetContent}>
             
@@ -48,12 +46,16 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile }) {
             </View>
 
             {/* Menu Items */}
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => { onClose(); router.push('/profile'); }}>
               <IconSymbol name="person.fill" size={24} color={Colors.dark.text} />
               <Text style={styles.menuText}>{t('dropdown.profile', { defaultValue: 'My Profile' })}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => { onClose(); router.push('/media'); }}>
               <IconSymbol name="camera.fill" size={24} color={Colors.dark.text} />
               <Text style={styles.menuText}>{t('dropdown.my_media', { defaultValue: 'My Media' })}</Text>
             </TouchableOpacity>
@@ -75,7 +77,9 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile }) {
               </>
             )}
 
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => { onClose(); router.push('/blocked-users'); }}>
               <IconSymbol name="person.text.rectangle.fill" size={24} color={Colors.dark.text} />
               <Text style={styles.menuText}>{t('dropdown.blocked_users', { defaultValue: 'Blocked Users' })}</Text>
             </TouchableOpacity>

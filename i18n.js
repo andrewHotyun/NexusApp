@@ -11,6 +11,7 @@ import fr from './locales/fr.json';
 const resources = {
   en: { translation: en },
   ua: { translation: ua },
+  uk: { translation: ua },
   es: { translation: es },
   de: { translation: de },
   fr: { translation: fr },

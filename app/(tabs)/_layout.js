@@ -46,8 +46,7 @@ export default function TabLayout() {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
-              allowFontScaling={false}
-            >
+              allowFontScaling={false}>
               {children}
             </Text>
           ),

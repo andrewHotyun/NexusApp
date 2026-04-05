@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Pressable, TouchableHighlight, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Pressable, TouchableHighlight, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '../../utils/firebase';
@@ -106,8 +106,7 @@ export default function MainHeader() {
             <TouchableOpacity 
               style={[styles.controlBadge, autoTranslate && styles.controlBadgeActive]} 
               onPress={() => setAutoTranslate(!autoTranslate)}
-              activeOpacity={0.7}
-            >
+              activeOpacity={0.7}>
               <IconSymbol 
                 name="translate" 
                 size={20} 
@@ -117,7 +116,13 @@ export default function MainHeader() {
 
             {/* Language Switcher */}
             <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage} activeOpacity={0.7}>
-              <Text style={styles.langIcon}>🌐</Text>
+              <Text style={styles.langIcon}>
+                {i18n.language === 'ua' ? '🇺🇦' : 
+                 i18n.language === 'en' ? '🇺🇸' : 
+                 i18n.language === 'es' ? '🇪🇸' : 
+                 i18n.language === 'de' ? '🇩🇪' : 
+                 i18n.language === 'fr' ? '🇫🇷' : '🌐'}
+              </Text>
               <Text style={styles.langText}>{i18n.language.toUpperCase()}</Text>
             </TouchableOpacity>
 
@@ -156,10 +161,9 @@ export default function MainHeader() {
                   }
                 ]}
                 onPress={() => setIsMenuVisible(true)}
-                android_ripple={null}
-              >
-                {userProfile.avatar ? (
-                  <Image source={{ uri: userProfile.avatar }} style={styles.avatarImage} />
+                android_ripple={null}>
+                {userProfile.originalAvatarUrl || userProfile.avatar ? (
+                  <Image source={{ uri: userProfile.originalAvatarUrl || userProfile.avatar }} style={styles.avatarImage} />
                 ) : (
                   <Text style={styles.avatarFallback}>{getInitials(userProfile.name)}</Text>
                 )}
@@ -183,6 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#030e21', 
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
+    paddingTop: Platform.OS === 'android' ? 8 : 0,
   },
   container: {
     flexDirection: 'row',
@@ -190,7 +195,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    height: 64, 
+    height: Platform.OS === 'android' ? 56 : 64, 
   },
   leftSection: {
     flexDirection: 'row',
