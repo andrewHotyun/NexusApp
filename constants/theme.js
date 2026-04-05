@@ -11,19 +11,29 @@ const tintColorDark = '#fff';
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
+    background: '#ffffff',
+    tint: '#0d8bd1',
+    primary: '#0d8bd1',
+    secondary: '#2c3e50',
+    accent: '#3498db',
+    card: '#f8f9fa',
+    border: '#e2e8f0',
     icon: '#687076',
     tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    tabIconSelected: '#0d8bd1',
   },
   dark: {
     text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
+    background: '#0b1220', // Nexus Dark Navy
+    tint: '#fff',
+    primary: '#0d8bd1',
+    secondary: '#1c263b',
+    accent: '#3498db',
+    card: '#162033',
+    border: '#2c3e50',
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    tabIconSelected: '#fff',
   },
 };
 
