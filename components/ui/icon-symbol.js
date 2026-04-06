@@ -37,6 +37,7 @@ const MAPPING = {
   'gearshape.fill': 'settings',
   'translate': 'translate',
   'plus': 'add',
+  'plus': 'add',
   'folder.fill': 'folder',
   'photo.on.rectangle.angled': 'collections',
   'play.fill': 'play-arrow',
@@ -47,6 +48,12 @@ const MAPPING = {
   'checkmark': 'check',
   'xmark': 'close',
   'magnifyingglass': 'search',
+  'checkmark.circle.fill': 'check-circle',
+  'exclamationmark.circle.fill': 'error',
+  'xmark.circle.fill': 'cancel',
+  'info.circle.fill': 'info',
+  'line.3.horizontal.decrease.circle': 'filter-list',
+  'person.crop.circle.badge.questionmark': 'person-search',
 };
 
 /**

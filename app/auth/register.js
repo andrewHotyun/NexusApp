@@ -5,7 +5,8 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Country, City } from 'country-state-city';
+import { Country, City, State } from 'country-state-city';
+import { deduplicateCities } from '../../utils/locationUtils';
 import { SearchablePicker } from '../../components/ui/SearchablePicker';
 import {
   ActivityIndicator,
@@ -67,7 +68,8 @@ export default function RegisterScreen() {
   // Memoized city data based on selected country
   const allCities = useMemo(() => {
     if (!countryIso) return [];
-    return City.getCitiesOfCountry(countryIso).map(c => ({
+    const cities = City.getCitiesOfCountry(countryIso);
+    return deduplicateCities(cities).map(c => ({
       label: c.name,
       value: c.name
     }));

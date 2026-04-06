@@ -2,6 +2,9 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { View, Text, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useEffect, useState } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../../utils/firebase';
 
 import { HapticTab } from '../../components/haptic-tab';
 import { IconSymbol } from '../../components/ui/icon-symbol';
@@ -10,6 +13,20 @@ import MainHeader from '../../components/ui/MainHeader';
 
 export default function TabLayout() {
   const { t } = useTranslation();
+  const [requestsCount, setRequestsCount] = useState(0);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const q = query(
+      collection(db, 'friendRequests'),
+      where('toUserId', '==', auth.currentUser.uid),
+      where('status', '==', 'pending')
+    );
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setRequestsCount(snap.docs.length);
+    });
+    return unsubscribe;
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.dark.background }}>
@@ -92,6 +109,17 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <IconSymbol size={26} name="person.badge.plus" color={color} />
             ),
+            tabBarBadge: requestsCount > 0 ? requestsCount : undefined,
+            tabBarBadgeStyle: { 
+              backgroundColor: '#e74c3c', 
+              fontSize: 10, 
+              minWidth: 16, 
+              height: 16, 
+              borderRadius: 8,
+              lineHeight: 16,
+              textAlign: 'center',
+              marginTop: -2 
+            }
           }}
         />
 

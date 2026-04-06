@@ -28,7 +28,8 @@ export const SearchablePicker = ({
   title = 'Select Option',
   placeholder = 'Search...',
   loading = false,
-  selectedValue = ''
+  selectedValue = '',
+  searchable = true
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -89,19 +90,21 @@ export const SearchablePicker = ({
           </View>
 
           {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <IconSymbol name="magnifyingglass" size={18} color="#7f8c8d" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={placeholder}
-              placeholderTextColor="#7f8c8d"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus={false}
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-          </View>
+          {searchable && (
+            <View style={styles.searchContainer}>
+              <IconSymbol name="magnifyingglass" size={18} color="#7f8c8d" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={placeholder}
+                placeholderTextColor="#7f8c8d"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={false}
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+              />
+            </View>
+          )}
 
           {/* List Content */}
           {loading ? (

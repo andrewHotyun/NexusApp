@@ -30,7 +30,8 @@ import {
 } from 'firebase/storage';
 import { updateEmail, signOut } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
-import { Country, City } from 'country-state-city';
+import { Country, City, State } from 'country-state-city';
+import { deduplicateCities } from '../../utils/locationUtils';
 
 import { auth, db, storage } from '../../utils/firebase';
 import { Colors } from '../../constants/theme';
@@ -78,7 +79,8 @@ export default function ProfileScreen() {
 
   const allCities = useMemo(() => {
     if (!editForm.countryIso) return [];
-    return City.getCitiesOfCountry(editForm.countryIso).map(c => ({
+    const cities = City.getCitiesOfCountry(editForm.countryIso);
+    return deduplicateCities(cities).map(c => ({
       label: c.name,
       value: c.name
     }));
