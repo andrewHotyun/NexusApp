@@ -38,11 +38,16 @@ import { Toast } from '../../components/ui/Toast';
 import { SearchablePicker } from '../../components/ui/SearchablePicker';
 import { Country, City } from 'country-state-city';
 import { deduplicateCities } from '../../utils/locationUtils';
+import { getAvatarColor } from '../../utils/avatarUtils';
 import { useRouter } from 'expo-router';
 
-// In-memory cache for search
+// In-memory cache for search — force reset on app reload
 let globalUsersCache = null;
 let globalUsersCacheTimestamp = null;
+
+// Force clear stale cache on module load
+globalUsersCache = null;
+globalUsersCacheTimestamp = null;
 
 export default function RequestsTab() {
   const { t } = useTranslation();
@@ -53,6 +58,8 @@ export default function RequestsTab() {
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [friendsList, setFriendsList] = useState([]);
+  const [myBlockedIds, setMyBlockedIds] = useState([]);
+  const [blockedMeIds, setBlockedMeIds] = useState([]);
   
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
@@ -140,12 +147,44 @@ export default function RequestsTab() {
       setFriendsList(snap.docs.map(doc => doc.data().friendId));
     });
 
+    // Listen to personal block list
+    const myBlocksQuery = query(collection(db, 'blocks'), where('blockerId', '==', user.uid));
+    const unsubscribeMyBlocks = onSnapshot(myBlocksQuery, (snap) => {
+      const ids = snap.docs.map(doc => doc.data().blockedId).filter(Boolean);
+      setMyBlockedIds(ids);
+    });
+
+    // Listen to who blocked me
+    const blockedMeQuery = query(collection(db, 'blocks'), where('blockedId', '==', user.uid));
+    const unsubscribeBlockedMe = onSnapshot(blockedMeQuery, (snap) => {
+      const ids = snap.docs.map(doc => doc.data().blockerId).filter(Boolean);
+      setBlockedMeIds(ids);
+    });
+
     return () => {
       unsubscribeIncoming();
       unsubscribeSent();
       unsubscribeFriends();
+      unsubscribeMyBlocks();
+      unsubscribeBlockedMe();
     };
-  }, [user]);
+  }, [user?.uid]);
+
+  const isUserSoftDeleted = (u) => {
+    if (!u) return true;
+    const status = typeof u.status === 'string' ? u.status.toLowerCase() : '';
+    return (
+      u.deleted === true ||
+      u.isDeleted === true ||
+      u.accountDeleted === true ||
+      u.disabled === true ||
+      u.isDisabled === true ||
+      u.active === false ||
+      u.enabled === false ||
+      ['deleted', 'disabled', 'deactivated', 'blocked'].includes(status)
+    );
+  };
+
 
   // Fetch missing ages for incoming and sent requests
   useEffect(() => {
@@ -213,8 +252,20 @@ export default function RequestsTab() {
       }
 
       const term = searchQuery.toLowerCase().trim();
+      
+      // Filter results: exclude self, admin, soft-deleted, and blocked users
       const results = querySnapshotDocs.filter(u => {
-        if (!u.uid || u.uid === user.uid || u.email === 'admin@nexus.com' || u.uid === '4bM0UTvNA8XHUOqv1fyzz2lYQeO2') return false;
+        const uid = u.id || u.uid;
+        
+        // 1. Exclude self and Admin
+        if (!uid || uid === user.uid) return false;
+        if (u.email === 'admin@nexus.com' || uid === '4bM0UTvNA8XHUOqv1fyzz2lYQeO2') return false;
+        
+        // 2. Soft-Delete & Admin-Block Check (matches Web version)
+        if (isUserSoftDeleted(u)) return false;
+
+        // 3. Exclude based on bidirectional blocking
+        if (myBlockedIds.includes(uid) || blockedMeIds.includes(uid)) return false;
 
         const matchesName = u.name && u.name.toLowerCase().includes(term);
         const matchesUid = term.length >= 6 && u.uid && u.uid.toLowerCase().includes(term);
@@ -236,9 +287,11 @@ export default function RequestsTab() {
     } finally {
       setSearching(false);
     }
-  }, [searchQuery, searchFilters, user]);
+  }, [searchQuery, searchFilters, user, myBlockedIds, blockedMeIds]);
 
   useEffect(() => {
+    const isActive = searchQuery.trim() !== '' || searchFilters.country || searchFilters.city || searchFilters.chatType;
+    if (isActive) setSearching(true);
     const timer = setTimeout(() => {
       searchUsers();
     }, 500);
@@ -382,7 +435,7 @@ export default function RequestsTab() {
           {item.avatar ? (
             <Image source={{ uri: item.avatar }} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.uid) }]}>
               <Text style={styles.avatarInitial}>{item.name ? item.name.charAt(0).toUpperCase() : 'U'}</Text>
             </View>
           )}
@@ -435,7 +488,7 @@ export default function RequestsTab() {
           {item.fromUserAvatar ? (
             <Image source={{ uri: item.fromUserAvatar }} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.fromUserId) }]}>
               <Text style={styles.avatarInitial}>{item.fromUserName ? item.fromUserName.charAt(0).toUpperCase() : '?'}</Text>
             </View>
           )}
@@ -480,7 +533,7 @@ export default function RequestsTab() {
           {item.toUserAvatar ? (
             <Image source={{ uri: item.toUserAvatar }} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.toUserId) }]}>
               <Text style={styles.avatarInitial}>{item.toUserName ? item.toUserName.charAt(0).toUpperCase() : '?'}</Text>
             </View>
           )}
@@ -583,10 +636,20 @@ export default function RequestsTab() {
               <View style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.dark.primary} /></View>
             ) : (
               <FlatList
-                data={searchResults}
+                data={searchResults.filter(u => {
+                  const uid = u.id || u.uid;
+                  // Hard-block admin by UID, email, AND name
+                  if (uid === '4bM0UTvNA8XHUOqv1fyzz2lYQeO2') return false;
+                  if (u.uid === '4bM0UTvNA8XHUOqv1fyzz2lYQeO2') return false;
+                  if (u.email === 'admin@nexus.com') return false;
+                  if (u.name === 'Admin') return false;
+                  if (isUserSoftDeleted(u)) return false;
+                  if (myBlockedIds.includes(uid) || blockedMeIds.includes(uid)) return false;
+                  return true;
+                })}
                 keyExtractor={item => item.uid}
                 renderItem={renderSearchItem}
-                contentContainerStyle={styles.listContainer}
+                contentContainerStyle={[styles.listContainer, { flexGrow: 1 }]}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 ListEmptyComponent={
@@ -622,7 +685,7 @@ export default function RequestsTab() {
                 keyExtractor={item => item.id}
                 renderItem={activeTab === 'incoming' ? renderIncomingItem : renderSentItem}
                 extraData={userAges}
-                contentContainerStyle={styles.listContainer}
+                contentContainerStyle={[styles.listContainer, { flexGrow: 1 }]}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
@@ -690,8 +753,8 @@ export default function RequestsTab() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.dark.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-  searchHeaderArea: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  safeArea: { flex: 1, backgroundColor: Colors.dark.background },
+  searchHeaderArea: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52, 73, 94, 0.4)', borderRadius: 12, height: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: '#34495e' },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, color: '#fff', fontSize: 16, height: '100%' },
@@ -734,6 +797,6 @@ const styles = StyleSheet.create({
   btnCancel: { paddingHorizontal: 14, height: 36, borderRadius: 12, backgroundColor: 'rgba(231, 76, 60, 0.1)', borderWidth: 1, borderColor: 'rgba(231, 76, 60, 0.3)', justifyContent: 'center' },
   cancelText: { color: '#e74c3c', fontWeight: '600', fontSize: 13 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40 },
-  emptyContainer: { paddingTop: 60, justifyContent: 'center', alignItems: 'center', opacity: 0.7 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', opacity: 0.7, paddingBottom: 100 },
   emptyText: { color: '#7f8c8d', fontSize: 15, marginTop: 16, textAlign: 'center' },
 });
