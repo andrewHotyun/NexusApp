@@ -84,8 +84,8 @@ export default function BlockedUsersScreen() {
   const handleUnblock = (userId, userName) => {
     setActionModal({
       visible: true,
-      title: t('dropdown.unblock', 'Unblock User'),
-      message: t('chat.unblock_confirm', { name: userName || 'this user' }),
+      title: t('dropdown.unblock'),
+      message: t('chat.unblock_confirm', { name: userName }),
       confirmText: t('dropdown.unblock'),
       isDestructive: true,
       showCancel: true,
@@ -159,7 +159,7 @@ export default function BlockedUsersScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
           <IconSymbol name="chevron.left" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('profile.blocked_users', 'Blocked Users')}</Text>
+        <Text style={styles.headerTitle}>{t('profile.blocked_users')}</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -171,9 +171,9 @@ export default function BlockedUsersScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <IconSymbol name="person.crop.circle.badge.xmark" size={80} color="rgba(255,255,255,0.05)" />
-            <Text style={styles.emptyTitle}>{t('profile.no_blocked', 'No blocked users')}</Text>
+            <Text style={styles.emptyTitle}>{t('profile.no_blocked')}</Text>
             <Text style={styles.emptySubtitle}>
-              {t('profile.blocked_desc', 'Users you block will appear here. You can unblock them at any time.')}
+              {t('profile.blocked_desc')}
             </Text>
           </View>
         }
@@ -233,10 +233,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     borderRadius: 16,
     padding: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   userInfo: {
     flexDirection: 'row',
@@ -248,6 +250,8 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
   },
   avatarPlaceholder: {
     width: 50,
@@ -257,7 +261,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: Colors.dark.primary,
   },
   avatarInitial: {
     color: '#fff',

@@ -343,6 +343,10 @@
     "confirm": "Bestatigen",
     "confirm_title": "Bestatigung",
     "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "error": "❌ Fehler",
+    "info": "Info",
+    "comingSoon": "Demnächst...",
     "call_invite": "Einladung zum Video-Chat",
     "accept": "Annehmen",
     "decline": "Ablehnen",
@@ -364,11 +368,8 @@
     "unknown": "Unbekannt",
     "close": "Schließen",
     "apply": "Anwenden",
-    "delete": "Löschen",
     "edit": "Bearbeiten",
     "loading": "Laden...",
-    "uploading": "Wird hochgeladen...",
-    "error": "❌ Fehler",
     "success": "Erfolg",
     "change": "Ändern",
     "upload_success": "Upload erfolgreich!",
@@ -416,6 +417,19 @@
       "story_video_limit": "Datei zu groß (max. 20 MB) o. Dauer überschreitet 30 Sek.",
       "video_only": "Bitte wählen Sie eine Videodatei aus."
     },
+    "my_gallery": "Meine Galerie",
+    "new_folder_placeholder": "Ordnername eingeben",
+    "no_folders": "Noch keine Ordner erstellt",
+    "empty_folder": "Dieser Ordner ist leer",
+    "delete_folder_title": "Ordner löschen",
+    "delete_folder_confirm": "Sind Sie sicher? Dies kann nicht rückgängig gemacht werden.",
+    "delete_media_title": "Medien löschen",
+    "delete_media_confirm": "Sind Sie sicher, dass Sie dieses Element löschen möchten?",
+    "error_creating_folder": "Fehler beim Erstellen des Ordners",
+    "error_upload_failed": "Fehler beim Hochladen",
+    "blocked_users": "Blockierte Benutzer",
+    "no_blocked": "Keine blockierten Benutzer",
+    "blocked_desc": "Blockierte Benutzer erscheinen hier.",
     "title": "Profil",
     "edit_profile": "Profil bearbeiten",
     "save_changes": "Änderungen speichern",
@@ -475,11 +489,12 @@
     "delete_payment_title": "Zahlungsdaten löschen",
     "delete_payment_confirm": "Sind Sie sicher, dass Sie Ihre Zahlungsdaten löschen möchten?",
     "delete_account_btn": "Konto löschen",
+    "delete_account_title": "Konto löschen",
+    "delete_account_confirm": "Sind Sie sicher? Dies wird Ihr Konto in 6 Monaten zur Löschung vormerken.",
     "delete_modal_title": "Konto löschen",
-    "delete_modal_confirm": "Sind Sie sicher, dass Sie Ihr Konto löschen möchten? Sie können es 6 Monate lang wiederherstellen.",
+    "delete_modal_confirm": "Sind Sie sicher, dass Sie Ihr Konto löschen möchten? Sie können es innerhalb von 6 Monaten wiederherstellen.",
     "delete_modal_permanent": "Wenn es nicht wiederhergestellt wird, wird Ihr Konto dauerhaft gelöscht.",
     "confirm_delete_btn": "Löschen bestätigen",
-    "delete_account_title": "Konto löschen",
     "email_placeholder": "Geben Sie Ihre E-Mail-Adresse ein",
     "country_placeholder": "Land eingeben",
     "city_placeholder": "Stadt eingeben",
@@ -487,34 +502,6 @@
     "years_old": "{{count}} Jahre alt",
     "not_specified": "Nicht angegeben",
     "my_media_title": "Meine Medien",
-    "my_gallery": "Meine Galerie",
-    "my_stories": "Meine Stories",
-    "your_stories": "Ihre Stories",
-    "no_stories": "Noch keine Stories",
-    "new_story": "Neue Story",
-    "upload_story_title": "Story hochladen",
-    "upload_story": "Story hochladen",
-    "select_video": "Video auswählen",
-    "select_video_desc": "Kurzes Video auswählen (TikTok/Stories-Stil)",
-    "video_requirements": "Vertikales Video, bis zu 30 Sek.",
-    "max_size": "Max. 20 MB",
-    "uploading_story": "Story wird hochgeladen...",
-    "story_uploaded": "Story erfolgreich hochgeladen!",
-    "confirm_delete_story": "Sind Sie sicher, dass Sie diese Story löschen möchten?",
-    "story_deleted": "Story erfolgreich gelöscht",
-    "folders_title": "Medienordner",
-    "media_folders": "Medienordner",
-    "create_folder": "Ordner erstellen",
-    "new_folder_placeholder": "Ordnername...",
-    "no_folders": "Noch keine Ordner erstellt",
-    "empty_folder": "Dieser Ordner ist leer",
-    "no_media": "Dieser Ordner ist leer",
-    "confirm_delete_media": "Dieses Medium löschen?",
-    "confirm_delete_folder": "Ordner und gesamten Inhalt löschen?",
-    "delete_folder_title": "Ordner löschen",
-    "delete_folder_confirm": "Sind Sie sicher, dass Sie diesen Ordner löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
-    "delete_media_title": "Medium löschen",
-    "delete_media_confirm": "Sind Sie sicher, dass Sie dieses Element löschen möchten?",
     "manage_media": "Medien verwalten",
     "manage_media_desc": "Ordner & Fotos",
     "add_story": "Story hinzufügen",
@@ -639,6 +626,7 @@
     "status_none": "Hinzufügen",
     "chat_btn": "Chat",
     "remove_btn": "Entfernen",
+    "remove_confirm_msg": "Sind Sie sicher, dass Sie {{name}} aus Ihren Freunden entfernen möchten?",
     "incoming": "Eingehend",
     "sent": "Gesendet",
     "search_results": "Suchergebnisse",
@@ -663,8 +651,10 @@
     "request_canceled": "Anfrage an {{name}} abgebrochen.",
     "cancel_error": "Anfrage konnte nicht abgebrochen werden.",
     "accept_all": "Alle annehmen",
-    "accept_gift_senders": "Mit Geschenken annehmen",
     "reject_all": "Alle ablehnen",
+    "accept_only_gifts": "Nur mit Geschenken",
+    "bulk_accept_success": "Alle eingehenden Freundschaftsanfragen wurden erfolgreich angenommen!",
+    "bulk_reject_success": "Alle eingehenden Freundschaftsanfragen wurden abgelehnt.",
     "confirm_accept_all": "Möchten Sie wirklich alle eingehenden Anfragen annehmen?",
     "confirm_accept_gift_senders": "Möchten Sie {{count}} Anfragen mit Geschenken annehmen?",
     "confirm_reject_all": "Möchten Sie wirklich alle eingehenden Anfragen ablehnen?",
@@ -1249,91 +1239,166 @@
       {
         "title": "Fall 1: Der Sonntagsmord",
         "story": "Ein reicher Mann wurde am Sonntagmorgen tot aufgefunden. Seine Frau sagte, sie habe geschlafen. Der Butler polierte Silber. Der Koch bereitete das Frühstück zu. Das Hausmädchen sagte, sie habe die Post geholt. Wer ist der Mörder?",
-        "suspects": ["Ehefrau", "Butler", "Koch", "Hausmädchen"],
+        "suspects": [
+          "Ehefrau",
+          "Butler",
+          "Koch",
+          "Hausmädchen"
+        ],
         "explanation": "Das Hausmädchen. Am Sonntag wird keine Post zugestellt!"
       },
       {
         "title": "Fall 2: Das vergiftete Getränk",
         "story": "Zwei Mädchen bestellten identische Eisgetränke. Eine trank ihres sehr schnell (in 10 Sekunden), die andere trank langsam. Die langsam Trinkende starb an einer Vergiftung. Wer oder was hat sie getötet?",
-        "suspects": ["Kellner", "Freundin", "Das Eis", "Barkeeper"],
+        "suspects": [
+          "Kellner",
+          "Freundin",
+          "Das Eis",
+          "Barkeeper"
+        ],
         "explanation": "Das Gift war im Eis. Das erste Mädchen trank ihr Getränk, bevor das Eis schmelzen konnte."
       },
       {
         "title": "Fall 3: Regen und der Gärtner",
         "story": "Der Besitzer eines Landhauses wurde tot im Wohnzimmer gefunden. Draußen tobte ein heftiger Regensturm. Das Hausmädchen wischte Staub. Der Koch schnitt Fleisch. Der Gärtner sagte, er habe draußen die Pflanzen gegossen. Wer ist der Mörder?",
-        "suspects": ["Hausmädchen", "Koch", "Gärtner", "Fahrer"],
+        "suspects": [
+          "Hausmädchen",
+          "Koch",
+          "Gärtner",
+          "Fahrer"
+        ],
         "explanation": "Der Gärtner. Es macht keinen Sinn, Pflanzen bei starkem Regen zu gießen."
       },
       {
         "title": "Fall 4: Flug ins Nirgendwo",
         "story": "Ein Milliardär wurde auf einem Privatflug tot aufgefunden. Der Pilot flog, die Flugbegleiterin servierte Getränke, der Geschäftspartner schlief und der Arzt las. Wer hat sein Getränk vergiftet?",
-        "suspects": ["Pilot", "Flugbegleiterin", "Partner", "Arzt"],
+        "suspects": [
+          "Pilot",
+          "Flugbegleiterin",
+          "Partner",
+          "Arzt"
+        ],
         "explanation": "Der Arzt. Nur er hatte Zugang zu medizinischen Ampullen, um das Getränk unbemerkt zu vergiften."
       },
       {
         "title": "Fall 5: Vorhang für den Star",
         "story": "Der Hauptdarsteller wurde während eines plötzlichen Blackouts auf der Bühne getötet. Der Regisseur schaute zu, der Ersatzdarsteller zog sich um, die Schauspielerin wartete hinter der Bühne, und der Lichttechniker schaltete 'versehentlich' das Licht aus. Wer ist der Mörder?",
-        "suspects": ["Regisseur", "Ersatzdarsteller", "Schauspielerin", "Lichttechniker"],
+        "suspects": [
+          "Regisseur",
+          "Ersatzdarsteller",
+          "Schauspielerin",
+          "Lichttechniker"
+        ],
         "explanation": "Der Lichttechniker. Er schaltete das Licht aus und wusste genau, wo der Schauspieler im Dunkeln stand."
       },
       {
         "title": "Fall 6: Modernes Kreuzfahrtschiff",
         "story": "Während einer Reise auf einem modernen Kreuzfahrtschiff wurde eine Frau mitten in der Nacht über Bord gestoßen. Der Kapitän war am Ruder. Der Ehemann war im Fitnessstudio. Der Fotograf sagte, er sei in der Dunkelkammer gewesen und habe digitale Fotos entwickelt. Die Kellnerin servierte Getränke. Wer ist der Mörder?",
-        "suspects": ["Kapitän", "Ehemann", "Fotograf", "Kellnerin"],
+        "suspects": [
+          "Kapitän",
+          "Ehemann",
+          "Fotograf",
+          "Kellnerin"
+        ],
         "explanation": "Der Fotograf. Digitale Fotos haben keinen Film und müssen nicht in einer Dunkelkammer entwickelt werden."
       },
       {
         "title": "Fall 7: Die verschneite Hütte",
         "story": "Ein Mann wurde in einer leeren Hütte erhängt gefunden. Die Tür war von innen verschlossen, es gab keine Möbel und nur eine Wasserpfütze unter ihm. Drei Personen waren in der Nähe: ein Fremder, der Schutz vor dem Schneesturm suchte, ein Nachbar aus dem nächsten Haus, der ein Geräusch hörte, und ein befreundeter Besucher. Wer ist der Täter?",
-        "suspects": ["Fremder", "Nachbar", "Freund", "Er selbst"],
+        "suspects": [
+          "Fremder",
+          "Nachbar",
+          "Freund",
+          "Er selbst"
+        ],
         "explanation": "Er selbst. Er stand auf einem großen Eisblock, der schließlich schmolz."
       },
       {
         "title": "Fall 8: Der Code des Chemikers",
         "story": "Ein berühmter Chemiker wurde ermordet. Vor seinem Tod schrieb er Elemente auf ein Papier: Nickel, Kohlenstoff, Kalium. Die Verdächtigen: Nicholas, Edward, Felix.",
-        "suspects": ["Nicholas", "Edward", "Felix", "Er selbst"],
+        "suspects": [
+          "Nicholas",
+          "Edward",
+          "Felix",
+          "Er selbst"
+        ],
         "explanation": "Nicholas. Die chemischen Symbole: Ni (Nickel), C (Kohlenstoff), K (Kalium) bilden den Namen Ni-C-K."
       },
       {
         "title": "Fall 9: Die Zeit im Spiegel",
         "story": "Der Gutsbesitzer wurde in einem Saal mit einer großen Wanduhr und einem riesigen Spiegel gegenüber getötet. Vor seinem Tod zeigte er auf die Zahl 10 in der Spiegelung der Uhr. Wer ist der Mörder?",
-        "suspects": ["Gast (kam um 10:00)", "Butler (kam um 02:00)", "Koch (kam um 05:00)", "Hausmädchen (kam um 08:00)"],
+        "suspects": [
+          "Gast (kam um 10:00)",
+          "Butler (kam um 02:00)",
+          "Koch (kam um 05:00)",
+          "Hausmädchen (kam um 08:00)"
+        ],
         "explanation": "Der Butler. In einer Spiegelung erscheint die Zahl 2 auf dem Zifferblatt als 10."
       },
       {
         "title": "Fall 10: Gefängnisaufstand",
         "story": "Während eines Gefängnisaufstands ging plötzlich das Licht aus. Als die Stromversorgung wiederhergestellt war, wurde einer der Wärter tot aufgefunden. Wer ist der Mörder?",
-        "suspects": ["Häftling (noch 2 Jahre)", "Häftling (noch 10 Jahre)", "Häftling (lebenslänglich)", "Hausmeister"],
+        "suspects": [
+          "Häftling (noch 2 Jahre)",
+          "Häftling (noch 10 Jahre)",
+          "Häftling (lebenslänglich)",
+          "Hausmeister"
+        ],
         "explanation": "Der Häftling mit lebenslänglicher Strafe. Er hat nichts zu verlieren, im Gegensatz zu den anderen, die freigelassen werden sollten."
       },
       {
         "title": "Fall 11: Mord im Herrenhaus",
         "story": "Im Herrenhaus ging plötzlich das Licht aus. Als es wieder anging, wurde der Besitzer tot in seinem Arbeitszimmer gefunden. Der Detektiv begann mit der Untersuchung:\n\nKoch: War in der Küche, seine Schürze voller roter Flecken. Er erklärte: 'Ich habe gerade Rote Bete für das Abendessen geschnitten, als alles dunkel wurde.'\n\nEhefrau: War in ihrem Zimmer. Sie sagte: 'Ich hatte Angst vor der Dunkelheit und rief sofort eine Freundin an. Wir sprachen, bis das Licht wieder da war.' Der Detektiv bemerkte, dass ihr Handybildschirm zersprungen war.\n\nFriseur: Wartete im Flur neben dem Arbeitszimmer. Der Detektiv sah eine scharfe professionelle Schere in seiner Hosentasche. Der Friseur entschuldigte sich: 'Ich wollte gerade dem Herrn die Haare schneiden. Als das Licht ausging, bin ich einfach vor Überraschung stehen geblieben.'\n\nWer ist der Mörder?",
-        "suspects": ["Ehefrau", "Friseur", "Koch", "Selbstmord"],
+        "suspects": [
+          "Ehefrau",
+          "Friseur",
+          "Koch",
+          "Selbstmord"
+        ],
         "explanation": "Die Ehefrau. Sie behauptete, mit einer Freundin telefoniert zu haben, während es dunkel war. Aber ihr Handy war während eines Kampfes mit ihrem Mann zerbrochen und funktionierte nicht. Sie erfand die Geschichte über den Anruf als Alibi."
       },
       {
         "title": "Fall 12: Bibliotheksrätsel",
         "story": "In der Bibliothek wurde die Leiche eines Mannes gefunden. Der Detektiv befragte alle im Haus: die Ehefrau, den besten Freund, den Gärtner und den Putzmann.\nEhefrau: 'Ich war in der Küche und kochte Tee. Mein Mann bat mich, ihn nicht zu stören, weil er endlich ein seltenes Buch gefunden hatte und es studieren wollte.'\nBester Freund: 'Wir stritten uns heute Morgen über Geld, also ging ich in den Garten. Ich sah ihn durch das Fenster in seinem Sessel sitzen, aber ich ging nicht hinein.'\nPutzmann: 'Ich ging in die Bibliothek, um ein Glas Wasser auf den Tisch zu stellen. Der Herr hob nicht einmal den Kopf — er war so vertieft in den Text auf den Seiten 21 und 22, dass er mich nicht einmal bemerkte. Ich stellte das Wasser ab und ging sofort.'\nGärtner: 'Ich schnitt die Büsche unter den Fenstern. In der Bibliothek war es still; ich hörte nur, wie er eine Seite umblätterte.'\nWer ist der Mörder?",
-        "suspects": ["Ehefrau", "Freund", "Putzmann", "Gärtner"],
+        "suspects": [
+          "Ehefrau",
+          "Freund",
+          "Putzmann",
+          "Gärtner"
+        ],
         "explanation": "Der Putzmann. In den meisten Büchern sind eine ungerade und die nächste gerade Seite (wie 21 und 22) auf zwei Seiten desselben Blattes gedruckt. Sie können nicht gleichzeitig sichtbar sein."
       },
       {
         "title": "Fall 13: Nachtmuseum",
         "story": "Der Nachtwächter eines Museums wurde tot neben dem Tresor mit wertvollen Exponaten gefunden. Die Überwachungskameras wurden um 22:15 Uhr deaktiviert. Der Detektiv befragte alle, die im Gebäude geblieben waren:\nKurator: 'Ich war in meinem Büro und katalogisierte neue Eingänge. Mein Büro ist schallisoliert — ich hörte nichts, bis ich um 23:00 Uhr herauskam und die Leiche fand.'\nRestaurator: 'Ich arbeitete an einem Gemälde aus dem 17. Jahrhundert im Restaurierungsraum. Ich trug den ganzen Abend Handschuhe und verließ meinen Bereich nicht.'\nElektriker: 'Ich reparierte die Verkabelung im Keller. Den ganzen Abend war ich dort — kam erst hoch, als ich Schreie hörte. Ich weiß nicht, warum die Kameras ausgingen, vielleicht wegen meiner Arbeiten an der Verkabelung.'\nPutzfrau: 'Ich saugte den Hauptsaal. Als ich den Staubsauger ausschaltete, um eine Pause zu machen, hörte ich einen dumpfen Schlag und rannte zum Geräusch.'\nWer ist der Mörder?",
-        "suspects": ["Kurator", "Restaurator", "Elektriker", "Putzfrau"],
+        "suspects": [
+          "Kurator",
+          "Restaurator",
+          "Elektriker",
+          "Putzfrau"
+        ],
         "explanation": "Der Elektriker. Nur er hatte Zugang zum Sicherungskasten, um die Kameras um 22:15 Uhr zu deaktivieren. Seine Ausrede, die Kameras seien 'wegen der Verkabelungsarbeiten' ausgegangen, bestätigt nur, dass er von der Abschaltung wusste."
       },
       {
         "title": "Fall 14: Falsches Datum",
         "story": "Ein berühmter Bankier wurde in seinem Büro erschossen aufgefunden. Der Detektiv befragte die Verdächtigen:\nEhefrau: 'Wir planten einen Urlaub im Juli. In den letzten Tagen war er ganz anders, schrieb ständig etwas in seinem Büro. Ich dachte, er bereitet Dokumente vor, aber er hat sich wohl verabschiedet...'\nBruder: 'Ich kam abends zu ihm, um um Geld zu bitten, aber die Tür war verschlossen. Ich hörte einen Aktenvernichter drinnen arbeiten. Ich dachte, er sei beschäftigt, und ging.'\nSekretär: 'Ich bereitete den ganzen Tag Juni-Berichte für das Finanzamt vor. Der Chef befahl mir, jedes Dokument zu prüfen, damit kein Datum falsch sei. Ich half ihm gerade mit dem letzten Bericht vom 31. Juni, und dann ging ich. Er war noch am Leben.'\nWer ist der Mörder?",
-        "suspects": ["Ehefrau", "Sekretär", "Bruder", "Selbstmord"],
+        "suspects": [
+          "Ehefrau",
+          "Sekretär",
+          "Bruder",
+          "Selbstmord"
+        ],
         "explanation": "Der Sekretär. Der Juni hat nur 30 Tage, daher konnte ein 'Bericht vom 31. Juni' nicht existieren. Er erfand dieses Detail, um zu erklären, warum er spät im Büro geblieben war."
       },
       {
         "title": "Fall 15: Der Raubüberfall",
         "story": "In der Nacht ging der Alarm eines Juweliergeschäfts los. Die Polizei fand ein zerbrochenes Schaufenster und leere Vitrinen. Der Detektiv befragte alle:\nBesitzer: 'Ich wurde um 3 Uhr morgens angerufen. Ich fuhr hin und sah dieses Grauen — das Fenster war zertrümmert, der Schmuck weg. Ich hatte alles versichert, aber es war mein Lebenswerk...'\nWächter: 'Ich ging 10 Minuten weg, um einen Kaffee am Automaten um die Ecke zu holen. Als ich zurückkam, war das Fenster schon zerbrochen und jemand hatte drinnen gewühlt.'\nVerdächtiger Dieb: 'Ich ging nur vorbei und sah das zerbrochene Fenster. Ich schaute aus Neugier hinein — und dann kam die Polizei. Ich wurde grundlos verhaftet!'\nPassant: 'Ich sah einen Schatten, der etwas von der Straße aus gegen das Fenster warf. Das Glas zerbrach und der Schatten kletterte hinein.'\nDer Detektiv untersuchte den Ort sorgfältig und bemerkte, dass ALLE Glasscherben auf dem Bürgersteig vor dem Geschäft lagen. Wer hat das Verbrechen wirklich begangen?",
-        "suspects": ["Besitzer", "Wächter", "Dieb", "Passant"],
+        "suspects": [
+          "Besitzer",
+          "Wächter",
+          "Dieb",
+          "Passant"
+        ],
         "explanation": "Der Besitzer. Wäre das Fenster von außen eingeschlagen worden, wären die Scherben ins Innere gefallen. Da sie auf dem Bürgersteig lagen, wurde das Fenster von innen zerbrochen, um einen Raub vorzutäuschen und die Versicherung zu kassieren."
       }
     ]

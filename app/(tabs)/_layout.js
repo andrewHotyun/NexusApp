@@ -14,18 +14,35 @@ import MainHeader from '../../components/ui/MainHeader';
 export default function TabLayout() {
   const { t } = useTranslation();
   const [requestsCount, setRequestsCount] = useState(0);
+  const [friendsCount, setFriendsCount] = useState(0);
 
   useEffect(() => {
     if (!auth.currentUser) return;
-    const q = query(
+    const user = auth.currentUser;
+
+    // Listen to friend requests count
+    const qRequests = query(
       collection(db, 'friendRequests'),
-      where('toUserId', '==', auth.currentUser.uid),
+      where('toUserId', '==', user.uid),
       where('status', '==', 'pending')
     );
-    const unsubscribe = onSnapshot(q, (snap) => {
+    const unsubRequests = onSnapshot(qRequests, (snap) => {
       setRequestsCount(snap.docs.length);
     });
-    return unsubscribe;
+
+    // Listen to friends count
+    const qFriends = query(
+      collection(db, 'friends'),
+      where('userId', '==', user.uid)
+    );
+    const unsubFriends = onSnapshot(qFriends, (snap) => {
+      setFriendsCount(snap.docs.length);
+    });
+
+    return () => {
+      unsubRequests();
+      unsubFriends();
+    };
   }, []);
 
   return (
@@ -96,6 +113,17 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <IconSymbol size={26} name="person.2.fill" color={color} />
             ),
+            tabBarBadge: friendsCount > 0 ? friendsCount : undefined,
+            tabBarBadgeStyle: { 
+              backgroundColor: '#e74c3c', 
+              fontSize: 10, 
+              minWidth: 16, 
+              height: 16, 
+              borderRadius: 8,
+              lineHeight: 16,
+              textAlign: 'center',
+              marginTop: -2 
+            }
           }}
         />
 

@@ -14,6 +14,13 @@ import {
   Keyboard,
   KeyboardAvoidingView
 } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming, 
+  interpolate,
+  runOnJS 
+} from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { 
   collection, 
@@ -40,6 +47,7 @@ import { Country, City } from 'country-state-city';
 import { deduplicateCities } from '../../utils/locationUtils';
 import { getAvatarColor } from '../../utils/avatarUtils';
 import { useRouter } from 'expo-router';
+import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator';
 
 // In-memory cache for search — force reset on app reload
 let globalUsersCache = null;
@@ -67,6 +75,29 @@ export default function RequestsTab() {
   // Search States
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const filterExpandProgress = useSharedValue(0);
+
+
+  const animatedFiltersStyle = useAnimatedStyle(() => {
+    return {
+      height: interpolate(filterExpandProgress.value, [0, 1], [0, 100]),
+      opacity: filterExpandProgress.value,
+      overflow: 'hidden',
+    };
+  });
+
+  const toggleFilters = () => {
+    const nextState = !showFilters;
+    if (nextState) {
+      setShowFilters(true);
+      filterExpandProgress.value = withTiming(1, { duration: 300 });
+    } else {
+      filterExpandProgress.value = withTiming(0, { duration: 250 }, () => {
+        runOnJS(setShowFilters)(false);
+      });
+    }
+  };
+
   const [searchFilters, setSearchFilters] = useState({ country: '', city: '', countryIso: '', chatType: '' });
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -81,6 +112,8 @@ export default function RequestsTab() {
   const [actionModal, setActionModal] = useState({
     visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true
   });
+  const [currentUserData, setCurrentUserData] = useState(null);
+
 
   const allCountries = useMemo(() => {
     return Country.getAllCountries().map(c => ({
@@ -124,6 +157,12 @@ export default function RequestsTab() {
     }, (error) => {
       console.error(error);
       setLoading(false);
+    });
+
+    const unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) {
+        setCurrentUserData(snap.data());
+      }
     });
 
     const sentQuery = query(
@@ -268,7 +307,7 @@ export default function RequestsTab() {
         if (myBlockedIds.includes(uid) || blockedMeIds.includes(uid)) return false;
 
         const matchesName = u.name && u.name.toLowerCase().includes(term);
-        const matchesUid = term.length >= 6 && u.uid && u.uid.toLowerCase().includes(term);
+        const matchesUid = term.length >= 6 && uid && uid.toLowerCase().startsWith(term);
         const matchesText = !term || matchesName || matchesUid;
 
         const matchesCountry = !searchFilters.country || (u.country && u.country.toLowerCase() === searchFilters.country.toLowerCase());
@@ -279,6 +318,31 @@ export default function RequestsTab() {
         const matchesChatType = !fChatType || uChatType === fChatType;
 
         return matchesText && matchesCountry && matchesCity && matchesChatType;
+      });
+
+      // Sort matches: UA / Cyrillic -> Latin -> Digits -> Others
+      results.sort((a, b) => {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        
+        const getPriority = (str) => {
+          if (!str) return 99;
+          const char = str.charAt(0).toLowerCase();
+          // Ukrainian / Cyrillic
+          if (/[\u0400-\u04FF]/.test(char)) return 0;
+          // English / Latin
+          if (/[a-z]/.test(char)) return 1;
+          // Digits
+          if (/[0-9]/.test(char)) return 2;
+          return 3;
+        };
+
+        const pA = getPriority(nameA);
+        const pB = getPriority(nameB);
+
+        if (pA !== pB) return pA - pB;
+        
+        return nameA.localeCompare(nameB, 'uk-UA', { sensitivity: 'base' });
       });
 
       setSearchResults(results);
@@ -341,6 +405,154 @@ export default function RequestsTab() {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const handleAcceptAll = async () => {
+    if (!user || incomingRequests.length === 0) return;
+    
+    setActionModal({
+      visible: true,
+      title: t('friends.accept_all'),
+      message: t('friends.confirm_accept_all'),
+      confirmText: t('friends.accept_all'),
+      isDestructive: false,
+      showCancel: true,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
+          const currentUserData = currentUserDoc.data() || {};
+          
+          const batch = writeBatch(db);
+          for (const req of incomingRequests) {
+            const friendRef1 = doc(collection(db, 'friends'));
+            batch.set(friendRef1, {
+              userId: user.uid,
+              friendId: req.fromUserId,
+              friendName: req.fromUserName || 'Unknown',
+              friendAvatar: req.fromUserAvatar || '',
+              friendCity: req.fromUserCity || '',
+              friendCountry: req.fromUserCountry || '',
+              addedAt: serverTimestamp()
+            });
+
+            const friendRef2 = doc(collection(db, 'friends'));
+            batch.set(friendRef2, {
+              userId: req.fromUserId,
+              friendId: user.uid,
+              friendName: currentUserData.name || 'Unknown',
+              friendAvatar: currentUserData.avatar || '',
+              friendCity: currentUserData.city || '',
+              friendCountry: currentUserData.country || '',
+              addedAt: serverTimestamp()
+            });
+
+            const reqRef = doc(db, 'friendRequests', req.id);
+            batch.delete(reqRef);
+          }
+          
+          await batch.commit();
+          setToast({ visible: true, messageKey: 'friends.bulk_accept_success', messageParams: {}, type: 'success' });
+        } catch (error) {
+          console.error("Error accepting all:", error);
+          setToast({ visible: true, messageKey: 'friends.accept_error', messageParams: {}, type: 'error' });
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
+  const handleRejectAll = async () => {
+    if (!user || incomingRequests.length === 0) return;
+    
+    setActionModal({
+      visible: true,
+      title: t('friends.reject_all'),
+      message: t('friends.confirm_reject_all'),
+      confirmText: t('friends.reject_all'),
+      isDestructive: true,
+      showCancel: true,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const batch = writeBatch(db);
+          for (const req of incomingRequests) {
+            batch.delete(doc(db, 'friendRequests', req.id));
+          }
+          await batch.commit();
+          setToast({ visible: true, messageKey: 'friends.bulk_reject_success', messageParams: {}, type: 'cancel' });
+        } catch (error) {
+          console.error("Error rejecting all:", error);
+          setToast({ visible: true, messageKey: 'friends.reject_error', messageParams: {}, type: 'error' });
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
+  const handleAcceptWithGifts = async () => {
+    if (!user || incomingRequests.length === 0) return;
+    
+    const giftRequests = incomingRequests.filter(r => r.hasGift === true || r.giftCount > 0);
+    
+    if (giftRequests.length === 0) {
+      setToast({ visible: true, messageKey: 'friends.no_incoming_requests', messageParams: {}, type: 'cancel' });
+      return;
+    }
+
+    setActionModal({
+      visible: true,
+      title: t('friends.accept_only_gifts'),
+      message: t('friends.confirm_accept_gift_senders', { count: giftRequests.length }),
+      confirmText: t('friends.accept_only_gifts'),
+      isDestructive: false,
+      showCancel: true,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
+          const currentUserData = currentUserDoc.data() || {};
+          
+          const batch = writeBatch(db);
+          for (const req of giftRequests) {
+            const friendRef1 = doc(collection(db, 'friends'));
+            batch.set(friendRef1, {
+              userId: user.uid,
+              friendId: req.fromUserId,
+              friendName: req.fromUserName || 'Unknown',
+              friendAvatar: req.fromUserAvatar || '',
+              friendCity: req.fromUserCity || '',
+              friendCountry: req.fromUserCountry || '',
+              addedAt: serverTimestamp()
+            });
+
+            const friendRef2 = doc(collection(db, 'friends'));
+            batch.set(friendRef2, {
+              userId: req.fromUserId,
+              friendId: user.uid,
+              friendName: currentUserData.name || 'Unknown',
+              friendAvatar: currentUserData.avatar || '',
+              friendCity: currentUserData.city || '',
+              friendCountry: currentUserData.country || '',
+              addedAt: serverTimestamp()
+            });
+
+            const reqRef = doc(db, 'friendRequests', req.id);
+            batch.delete(reqRef);
+          }
+          
+          await batch.commit();
+          setToast({ visible: true, messageKey: 'friends.bulk_accept_success', messageParams: {}, type: 'success' });
+        } catch (error) {
+          console.error("Error accepting gifts:", error);
+          setToast({ visible: true, messageKey: 'friends.accept_error', messageParams: {}, type: 'error' });
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   const acceptRequest = async (request) => {
@@ -432,6 +644,7 @@ export default function RequestsTab() {
     return (
       <View style={styles.card}>
         <View style={styles.cardInfo}>
+        <View style={styles.avatarContainer}>
           {item.avatar ? (
             <Image source={{ uri: item.avatar }} style={styles.avatar} />
           ) : (
@@ -439,6 +652,8 @@ export default function RequestsTab() {
               <Text style={styles.avatarInitial}>{item.name ? item.name.charAt(0).toUpperCase() : 'U'}</Text>
             </View>
           )}
+          <OnlineStatusIndicator userId={item.uid} />
+        </View>
           <View style={styles.textContainer}>
             <Text style={styles.userName} numberOfLines={1}>{item.name}{item.age ? `, ${item.age}` : ''}</Text>
             {(item.city || item.country) && (
@@ -485,6 +700,7 @@ export default function RequestsTab() {
     return (
       <View style={styles.card}>
         <View style={styles.cardInfo}>
+        <View style={styles.avatarContainer}>
           {item.fromUserAvatar ? (
             <Image source={{ uri: item.fromUserAvatar }} style={styles.avatar} />
           ) : (
@@ -492,11 +708,22 @@ export default function RequestsTab() {
               <Text style={styles.avatarInitial}>{item.fromUserName ? item.fromUserName.charAt(0).toUpperCase() : '?'}</Text>
             </View>
           )}
+          <OnlineStatusIndicator userId={item.fromUserId} />
+        </View>
           <View style={styles.textContainer}>
-            <Text style={styles.userName} numberOfLines={1}>
-              {item.fromUserName}
-              {(item.fromUserAge || userAges[item.fromUserId]) ? `, ${item.fromUserAge || userAges[item.fromUserId]}` : ''}
-            </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap'}}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {item.fromUserName}
+              </Text>
+              {(item.fromUserAge || item.age) && (
+                <Text style={styles.userName}>
+                  , {item.fromUserAge || item.age}
+                </Text>
+              )}
+              {item.hasGift && (
+                <IconSymbol name="gift.fill" size={14} color="#f1c40f" style={{marginLeft: 6}} />
+              )}
+            </View>
             {(item.fromUserCity || item.fromUserCountry) && (
               <Text style={styles.userLocation} numberOfLines={1}>{[item.fromUserCity, item.fromUserCountry].filter(Boolean).join(', ')}</Text>
             )}
@@ -530,6 +757,7 @@ export default function RequestsTab() {
     return (
       <View style={styles.card}>
         <View style={styles.cardInfo}>
+        <View style={styles.avatarContainer}>
           {item.toUserAvatar ? (
             <Image source={{ uri: item.toUserAvatar }} style={styles.avatar} />
           ) : (
@@ -537,6 +765,8 @@ export default function RequestsTab() {
               <Text style={styles.avatarInitial}>{item.toUserName ? item.toUserName.charAt(0).toUpperCase() : '?'}</Text>
             </View>
           )}
+          <OnlineStatusIndicator userId={item.toUserId} />
+        </View>
           <View style={styles.textContainer}>
             <Text style={styles.userName} numberOfLines={1}>
               {item.toUserName}
@@ -574,7 +804,7 @@ export default function RequestsTab() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         
         {/* Search Header */}
-        <View style={styles.searchHeaderArea}>
+        <Animated.View style={styles.searchHeaderArea}>
           <View style={styles.searchContainer}>
             <IconSymbol name="magnifyingglass" size={18} color="#7f8c8d" style={styles.searchIcon} />
             <TextInput
@@ -589,14 +819,13 @@ export default function RequestsTab() {
             />
             <TouchableOpacity 
               style={[styles.filterBtn, showFilters && styles.filterBtnActive]}
-              onPress={() => setShowFilters(!showFilters)}>
+              onPress={toggleFilters}>
               <IconSymbol name="line.3.horizontal.decrease.circle" size={20} color={showFilters ? Colors.dark.primary : '#95a5a6'} />
             </TouchableOpacity>
           </View>
           
           {/* Collapsible Filters */}
-          {showFilters && (
-            <View style={styles.filtersSection}>
+          <Animated.View style={[styles.filtersSection, animatedFiltersStyle]}>
               <View style={styles.filterRow}>
                 <TouchableOpacity style={styles.filterInput} onPress={() => setShowCountryPicker(true)}>
                   <Text style={styles.filterText} numberOfLines={1}>{searchFilters.country || t('auth.country', 'Country')}</Text>
@@ -619,14 +848,16 @@ export default function RequestsTab() {
               <View style={styles.filterActionsRow}>
                 <TouchableOpacity 
                   style={styles.clearFilterBtnFull} 
-                  onPress={() => setSearchFilters({country: '', city: '', countryIso: '', chatType: ''})}>
+                  onPress={() => {
+                    setSearchFilters({country: '', city: '', countryIso: '', chatType: ''});
+                    setSearchQuery('');
+                  }}>
                   <IconSymbol name="xmark.circle.fill" size={14} color="#e74c3c" />
                   <Text style={styles.clearFilterText}>{t('friends.clear_filters', 'Clear Filters')}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          )}
-        </View>
+          </Animated.View>
+        </Animated.View>
 
         {isSearchActive ? (
           /* SEARCH RESULTS VIEW */
@@ -676,6 +907,25 @@ export default function RequestsTab() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {activeTab === 'incoming' && incomingRequests.length > 0 && !isSearchActive && (
+              <View style={styles.bulkActionsBar}>
+                <TouchableOpacity style={styles.bulkBtnAccept} onPress={handleAcceptAll}>
+                  <IconSymbol name="checkmark.circle.fill" size={14} color="#fff" />
+                  <Text style={styles.bulkBtnText} adjustsFontSizeToFit numberOfLines={1}>{t('friends.accept_all')}</Text>
+                </TouchableOpacity>
+                {currentUserData?.gender === 'woman' && (
+                  <TouchableOpacity style={styles.bulkBtnGift} onPress={handleAcceptWithGifts}>
+                    <IconSymbol name="gift.fill" size={14} color="#fff" />
+                    <Text style={styles.bulkBtnText} adjustsFontSizeToFit numberOfLines={1}>{t('friends.accept_only_gifts')}</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.bulkBtnReject} onPress={handleRejectAll}>
+                  <IconSymbol name="xmark.circle.fill" size={14} color="#e74c3c" />
+                  <Text style={styles.bulkBtnTextReject} adjustsFontSizeToFit numberOfLines={1}>{t('friends.reject_all')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {loading ? (
               <View style={styles.loadingContainer}><ActivityIndicator size="large" color={Colors.dark.primary} /></View>
@@ -754,13 +1004,13 @@ export default function RequestsTab() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.dark.background },
-  searchHeaderArea: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  searchHeaderArea: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52, 73, 94, 0.4)', borderRadius: 12, height: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: '#34495e' },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, color: '#fff', fontSize: 16, height: '100%' },
   filterBtn: { padding: 6, marginLeft: 4 },
   filterBtnActive: { backgroundColor: 'rgba(14, 240, 255, 0.1)', borderRadius: 8 },
-  filtersSection: { flexDirection: 'column', paddingTop: 12, paddingBottom: 4 },
+  filtersSection: { flexDirection: 'column', paddingTop: 12, paddingBottom: 0 },
   filterRow: { flexDirection: 'row', width: '100%', gap: 8, alignItems: 'center' },
   filterInput: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(52, 73, 94, 0.3)', borderRadius: 8, paddingHorizontal: 10, height: 36, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   filterText: { color: '#bdc3c7', fontSize: 13, flex: 1, paddingRight: 4 },
@@ -775,9 +1025,16 @@ const styles = StyleSheet.create({
   searchResultsContainer: { flex: 1 },
   sectionHeaderTitle: { color: '#7f8c8d', fontSize: 13, textTransform: 'uppercase', paddingHorizontal: 16, paddingTop: 16, fontWeight: '600' },
   listContainer: { padding: 16, paddingBottom: 100 },
-  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   cardInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  avatar: { width: 44, height: 44, borderRadius: 22 },
+  avatarContainer: { position: 'relative' },
+  avatar: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary
+  },
   avatarPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(52, 73, 94, 0.6)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.dark.primary },
   avatarInitial: { color: Colors.dark.primary, fontSize: 18, fontWeight: '700' },
   textContainer: { marginLeft: 12, flex: 1, paddingRight: 10 },
@@ -799,4 +1056,61 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', opacity: 0.7, paddingBottom: 100 },
   emptyText: { color: '#7f8c8d', fontSize: 15, marginTop: 16, textAlign: 'center' },
+  bulkActionsBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 6,
+    justifyContent: 'space-between',
+  },
+  bulkBtnAccept: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2ecc71',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    gap: 3,
+    height: 38,
+  },
+  bulkBtnGift: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    gap: 3,
+    height: 38,
+  },
+  bulkBtnReject: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.3)',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    gap: 3,
+    height: 38,
+  },
+  bulkBtnText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  bulkBtnTextReject: {
+    color: '#e74c3c',
+    fontSize: 10,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
 });

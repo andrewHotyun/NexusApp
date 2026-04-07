@@ -110,8 +110,8 @@ export default function MediaGalleryScreen() {
   const handleDeleteFolder = (folderId) => {
     setActionModal({
       visible: true,
-      title: t('profile.delete_folder_title', 'Delete Folder'),
-      message: t('profile.delete_folder_confirm', 'Are you sure you want to delete this folder? This action cannot be undone.'),
+      title: t('profile.delete_folder_title'),
+      message: t('profile.delete_folder_confirm'),
       confirmText: t('common.delete'),
       isDestructive: true,
       onConfirm: async () => {
@@ -208,8 +208,8 @@ export default function MediaGalleryScreen() {
   const handleDeleteMedia = (index) => {
     setActionModal({
       visible: true,
-      title: t('profile.delete_media_title', 'Delete Media'),
-      message: t('profile.delete_media_confirm', 'Are you sure you want to delete this item?'),
+      title: t('profile.delete_media_title'),
+      message: t('profile.delete_media_confirm'),
       confirmText: t('common.delete'),
       isDestructive: true,
       onConfirm: async () => {
@@ -244,7 +244,7 @@ export default function MediaGalleryScreen() {
           <IconSymbol name="chevron.left" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {currentFolder ? currentFolder.folderName : t('profile.my_gallery', 'My Gallery')}
+          {currentFolder ? currentFolder.folderName : t('profile.my_gallery')}
         </Text>
         <TouchableOpacity 
           style={styles.headerBtn} 
@@ -270,7 +270,7 @@ export default function MediaGalleryScreen() {
             <View style={styles.createFolderForm}>
               <TextInput
                 style={styles.folderInput}
-                placeholder={t('profile.new_folder_placeholder', 'Enter folder name')}
+                placeholder={t('profile.new_folder_placeholder')}
                 placeholderTextColor="#7f8c8d"
                 value={newFolderName}
                 onChangeText={setNewFolderName}
@@ -307,7 +307,7 @@ export default function MediaGalleryScreen() {
             {folders.length === 0 && !isCreatingFolder && (
               <View style={styles.emptyState}>
                 <IconSymbol name="photo.on.rectangle.angled" size={64} color="rgba(255,255,255,0.1)" />
-                <Text style={styles.emptyText}>{t('profile.no_folders', 'No folders created yet')}</Text>
+                <Text style={styles.emptyText}>{t('profile.no_folders')}</Text>
               </View>
             )}
           </View>
@@ -329,7 +329,7 @@ export default function MediaGalleryScreen() {
                   setActionModal({
                     visible: true,
                     title: t('common.info'),
-                    message: t('common.comingSoon', 'Full-screen viewer coming soon'),
+                    message: t('common.comingSoon'),
                     showCancel: false
                   });
                 }
@@ -347,7 +347,7 @@ export default function MediaGalleryScreen() {
           ListEmptyComponent={(
             <View style={styles.emptyState}>
               <IconSymbol name="photo" size={64} color="rgba(255,255,255,0.1)" />
-              <Text style={styles.emptyText}>{t('profile.empty_folder', 'This folder is empty')}</Text>
+              <Text style={styles.emptyText}>{t('profile.empty_folder')}</Text>
             </View>
           )}
         />

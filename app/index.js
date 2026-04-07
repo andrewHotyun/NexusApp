@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   brandText: { color: '#0ef0ff' },
   subtitle: { fontSize: 16, color: '#64748b', textAlign: 'center', marginTop: 10, paddingHorizontal: 20 },
   featuresContainer: { marginBottom: 30 },
-  featureItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, backgroundColor: 'rgba(255, 255, 255, 0.03)', padding: 16, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)' },
+  featureItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, backgroundColor: 'rgba(255, 255, 255, 0.07)', padding: 16, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
   featureIconBg: { width: 52, height: 52, borderRadius: 16, backgroundColor: 'rgba(14, 240, 255, 0.08)', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
   featureText: { flex: 1 },
   featureTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 2 },

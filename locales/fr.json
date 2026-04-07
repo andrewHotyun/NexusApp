@@ -343,6 +343,10 @@
     "confirm": "Confirmer",
     "confirm_title": "Confirmer",
     "cancel": "Annuler",
+    "delete": "Supprimer",
+    "error": "❌ Erreur",
+    "info": "Info",
+    "comingSoon": "À venir...",
     "call_invite": "Invitation au chat vidéo",
     "accept": "Accepter",
     "decline": "Refuser",
@@ -364,11 +368,8 @@
     "unknown": "Inconnu",
     "close": "Fermer",
     "apply": "Appliquer",
-    "delete": "Supprimer",
     "edit": "Modifier",
     "loading": "Chargement...",
-    "uploading": "Téléchargement en cours...",
-    "error": "❌ Erreur",
     "success": "Succès",
     "change": "Modifier",
     "upload_success": "Téléchargement réussi !",
@@ -416,6 +417,19 @@
       "story_video_limit": "Fichier trop volumineux (max 20 Mo) ou durée supérieure à 30 s",
       "video_only": "Veuillez sélectionner un fichier vidéo."
     },
+    "my_gallery": "Ma galerie",
+    "new_folder_placeholder": "Entrer le nom du dossier",
+    "no_folders": "Aucun dossier créé pour le moment",
+    "empty_folder": "Ce dossier est vide",
+    "delete_folder_title": "Supprimer le dossier",
+    "delete_folder_confirm": "Êtes-vous sûr ? C'est irréversible.",
+    "delete_media_title": "Supprimer le média",
+    "delete_media_confirm": "Êtes-vous sûr de vouloir supprimer cet élément ?",
+    "error_creating_folder": "Erreur lors de la création du dossier",
+    "error_upload_failed": "Erreur de téléchargement",
+    "blocked_users": "Utilisateurs bloqués",
+    "no_blocked": "Aucun utilisateur bloqué",
+    "blocked_desc": "Les bloqués apparaîtront ici.",
     "title": "Profil",
     "edit_profile": "Modifier le profil",
     "save_changes": "Enregistrer les modifications",
@@ -475,46 +489,12 @@
     "delete_payment_title": "Supprimer les informations de paiement",
     "delete_payment_confirm": "Êtes-vous sûr de vouloir supprimer vos informations de paiement ?",
     "delete_account_btn": "Supprimer le compte",
+    "delete_account_title": "Supprimer le compte",
+    "delete_account_confirm": "Êtes-vous sûr ? Cela planifiera la suppression de votre compte dans 6 mois.",
     "delete_modal_title": "Supprimer le compte",
     "delete_modal_confirm": "Êtes-vous sûr de vouloir supprimer votre compte ? Vous pouvez le récupérer pendant 6 mois.",
     "delete_modal_permanent": "S'il n'est pas récupéré, votre compte sera définitivement supprimé.",
-    "confirm_delete_btn": "Confirmer la suppression",
-    "delete_account_title": "Supprimer le compte",
-    "email_placeholder": "Entrez votre e-mail",
-    "country_placeholder": "Entrez le pays",
-    "city_placeholder": "Entrez la ville",
-    "payment_placeholder": "Entrez vos détails de paiement (numéro de carte, e-mail PayPal, portefeuille crypto, etc.)",
-    "years_old": "{{count}} ans",
-    "not_specified": "Non spécifié",
     "my_media_title": "Mes Médias",
-    "my_gallery": "Ma Galerie",
-    "my_stories": "Mes Stories",
-    "your_stories": "Vos Stories",
-    "no_stories": "Pas encore de stories",
-    "new_story": "Nouvelle Story",
-    "upload_story_title": "Charger une story",
-    "upload_story": "Charger une story",
-    "select_video": "Sélectionner une vidéo",
-    "select_video_desc": "Sélectionner une vidéo courte (style TikTok/Stories)",
-    "video_requirements": "Vidéo verticale, jusqu'à 30s",
-    "max_size": "Max 20 Mo",
-    "uploading_story": "Chargement de la story...",
-    "story_uploaded": "Story chargée avec succès !",
-    "confirm_delete_story": "Êtes-vous sûr de vouloir supprimer cette story ?",
-    "story_deleted": "Story supprimée avec succès",
-    "folders_title": "Dossiers multimédias",
-    "media_folders": "Dossiers multimédias",
-    "create_folder": "Créer un dossier",
-    "new_folder_placeholder": "Nom du dossier...",
-    "no_folders": "Aucun dossier créé pour le moment",
-    "empty_folder": "Ce dossier est vide",
-    "no_media": "Ce dossier est vide",
-    "confirm_delete_media": "Supprimer ce média ?",
-    "confirm_delete_folder": "Supprimer le dossier et tout son contenu ?",
-    "delete_folder_title": "Supprimer le dossier",
-    "delete_folder_confirm": "Êtes-vous sûr de vouloir supprimer ce dossier ? Cette action est irréversible.",
-    "delete_media_title": "Supprimer le média",
-    "delete_media_confirm": "Êtes-vous sûr de vouloir supprimer cet élément ?",
     "manage_media": "Gérer les médias",
     "manage_media_desc": "Dossiers et photos",
     "add_story": "Ajouter une story",
@@ -639,6 +619,7 @@
     "status_none": "Ajouter",
     "chat_btn": "Chat",
     "remove_btn": "Supprimer",
+    "remove_confirm_msg": "Êtes-vous sûr de vouloir supprimer {{name}} de vos amis ?",
     "incoming": "Entrantes",
     "sent": "Envoyées",
     "search_results": "Résultats de recherche",
@@ -663,17 +644,17 @@
     "request_canceled": "Demande à {{name}} annulée.",
     "cancel_error": "Échec de l'annulation de la demande.",
     "accept_all": "Tout accepter",
-    "accept_gift_senders": "Accepter avec cadeaux",
-    "reject_all": "Tout rejeter",
+    "reject_all": "Tout refuser",
+    "accept_only_gifts": "Seulement avec cadeaux",
+    "bulk_accept_success": "Toutes les demandes d'amis entrantes ont été acceptées avec succès !",
+    "bulk_reject_success": "Toutes les demandes d'amis entrantes ont été rejetées.",
     "confirm_accept_all": "Voulez-vous vraiment accepter toutes les demandes entrantes ?",
     "confirm_accept_gift_senders": "Voulez-vous accepter {{count}} demandes avec cadeaux ?",
     "confirm_reject_all": "Voulez-vous vraiment rejeter toutes les demandes entrantes ?",
     "accepted_all": "{{count}} demandes d'ami acceptées !",
     "accepted_gift_senders": "{{count}} expéditeurs de cadeaux acceptés !",
     "rejected_all": "{{count}} demandes d'ami rejetées.",
-    "sent_gift": "A envoyé un cadeau",
-    "unblock_first": "Veuillez d'abord débloquer cet utilisateur.",
-    "blocked_by_user": "Vous ne pouvez pas ajouter cet utilisateur."
+    "sent_gift": "A envoyé un cadeau"
   },
   "notifications": {
     "title": "Messages manqués ({{count}})",
@@ -1249,91 +1230,166 @@
       {
         "title": "Affaire 1 : Le meurtre du dimanche",
         "story": "Un homme riche a été retrouvé mort un dimanche matin. Sa femme a dit qu'elle dormait. Le majordome polissait l'argenterie. Le cuisinier préparait le petit-déjeuner. La femme de chambre a dit qu'elle était allée chercher le courrier. Qui est le tueur ?",
-        "suspects": ["Épouse", "Majordome", "Cuisinier", "Femme de chambre"],
+        "suspects": [
+          "Épouse",
+          "Majordome",
+          "Cuisinier",
+          "Femme de chambre"
+        ],
         "explanation": "La femme de chambre. Le dimanche, le courrier n'est pas distribué !"
       },
       {
         "title": "Affaire 2 : La boisson empoisonnée",
         "story": "Deux filles ont commandé des boissons identiques avec de la glace. L'une a bu la sienne très vite (en 10 secondes), l'autre a bu lentement. Celle qui a bu lentement est morte empoisonnée. Qui ou quoi l'a tuée ?",
-        "suspects": ["Serveur", "Amie", "Glace", "Barman"],
+        "suspects": [
+          "Serveur",
+          "Amie",
+          "Glace",
+          "Barman"
+        ],
         "explanation": "Le poison était dans la glace. La première fille a bu sa boisson avant que la glace ne fonde."
       },
       {
         "title": "Affaire 3 : La pluie et le jardinier",
         "story": "Le propriétaire d'un cottage a été retrouvé mort dans le salon. Dehors, il y avait un violent orage. La femme de chambre essuyait la poussière. Le cuisinier coupait de la viande. Le jardinier a dit qu'il arrosait les plantes dehors. Qui est le tueur ?",
-        "suspects": ["Femme de chambre", "Cuisinier", "Jardinier", "Chauffeur"],
+        "suspects": [
+          "Femme de chambre",
+          "Cuisinier",
+          "Jardinier",
+          "Chauffeur"
+        ],
         "explanation": "Le jardinier. Il n'y a aucun sens à arroser les plantes pendant un violent orage."
       },
       {
         "title": "Affaire 4 : Vol vers nulle part",
         "story": "Un milliardaire a été retrouvé mort sur un vol privé. Le pilote pilotait, l'hôtesse servait des boissons, l'associé dormait et le médecin lisait. Qui a empoisonné sa boisson ?",
-        "suspects": ["Pilote", "Hôtesse", "Associé", "Médecin"],
+        "suspects": [
+          "Pilote",
+          "Hôtesse",
+          "Associé",
+          "Médecin"
+        ],
         "explanation": "Le médecin. Seul lui avait accès aux ampoules médicales pour empoisonner discrètement la boisson."
       },
       {
         "title": "Affaire 5 : Rideau pour la star",
         "story": "L'acteur principal a été tué sur scène lors d'une panne de courant soudaine. Le metteur en scène regardait, la doublure se changeait, l'actrice attendait en coulisses et l'éclairagiste a éteint 'accidentellement' les lumières. Qui est le tueur ?",
-        "suspects": ["Metteur en scène", "Doublure", "Actrice", "Éclairagiste"],
+        "suspects": [
+          "Metteur en scène",
+          "Doublure",
+          "Actrice",
+          "Éclairagiste"
+        ],
         "explanation": "L'éclairagiste. Il a éteint les lumières et savait exactement où se trouvait l'acteur dans l'obscurité."
       },
       {
         "title": "Affaire 6 : Paquebot moderne",
         "story": "Lors d'une croisière sur un paquebot moderne, une femme a été poussée par-dessus bord en pleine nuit. Le capitaine était à la barre. Le mari était à la salle de sport. Le photographe a dit qu'il était dans la chambre noire pour développer des photos numériques. La serveuse servait des boissons. Qui est le tueur ?",
-        "suspects": ["Capitaine", "Mari", "Photographe", "Serveuse"],
+        "suspects": [
+          "Capitaine",
+          "Mari",
+          "Photographe",
+          "Serveuse"
+        ],
         "explanation": "Le photographe. Les photos numériques n'ont pas de pellicule et ne nécessitent pas de développement en chambre noire."
       },
       {
         "title": "Affaire 7 : La cabane enneigée",
         "story": "Un homme a été retrouvé pendu dans une cabane vide. La porte était verrouillée de l'intérieur, aucun meuble autour et seulement une flaque d'eau sous lui. Trois personnes étaient à proximité : un inconnu cherchant refuge contre le blizzard, un voisin de la maison la plus proche ayant entendu du bruit, et un ami en visite. Qui est le tueur ?",
-        "suspects": ["Inconnu", "Voisin", "Ami", "Lui-même"],
+        "suspects": [
+          "Inconnu",
+          "Voisin",
+          "Ami",
+          "Lui-même"
+        ],
         "explanation": "Lui-même. Il se tenait sur un gros bloc de glace qui a fini par fondre."
       },
       {
         "title": "Affaire 8 : Le code du chimiste",
         "story": "Un chimiste célèbre a été assassiné. Avant de mourir, il a écrit des éléments sur un papier : Nickel, Carbone, Potassium. Les suspects : Nicholas, Edward, Félix.",
-        "suspects": ["Nicholas", "Edward", "Félix", "Lui-même"],
+        "suspects": [
+          "Nicholas",
+          "Edward",
+          "Félix",
+          "Lui-même"
+        ],
         "explanation": "Nicholas. Les symboles chimiques : Ni (Nickel), C (Carbone), K (Potassium) forment le nom Ni-C-K."
       },
       {
         "title": "Affaire 9 : L'heure dans le miroir",
         "story": "Le propriétaire du manoir a été tué dans une salle avec une grande horloge murale et un immense miroir en face. Avant de mourir, il a pointé le chiffre 10 dans le reflet de l'horloge. Qui est le tueur ?",
-        "suspects": ["Invité (arrivé à 10h00)", "Majordome (arrivé à 02h00)", "Cuisinier (arrivé à 05h00)", "Femme de chambre (arrivée à 08h00)"],
+        "suspects": [
+          "Invité (arrivé à 10h00)",
+          "Majordome (arrivé à 02h00)",
+          "Cuisinier (arrivé à 05h00)",
+          "Femme de chambre (arrivée à 08h00)"
+        ],
         "explanation": "Le majordome. Dans un reflet de miroir, le chiffre 2 sur le cadran apparaît comme 10."
       },
       {
         "title": "Affaire 10 : Émeute en prison",
         "story": "Pendant une émeute en prison, les lumières se sont soudainement éteintes. Quand l'électricité a été rétablie, l'un des gardiens a été retrouvé mort. Qui est le tueur ?",
-        "suspects": ["Prisonnier (reste 2 ans)", "Prisonnier (reste 10 ans)", "Prisonnier (perpétuité)", "Concierge"],
+        "suspects": [
+          "Prisonnier (reste 2 ans)",
+          "Prisonnier (reste 10 ans)",
+          "Prisonnier (perpétuité)",
+          "Concierge"
+        ],
         "explanation": "Le prisonnier condamné à perpétuité. Il n'a rien à perdre, contrairement aux autres qui allaient être libérés."
       },
       {
         "title": "Affaire 11 : Meurtre au manoir",
         "story": "Au manoir, les lumières se sont soudainement éteintes. Quand elles sont revenues, le propriétaire a été retrouvé mort dans son bureau. Le détective a commencé l'enquête :\\n\\nCuisinier : Était dans la cuisine, son tablier couvert de taches rouges. Il a expliqué : 'J'étais en train de couper des betteraves pour le dîner quand tout est devenu noir.'\\n\\nÉpouse : Était dans sa chambre. Elle a dit : 'J'ai eu peur du noir et j'ai immédiatement appelé une amie. Nous avons parlé jusqu'au retour de la lumière.' Le détective a remarqué que l'écran de son téléphone était fissuré.\\n\\nCoiffeur : Attendait dans le couloir près du bureau. Le détective a vu des ciseaux professionnels tranchants dans sa poche. Le coiffeur s'est excusé : 'J'allais couper les cheveux du maître. Quand la lumière s'est éteinte, je suis resté figé de surprise.'\\n\\nQui est le tueur ?",
-        "suspects": ["Épouse", "Coiffeur", "Cuisinier", "Suicide"],
+        "suspects": [
+          "Épouse",
+          "Coiffeur",
+          "Cuisinier",
+          "Suicide"
+        ],
         "explanation": "L'épouse. Elle prétendait avoir parlé à une amie pendant la panne. Mais son téléphone s'était cassé lors d'une dispute avec son mari et ne fonctionnait pas. Elle a inventé l'histoire de l'appel comme alibi."
       },
       {
         "title": "Affaire 12 : L'énigme de la bibliothèque",
         "story": "On a trouvé le corps d'un homme dans la bibliothèque. Le détective a interrogé tous les occupants du manoir : l'épouse, le meilleur ami, le jardinier et le nettoyeur.\\nÉpouse : 'J'étais dans la cuisine, je préparais du thé. Mon mari m'a demandé de ne pas le déranger car il avait enfin trouvé un livre rare qu'il voulait étudier.'\\nMeilleur ami : 'Nous nous sommes disputés ce matin à propos d'argent, alors je suis allé au jardin. Je l'ai vu par la fenêtre assis dans son fauteuil, mais je ne suis pas entré.'\\nNettoyeur : 'Je suis entré dans la bibliothèque pour poser un verre d'eau sur la table. Le maître n'a même pas levé la tête — il était tellement absorbé par le texte des pages 21 et 22 qu'il ne m'a même pas remarqué. J'ai posé l'eau et suis sorti immédiatement.'\\nJardinier : 'Je taillais les buissons sous les fenêtres. C'était calme dans la bibliothèque ; j'ai seulement entendu une page tourner.'\\nQui est le tueur ?",
-        "suspects": ["Épouse", "Ami", "Nettoyeur", "Jardinier"],
+        "suspects": [
+          "Épouse",
+          "Ami",
+          "Nettoyeur",
+          "Jardinier"
+        ],
         "explanation": "Le nettoyeur. Dans la plupart des livres, une page impaire et la page paire suivante (comme 21 et 22) sont imprimées des deux côtés de la même feuille. Elles ne peuvent pas être visibles en même temps."
       },
       {
         "title": "Affaire 13 : Musée nocturne",
         "story": "Le gardien de nuit d'un musée a été retrouvé mort près du coffre-fort contenant des pièces de valeur. Les caméras de surveillance ont été désactivées à 22h15. Le détective a interrogé tous ceux qui étaient restés dans le bâtiment :\\nConservateur : 'J'étais dans mon bureau à cataloguer de nouvelles acquisitions. Mon bureau est insonorisé — je n'ai rien entendu jusqu'à ce que je sorte à 23h00 et que je trouve le corps.'\\nRestaurateur : 'Je travaillais sur un tableau du XVIIe siècle dans la salle de restauration. J'ai porté des gants toute la soirée et je n'ai pas quitté ma zone.'\\nÉlectricien : 'Je réparais le câblage au sous-sol. J'y suis resté toute la soirée — je suis monté seulement quand j'ai entendu des cris. Je ne sais pas pourquoi les caméras se sont éteintes, peut-être à cause de mon travail sur le câblage.'\\nFemme de ménage : 'Je passais l'aspirateur dans le hall principal. Quand j'ai éteint l'aspirateur pour faire une pause, j'ai entendu un bruit sourd et j'ai couru vers le son.'\\nQui est le tueur ?",
-        "suspects": ["Conservateur", "Restaurateur", "Électricien", "Femme de ménage"],
+        "suspects": [
+          "Conservateur",
+          "Restaurateur",
+          "Électricien",
+          "Femme de ménage"
+        ],
         "explanation": "L'électricien. Seul lui avait accès au tableau électrique pour désactiver les caméras à 22h15. Son excuse que les caméras se sont éteintes 'à cause du câblage' ne fait que confirmer qu'il savait pour la coupure."
       },
       {
         "title": "Affaire 14 : Fausse date",
         "story": "Un célèbre banquier a été retrouvé abattu dans son bureau. Le détective a interrogé les suspects :\\nÉpouse : 'Nous prévoyions des vacances en juillet. Ces derniers jours, il n'était plus lui-même, écrivant constamment quelque chose dans son bureau. Je pensais qu'il préparait des documents, mais il disait probablement adieu...'\\nFrère : 'Je suis venu le voir le soir pour lui demander de l'argent, mais la porte était fermée. J'ai entendu un destructeur de documents fonctionner à l'intérieur. J'ai pensé qu'il était occupé et je suis parti.'\\nSecrétaire : 'J'ai passé toute la journée à préparer les rapports de juin pour les impôts. Le patron m'a ordonné de vérifier chaque document pour qu'aucune date ne soit erronée. J'étais en train de l'aider avec le dernier rapport du 31 juin, puis je suis parti. Il était encore vivant.'\\nQui est le tueur ?",
-        "suspects": ["Épouse", "Secrétaire", "Frère", "Suicide"],
+        "suspects": [
+          "Épouse",
+          "Secrétaire",
+          "Frère",
+          "Suicide"
+        ],
         "explanation": "Le secrétaire. Juin n'a que 30 jours, donc un 'rapport du 31 juin' ne pouvait pas exister. Il a inventé ce détail pour expliquer pourquoi il était resté tard au bureau."
       },
       {
         "title": "Affaire 15 : Le cambriolage",
         "story": "En pleine nuit, l'alarme d'une bijouterie s'est déclenchée. La police est arrivée et a trouvé une vitrine brisée et des présentoirs vides. Le détective a interrogé tout le monde :\\nPropriétaire : 'On m'a appelé à 3 heures du matin. Je suis venu et j'ai vu cette horreur — la vitrine brisée, les bijoux disparus. J'avais tout assuré, mais c'était ma vie...'\\nGardien : 'Je me suis éloigné 10 minutes pour acheter un café au distributeur du coin. Quand je suis revenu, la vitrine était déjà brisée et quelqu'un avait fouillé à l'intérieur.'\\nSuspect : 'Je passais juste devant et j'ai vu la fenêtre cassée. J'ai regardé à l'intérieur par curiosité — et la police est arrivée. On m'a arrêté pour rien !'\\nPassant : 'J'ai vu une ombre lancer quelque chose contre la fenêtre depuis la rue. Le verre s'est brisé et l'ombre est entrée.'\\nLe détective a soigneusement examiné les lieux et a remarqué que TOUS les éclats de verre se trouvaient sur le trottoir devant le magasin. Qui a vraiment commis le crime ?",
-        "suspects": ["Propriétaire", "Gardien", "Voleur", "Passant"],
+        "suspects": [
+          "Propriétaire",
+          "Gardien",
+          "Voleur",
+          "Passant"
+        ],
         "explanation": "Le propriétaire. Si la fenêtre avait été brisée de l'extérieur, les éclats seraient tombés à l'intérieur du magasin. Comme ils étaient sur le trottoir, la fenêtre a été brisée de l'intérieur pour simuler un cambriolage et toucher l'assurance."
       }
     ]

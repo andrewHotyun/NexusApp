@@ -343,6 +343,10 @@
     "confirm": "Confirmar",
     "confirm_title": "Confirmación",
     "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "error": "❌ Error",
+    "info": "Info",
+    "comingSoon": "Próximamente...",
     "call_invite": "Invitación a chat de vídeo",
     "accept": "Aceptar",
     "decline": "Rechazar",
@@ -364,11 +368,8 @@
     "unknown": "Desconocido",
     "close": "Cerrar",
     "apply": "Aplicar",
-    "delete": "Eliminar",
     "edit": "Editar",
     "loading": "Cargando...",
-    "uploading": "Subiendo...",
-    "error": "❌ Error",
     "success": "Éxito",
     "change": "Cambiar",
     "upload_success": "¡Subida exitosa!",
@@ -416,6 +417,19 @@
       "story_video_limit": "Archivo demasiado grande (máx. 20 MB) o duración superior a 30 seg",
       "video_only": "Por favor, selecciona un archivo de vídeo."
     },
+    "my_gallery": "Mi galería",
+    "new_folder_placeholder": "Introducir nombre de carpeta",
+    "no_folders": "Aún no se han creado carpetas",
+    "empty_folder": "Esta carpeta está vacía",
+    "delete_folder_title": "Eliminar carpeta",
+    "delete_folder_confirm": "¿Estás seguro? Esta acción es irreversible.",
+    "delete_media_title": "Eliminar multimedia",
+    "delete_media_confirm": "¿Estás seguro de que quieres eliminar este elemento?",
+    "error_creating_folder": "Error al crear la carpeta",
+    "error_upload_failed": "Error de carga",
+    "blocked_users": "Usuarios bloqueados",
+    "no_blocked": "Sin usuarios bloqueados",
+    "blocked_desc": "Los usuarios que bloquees aparecerán aquí.",
     "title": "Perfil",
     "edit_profile": "Editar perfil",
     "save_changes": "Guardar cambios",
@@ -475,6 +489,7 @@
     "delete_payment_title": "Eliminar métodos de pago",
     "delete_payment_confirm": "¿Estás seguro de que quieres eliminar tus datos de pago?",
     "delete_account_btn": "Eliminar cuenta",
+    "delete_account_confirm": "¿Estás seguro? Esto programará la eliminación de tu cuenta en 6 meses.",
     "delete_modal_title": "Eliminar cuenta",
     "delete_modal_confirm": "¿Estás seguro de que quieres eliminar tu cuenta? Puedes recuperarla durante 6 meses.",
     "delete_modal_permanent": "Si no se recupera, tu cuenta será eliminada permanentemente.",
@@ -485,36 +500,7 @@
     "city_placeholder": "Introduce la ciudad",
     "payment_placeholder": "Introduce tus detalles de pago (número de tarjeta, correo de PayPal, billetera cripto, etc.)",
     "years_old": "{{count}} años",
-    "not_specified": "No especificado",
     "my_media_title": "Mi Multimedia",
-    "my_gallery": "Mi Galería",
-    "my_stories": "Historias",
-    "your_stories": "Tus Historias",
-    "no_stories": "No hay historias aún",
-    "new_story": "Nueva Historia",
-    "upload_story_title": "Subir Historia",
-    "upload_story": "Subir Historia",
-    "select_video": "Seleccionar Vídeo",
-    "select_video_desc": "Seleccionar vídeo corto (estilo TikTok/Historias)",
-    "video_requirements": "Vídeo vertical, hasta 30s",
-    "max_size": "Máx 20 MB",
-    "uploading_story": "Subiendo historia...",
-    "story_uploaded": "¡Historia subida con éxito!",
-    "confirm_delete_story": "¿Estás seguro de que quieres eliminar esta historia?",
-    "story_deleted": "Historia eliminada con éxito",
-    "folders_title": "Carpetas de medios",
-    "media_folders": "Carpetas de medios",
-    "create_folder": "Crear carpeta",
-    "new_folder_placeholder": "Nombre de la carpeta...",
-    "no_folders": "Aún no se han creado carpetas",
-    "empty_folder": "Esta carpeta está vacía",
-    "no_media": "Esta carpeta está vacía",
-    "confirm_delete_media": "¿Eliminar este medio?",
-    "confirm_delete_folder": "¿Eliminar carpeta y todo su contenido?",
-    "delete_folder_title": "Eliminar carpeta",
-    "delete_folder_confirm": "¿Estás seguro de que quieres eliminar esta carpeta? Esta acción no se puede deshacer.",
-    "delete_media_title": "Eliminar medio",
-    "delete_media_confirm": "¿Estás seguro de que quieres eliminar este elemento?",
     "manage_media": "Gestionar medios",
     "manage_media_desc": "Carpetas y fotos",
     "add_story": "Añadir Historia",
@@ -639,6 +625,7 @@
     "status_none": "Añadir",
     "chat_btn": "Chat",
     "remove_btn": "Eliminar",
+    "remove_confirm_msg": "¿Estás seguro de que deseas eliminar a {{name}} de tus amigos?",
     "incoming": "Entrantes",
     "sent": "Enviadas",
     "search_results": "Resultados de búsqueda",
@@ -662,9 +649,11 @@
     "reject_error": "Error al rechazar la solicitud.",
     "request_canceled": "Solicitud a {{name}} cancelada.",
     "cancel_error": "Error al cancelar la solicitud.",
-    "accept_all": "Aceptar todos",
-    "accept_gift_senders": "Aceptar con regalos",
-    "reject_all": "Rechazar todos",
+    "accept_all": "Aceptar todo",
+    "reject_all": "Rechazar todo",
+    "accept_only_gifts": "Solo con regalos",
+    "bulk_accept_success": "¡Todas las solicitudes de amistad entrantes han sido aceptadas con éxito!",
+    "bulk_reject_success": "Todas las solicitudes de amistad entrantes han sido rechazadas.",
     "confirm_accept_all": "¿Estás seguro de que quieres aceptar todas las solicitudes entrantes?",
     "confirm_accept_gift_senders": "¿Estás seguro de aceptar {{count}} solicitudes de usuarios con regalos?",
     "confirm_reject_all": "¿Estás seguro de que quieres rechazar todas las solicitudes entrantes?",
@@ -1249,91 +1238,166 @@
       {
         "title": "Caso 1: El asesinato del domingo",
         "story": "Un hombre rico fue encontrado muerto un domingo por la mañana. Su esposa dijo que estaba durmiendo. El mayordomo pulía la plata. El cocinero preparaba el desayuno. La sirvienta dijo que había ido a buscar el correo. ¿Quién es el asesino?",
-        "suspects": ["Esposa", "Mayordomo", "Cocinero", "Sirvienta"],
+        "suspects": [
+          "Esposa",
+          "Mayordomo",
+          "Cocinero",
+          "Sirvienta"
+        ],
         "explanation": "La sirvienta. ¡El domingo no se reparte el correo!"
       },
       {
         "title": "Caso 2: La bebida envenenada",
         "story": "Dos chicas pidieron bebidas idénticas con hielo. Una bebió la suya muy rápido (en 10 segundos), la otra bebió lentamente. La que bebió lentamente murió envenenada. ¿Quién o qué la mató?",
-        "suspects": ["Camarero", "Amiga", "Hielo", "Barman"],
+        "suspects": [
+          "Camarero",
+          "Amiga",
+          "Hielo",
+          "Barman"
+        ],
         "explanation": "El veneno estaba dentro del hielo. La primera chica bebió antes de que el hielo se derritiera."
       },
       {
         "title": "Caso 3: La lluvia y el jardinero",
         "story": "El dueño de una casa de campo fue encontrado muerto en la sala de estar. Afuera había una fuerte tormenta. La sirvienta limpiaba el polvo. El cocinero cortaba carne. El jardinero dijo que estaba regando las plantas afuera. ¿Quién es el asesino?",
-        "suspects": ["Sirvienta", "Cocinero", "Jardinero", "Chófer"],
+        "suspects": [
+          "Sirvienta",
+          "Cocinero",
+          "Jardinero",
+          "Chófer"
+        ],
         "explanation": "El jardinero. No tiene sentido regar las plantas durante una fuerte tormenta."
       },
       {
         "title": "Caso 4: Vuelo a ninguna parte",
         "story": "Un multimillonario fue encontrado muerto en un vuelo privado. El piloto volaba, la azafata servía bebidas, el socio comercial dormía y el médico leía. ¿Quién envenenó su bebida?",
-        "suspects": ["Piloto", "Azafata", "Socio", "Médico"],
+        "suspects": [
+          "Piloto",
+          "Azafata",
+          "Socio",
+          "Médico"
+        ],
         "explanation": "El médico. Solo él tenía acceso a ampollas médicas para envenenar la bebida sin ser notado."
       },
       {
         "title": "Caso 5: Telón para la estrella",
         "story": "El actor principal fue asesinado en el escenario durante un apagón repentino. El director observaba la función, el suplente se cambiaba de vestuario, la actriz esperaba entre bastidores y el técnico de iluminación apagó 'accidentalmente' la luz. ¿Quién es el asesino?",
-        "suspects": ["Director", "Suplente", "Actriz", "Técnico de iluminación"],
+        "suspects": [
+          "Director",
+          "Suplente",
+          "Actriz",
+          "Técnico de iluminación"
+        ],
         "explanation": "El técnico de iluminación. Él apagó la luz y sabía exactamente dónde estaba el actor en la oscuridad."
       },
       {
         "title": "Caso 6: Crucero moderno",
         "story": "Durante un viaje en un crucero moderno, una mujer fue empujada por la borda en medio de la noche. El capitán estaba al timón. El esposo estaba en el gimnasio. El fotógrafo dijo que estaba en el cuarto oscuro revelando fotos digitales. La camarera servía bebidas. ¿Quién es el asesino?",
-        "suspects": ["Capitán", "Esposo", "Fotógrafo", "Camarera"],
+        "suspects": [
+          "Capitán",
+          "Esposo",
+          "Fotógrafo",
+          "Camarera"
+        ],
         "explanation": "El fotógrafo. Las fotos digitales no tienen película y no necesitan revelarse en un cuarto oscuro."
       },
       {
         "title": "Caso 7: La cabaña nevada",
         "story": "Un hombre fue encontrado ahorcado en una cabaña vacía. La puerta estaba cerrada por dentro, sin muebles y solo un charco de agua debajo de él. Tres personas estaban cerca: un desconocido buscando refugio de la tormenta, un vecino de la casa más cercana que escuchó un ruido, y un amigo de visita. ¿Quién es el asesino?",
-        "suspects": ["Desconocido", "Vecino", "Amigo", "Él mismo"],
+        "suspects": [
+          "Desconocido",
+          "Vecino",
+          "Amigo",
+          "Él mismo"
+        ],
         "explanation": "Él mismo. Se subió a un gran bloque de hielo que finalmente se derritió."
       },
       {
         "title": "Caso 8: El código del químico",
         "story": "Un famoso químico fue asesinado. Antes de morir escribió en un papel los elementos: Níquel, Carbono, Potasio. Los sospechosos: Nicholas, Edward, Félix.",
-        "suspects": ["Nicholas", "Edward", "Félix", "Él mismo"],
+        "suspects": [
+          "Nicholas",
+          "Edward",
+          "Félix",
+          "Él mismo"
+        ],
         "explanation": "Nicholas. Los símbolos químicos: Ni (Níquel), C (Carbono), K (Potasio) forman el nombre Ni-C-K."
       },
       {
         "title": "Caso 9: La hora en el espejo",
         "story": "El dueño de la mansión fue asesinado en un salón con un gran reloj de pared y un enorme espejo enfrente. Antes de morir señaló el número 10 en el reflejo del reloj. ¿Quién es el asesino?",
-        "suspects": ["Invitado (llegó a las 10:00)", "Mayordomo (llegó a las 02:00)", "Cocinero (llegó a las 05:00)", "Sirvienta (llegó a las 08:00)"],
+        "suspects": [
+          "Invitado (llegó a las 10:00)",
+          "Mayordomo (llegó a las 02:00)",
+          "Cocinero (llegó a las 05:00)",
+          "Sirvienta (llegó a las 08:00)"
+        ],
         "explanation": "El mayordomo. En un reflejo de espejo, el número 2 en la esfera del reloj parece un 10."
       },
       {
         "title": "Caso 10: Motín en la prisión",
         "story": "Durante un motín en la prisión, se apagó la luz repentinamente. Cuando se restauró la electricidad, uno de los guardias fue encontrado muerto. ¿Quién es el asesino?",
-        "suspects": ["Preso (quedan 2 años)", "Preso (quedan 10 años)", "Preso (cadena perpetua)", "Conserje"],
+        "suspects": [
+          "Preso (quedan 2 años)",
+          "Preso (quedan 10 años)",
+          "Preso (cadena perpetua)",
+          "Conserje"
+        ],
         "explanation": "El preso con cadena perpetua. No tiene nada que perder, a diferencia de los otros que iban a ser liberados."
       },
       {
         "title": "Caso 11: Asesinato en la mansión",
         "story": "En la mansión se apagó la luz repentinamente. Cuando volvió, el dueño fue encontrado muerto en su despacho. El detective comenzó la investigación:\\n\\nCocinero: Estaba en la cocina, su delantal tenía manchas rojas. Explicó: 'Estaba cortando remolacha para la cena cuando todo se oscureció.'\\n\\nEsposa: Estaba en su habitación. Dijo: 'Me asusté de la oscuridad y llamé a una amiga inmediatamente. Hablamos hasta que volvió la luz.' El detective notó que la pantalla de su teléfono estaba rota.\\n\\nPeluquero: Esperaba en el pasillo junto al despacho. El detective vio unas tijeras profesionales afiladas en su bolsillo. El peluquero se excusó: 'Iba a cortarle el pelo al señor. Cuando se apagó la luz, me quedé paralizado de la sorpresa.'\\n\\n¿Quién es el asesino?",
-        "suspects": ["Esposa", "Peluquero", "Cocinero", "Suicidio"],
+        "suspects": [
+          "Esposa",
+          "Peluquero",
+          "Cocinero",
+          "Suicidio"
+        ],
         "explanation": "La esposa. Afirmó haber hablado con una amiga mientras estaba oscuro. Pero su teléfono se rompió durante una pelea con su marido y no funcionaba. Inventó la historia de la llamada como coartada."
       },
       {
         "title": "Caso 12: El enigma de la biblioteca",
         "story": "En la biblioteca se encontró el cuerpo de un hombre. El detective interrogó a todos los que estaban en la mansión: la esposa, el mejor amigo, el jardinero y el limpiador.\\nEsposa: 'Estaba en la cocina preparando té. Mi esposo me pidió que no lo molestara porque había encontrado un libro raro y quería estudiarlo.'\\nMejor amigo: 'Discutimos esta mañana por dinero, así que fui al jardín. Lo vi sentado en su sillón a través de la ventana, pero no entré.'\\nLimpiador: 'Entré a la biblioteca para poner un vaso de agua en la mesa. El señor ni levantó la cabeza — estaba tan absorto estudiando el texto en las páginas 21 y 22 que ni me notó. Dejé el agua y salí inmediatamente.'\\nJardinero: 'Estaba podando los arbustos bajo las ventanas. En la biblioteca había silencio, solo lo oí pasar una página.'\\n¿Quién es el asesino?",
-        "suspects": ["Esposa", "Amigo", "Limpiador", "Jardinero"],
+        "suspects": [
+          "Esposa",
+          "Amigo",
+          "Limpiador",
+          "Jardinero"
+        ],
         "explanation": "El limpiador. En la mayoría de los libros, una página impar y la siguiente par (como 21 y 22) están impresas en ambos lados de la misma hoja. No pueden verse al mismo tiempo."
       },
       {
         "title": "Caso 13: Museo nocturno",
         "story": "El guardia nocturno de un museo fue encontrado muerto junto a la bóveda con exposiciones valiosas. Las cámaras de seguridad fueron desactivadas a las 22:15. El detective interrogó a todos los que quedaban en el edificio:\\nCurador: 'Estaba en mi oficina catalogando nuevas adquisiciones. Mi oficina es insonorizada — no escuché nada hasta que salí a las 23:00 y encontré el cuerpo.'\\nRestaurador: 'Estaba trabajando en una pintura del siglo XVII en la sala de restauración. Llevé guantes toda la noche y no salí de mi zona.'\\nElectricista: 'Estaba reparando el cableado en el sótano. Toda la noche estuve ahí — solo subí cuando escuché gritos. No sé por qué se apagaron las cámaras, tal vez fue por mi trabajo con el cableado.'\\nLimpiadora: 'Estaba aspirando el salón principal. Cuando apagué la aspiradora para descansar, escuché un golpe sordo y corrí hacia el sonido.'\\n¿Quién es el asesino?",
-        "suspects": ["Curador", "Restaurador", "Electricista", "Limpiadora"],
+        "suspects": [
+          "Curador",
+          "Restaurador",
+          "Electricista",
+          "Limpiadora"
+        ],
         "explanation": "El electricista. Solo él tenía acceso al panel eléctrico para desactivar las cámaras a las 22:15. Su excusa de que las cámaras se apagaron 'por el trabajo de cableado' solo confirma que sabía del apagón."
       },
       {
         "title": "Caso 14: Fecha falsa",
         "story": "Un famoso banquero fue encontrado muerto de un disparo en su oficina. El detective interrogó a los sospechosos:\\nEsposa: 'Estábamos planeando unas vacaciones en julio. Los últimos días no era él mismo, escribía constantemente algo en su despacho. Pensé que preparaba documentos, pero probablemente se estaba despidiendo...'\\nHermano: 'Vine a verlo por la noche para pedirle dinero, pero la puerta estaba cerrada. Escuché una trituradora de papel funcionando adentro. Pensé que estaba ocupado y me fui.'\\nSecretario: 'Pasé todo el día preparando informes de junio para hacienda. El jefe me ordenó revisar cada documento para que ninguna fecha estuviera mal. Estaba ayudándolo con el último informe del 31 de junio, y luego me fui. Aún estaba vivo.'\\n¿Quién es el asesino?",
-        "suspects": ["Esposa", "Secretario", "Hermano", "Suicidio"],
+        "suspects": [
+          "Esposa",
+          "Secretario",
+          "Hermano",
+          "Suicidio"
+        ],
         "explanation": "El secretario. Junio solo tiene 30 días, así que un 'informe del 31 de junio' no podía existir. Inventó ese detalle para explicar por qué se quedó tarde en la oficina."
       },
       {
         "title": "Caso 15: El robo",
         "story": "Por la noche sonó la alarma de una joyería. La policía llegó y encontró el escaparate roto y vitrinas vacías. El detective interrogó a todos:\\nDueño: 'Me llamaron a las 3 de la madrugada. Vine y vi este horror — el escaparate roto, las joyas desaparecidas. Lo tenía todo asegurado, pero era mi vida...'\\nGuardia: 'Me alejé 10 minutos para comprar un café en la máquina de la esquina. Cuando volví, el escaparate ya estaba roto y alguien había revuelto el interior.'\\nSospechoso: 'Solo pasaba por ahí y vi la ventana rota. Miré dentro por curiosidad — y entonces llegó la policía. ¡Me arrestaron sin motivo!'\\nTranseúnte: 'Vi una sombra lanzar algo contra la ventana desde la calle. El vidrio se rompió y la sombra entró.'\\nEl detective examinó cuidadosamente el lugar y notó que TODOS los fragmentos de vidrio estaban en la acera frente a la tienda. ¿Quién cometió realmente el crimen?",
-        "suspects": ["Dueño", "Guardia", "Ladrón", "Transeúnte"],
+        "suspects": [
+          "Dueño",
+          "Guardia",
+          "Ladrón",
+          "Transeúnte"
+        ],
         "explanation": "El dueño. Si la ventana se hubiera roto desde fuera, los fragmentos habrían caído dentro de la tienda. Como estaban en la acera, la ventana fue rota desde dentro para simular un robo y cobrar el seguro."
       }
     ]

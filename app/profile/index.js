@@ -262,8 +262,8 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     setActionModal({
       visible: true,
-      title: t('auth.logoutTitle', 'Logout'),
-      message: t('auth.logoutConfirm', 'Are you sure you want to log out?'),
+      title: t('auth.logoutTitle'),
+      message: t('auth.logoutConfirm'),
       confirmText: t('auth.logout'),
       isDestructive: true,
       showCancel: true,
@@ -277,8 +277,8 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     setActionModal({
       visible: true,
-      title: t('profile.delete_account_title', 'Delete Account'),
-      message: t('profile.delete_account_confirm', 'Are you sure? This will schedule your account for deletion in 6 months.'),
+      title: t('profile.delete_account_title'),
+      message: t('profile.delete_account_confirm'),
       confirmText: t('common.delete'),
       isDestructive: true,
       showCancel: true,
@@ -420,7 +420,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t('profile.age_label', 'Age')}</Text>
+              <Text style={styles.infoLabel}>{t('profile.age_label')}</Text>
               {isEditing ? (
                 <TextInput
                   style={styles.infoInput}
@@ -446,7 +446,7 @@ export default function ProfileScreen() {
                   <IconSymbol name="chevron.down" size={14} color="#7f8c8d" />
                 </TouchableOpacity>
               ) : (
-                <Text style={styles.infoValue}>{profile?.country || 'Not specified'}</Text>
+                <Text style={styles.infoValue}>{profile?.country || t('common.not_specified')}</Text>
               )}
             </View>
 
@@ -460,7 +460,7 @@ export default function ProfileScreen() {
                   <IconSymbol name="chevron.down" size={14} color="#7f8c8d" />
                 </TouchableOpacity>
               ) : (
-                <Text style={styles.infoValue}>{profile?.city || 'Not specified'}</Text>
+                <Text style={styles.infoValue}>{profile?.city || t('common.not_specified')}</Text>
               )}
             </View>
 
@@ -602,6 +602,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 60,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
   },
   avatarPlaceholder: {
     width: '100%',
@@ -727,7 +729,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
