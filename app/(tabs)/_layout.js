@@ -15,6 +15,7 @@ export default function TabLayout() {
   const { t } = useTranslation();
   const [requestsCount, setRequestsCount] = useState(0);
   const [friendsCount, setFriendsCount] = useState(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -39,9 +40,20 @@ export default function TabLayout() {
       setFriendsCount(snap.docs.length);
     });
 
+    // Listen to unread messages count
+    const qUnread = query(
+      collection(db, 'messages'),
+      where('receiverId', '==', user.uid),
+      where('read', '==', false)
+    );
+    const unsubUnread = onSnapshot(qUnread, (snap) => {
+      setUnreadMessagesCount(snap.docs.length);
+    });
+
     return () => {
       unsubRequests();
       unsubFriends();
+      unsubUnread();
     };
   }, []);
 
@@ -100,6 +112,17 @@ export default function TabLayout() {
             tabBarIcon: ({ color, focused }) => (
               <IconSymbol size={26} name={focused ? "bubble.left.fill" : "bubble.left.and.bubble.right.fill"} color={color} />
             ),
+            tabBarBadge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined,
+            tabBarBadgeStyle: { 
+              backgroundColor: '#e74c3c', 
+              fontSize: 10, 
+              minWidth: 16, 
+              height: 16, 
+              borderRadius: 8,
+              lineHeight: 16,
+              textAlign: 'center',
+              marginTop: -2 
+            }
           }}
         />
 

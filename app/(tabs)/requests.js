@@ -65,6 +65,7 @@ export default function RequestsTab() {
   const [activeTab, setActiveTab] = useState('incoming'); // 'incoming' | 'sent'
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
+  const [userProfiles, setUserProfiles] = useState({}); // Stores { name, avatar, age } by UID
   const [friendsList, setFriendsList] = useState([]);
   const [myBlockedIds, setMyBlockedIds] = useState([]);
   const [blockedMeIds, setBlockedMeIds] = useState([]);
@@ -101,7 +102,6 @@ export default function RequestsTab() {
   const [searchFilters, setSearchFilters] = useState({ country: '', city: '', countryIso: '', chatType: '' });
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [userAges, setUserAges] = useState({});
 
   // Pickers
   const [showCountryPicker, setShowCountryPicker] = useState(false);
@@ -138,74 +138,76 @@ export default function RequestsTab() {
     { label: t('search.chat_type_18', 'Communication 18+'), value: '18+' }
   ], [t]);
 
+  // 1. Incoming Requests
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
-
     const incomingQuery = query(
       collection(db, 'friendRequests'),
       where('toUserId', '==', user.uid),
       where('status', '==', 'pending')
     );
-    const unsubscribeIncoming = onSnapshot(incomingQuery, (snap) => {
-      const sortedData = snap.docs
+    const unsub = onSnapshot(incomingQuery, (snap) => {
+      setIncomingRequests(snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-      
-      setIncomingRequests(sortedData);
-      setLoading(false);
-    }, (error) => {
-      console.error(error);
+        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      );
       setLoading(false);
     });
+    return () => unsub();
+  }, [user?.uid]);
 
-    const unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (snap.exists()) {
-        setCurrentUserData(snap.data());
-      }
-    });
-
+  // 2. Sent Requests
+  useEffect(() => {
+    if (!user) return;
     const sentQuery = query(
       collection(db, 'friendRequests'),
       where('fromUserId', '==', user.uid),
       where('status', '==', 'pending')
     );
-    const unsubscribeSent = onSnapshot(sentQuery, (snap) => {
-      const sortedData = snap.docs
+    const unsub = onSnapshot(sentQuery, (snap) => {
+      setSentRequests(snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-      
-      setSentRequests(sortedData);
+        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+      );
     });
+    return () => unsub();
+  }, [user?.uid]);
 
+  // 3. Friends List
+  useEffect(() => {
+    if (!user) return;
     const friendsQuery = query(
       collection(db, 'friends'),
       where('userId', '==', user.uid)
     );
-    const unsubscribeFriends = onSnapshot(friendsQuery, (snap) => {
+    const unsub = onSnapshot(friendsQuery, (snap) => {
       setFriendsList(snap.docs.map(doc => doc.data().friendId));
     });
+    return () => unsub();
+  }, [user?.uid]);
 
-    // Listen to personal block list
-    const myBlocksQuery = query(collection(db, 'blocks'), where('blockerId', '==', user.uid));
-    const unsubscribeMyBlocks = onSnapshot(myBlocksQuery, (snap) => {
-      const ids = snap.docs.map(doc => doc.data().blockedId).filter(Boolean);
-      setMyBlockedIds(ids);
+  // 4. Blocks (Bidirectional)
+  useEffect(() => {
+    if (!user) return;
+    
+    const unsubMyBlocks = onSnapshot(query(collection(db, 'blocks'), where('blockerId', '==', user.uid)), (snap) => {
+      setMyBlockedIds(snap.docs.map(doc => doc.data().blockedId).filter(Boolean));
+      globalUsersCacheTimestamp = 0; // Invalidate cache
     });
 
-    // Listen to who blocked me
-    const blockedMeQuery = query(collection(db, 'blocks'), where('blockedId', '==', user.uid));
-    const unsubscribeBlockedMe = onSnapshot(blockedMeQuery, (snap) => {
-      const ids = snap.docs.map(doc => doc.data().blockerId).filter(Boolean);
-      setBlockedMeIds(ids);
+    const unsubBlockedMe = onSnapshot(query(collection(db, 'blocks'), where('blockedId', '==', user.uid)), (snap) => {
+      setBlockedMeIds(snap.docs.map(doc => doc.data().blockerId).filter(Boolean));
+      globalUsersCacheTimestamp = 0; // Invalidate cache
+    });
+
+    const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) setCurrentUserData(snap.data());
     });
 
     return () => {
-      unsubscribeIncoming();
-      unsubscribeSent();
-      unsubscribeFriends();
-      unsubscribeMyBlocks();
-      unsubscribeBlockedMe();
+      unsubMyBlocks();
+      unsubBlockedMe();
+      unsubProfile();
     };
   }, [user?.uid]);
 
@@ -225,17 +227,17 @@ export default function RequestsTab() {
   };
 
 
-  // Fetch missing ages for incoming and sent requests
+  // Fetch missing user data (name, avatar, age) for incoming and sent requests
   useEffect(() => {
-    const fetchAges = async () => {
+    const fetchUserData = async () => {
       const allReqs = [...incomingRequests, ...sentRequests];
       const uidsToFetch = [...new Set(
         allReqs.map(r => r.fromUserId === user?.uid ? r.toUserId : r.fromUserId)
-      )].filter(uid => uid && typeof userAges[uid] === 'undefined');
+      )].filter(uid => uid && !userProfiles[uid]);
 
       if (uidsToFetch.length === 0) return;
 
-      const newAges = { ...userAges };
+      const newProfiles = { ...userProfiles };
       let updated = false;
 
       await Promise.all(
@@ -244,25 +246,31 @@ export default function RequestsTab() {
             const userDoc = await getDoc(doc(db, 'users', uid));
             if (userDoc.exists()) {
               const data = userDoc.data();
-              newAges[uid] = data.age || null;
+              newProfiles[uid] = {
+                name: data.name || data.displayName || 'User',
+                avatar: data.avatar || data.photoURL || '',
+                age: data.age || null
+              };
               updated = true;
             } else {
-              newAges[uid] = null;
+              newProfiles[uid] = { name: 'User', avatar: '', age: null };
               updated = true;
             }
-          } catch (e) {}
+          } catch (e) {
+            console.error("Error fetching request user data:", e);
+          }
         })
       );
 
       if (updated) {
-        setUserAges(newAges);
+        setUserProfiles(newProfiles);
       }
     };
 
-    if (user) {
-      fetchAges();
+    if (user && (incomingRequests.length > 0 || sentRequests.length > 0)) {
+      fetchUserData();
     }
-  }, [incomingRequests, sentRequests, user, userAges]);
+  }, [incomingRequests, sentRequests, user]);
 
   const searchUsers = useCallback(async () => {
     if (!user) return;
@@ -303,8 +311,8 @@ export default function RequestsTab() {
         // 2. Soft-Delete & Admin-Block Check (matches Web version)
         if (isUserSoftDeleted(u)) return false;
 
-        // 3. Exclude based on bidirectional blocking
-        if (myBlockedIds.includes(uid) || blockedMeIds.includes(uid)) return false;
+        // 3. Exclude based on who blocked me (Unidirectional: blocker can still see blocked)
+        if (blockedMeIds.includes(uid)) return false;
 
         const matchesName = u.name && u.name.toLowerCase().includes(term);
         const matchesUid = term.length >= 6 && uid && uid.toLowerCase().startsWith(term);
@@ -365,6 +373,18 @@ export default function RequestsTab() {
   const sendFriendRequest = async (targetUser) => {
     if (!user || targetUser.uid === user.uid) return;
 
+    // Check if I blocked this user
+    if (myBlockedIds.includes(targetUser.uid)) {
+      setToast({ visible: true, messageKey: 'friends.unblock_first', messageParams: {}, type: 'error' });
+      return;
+    }
+
+    // Check if this user blocked ME
+    if (blockedMeIds.includes(targetUser.uid)) {
+      setToast({ visible: true, messageKey: 'friends.blocked_by_user', messageParams: {}, type: 'error' });
+      return;
+    }
+
     setProcessingId(targetUser.uid);
     try {
       const senderDoc = await getDoc(doc(db, 'users', user.uid));
@@ -423,16 +443,26 @@ export default function RequestsTab() {
           const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
           const currentUserData = currentUserDoc.data() || {};
           
+          // Fetch fresh profiles for all request senders
+          const freshProfiles = {};
+          await Promise.all(incomingRequests.map(async (req) => {
+            try {
+              const snap = await getDoc(doc(db, 'users', req.fromUserId));
+              if (snap.exists()) freshProfiles[req.fromUserId] = snap.data();
+            } catch (e) { console.error('Error fetching profile:', e); }
+          }));
+
           const batch = writeBatch(db);
           for (const req of incomingRequests) {
+            const fromData = freshProfiles[req.fromUserId] || {};
             const friendRef1 = doc(collection(db, 'friends'));
             batch.set(friendRef1, {
               userId: user.uid,
               friendId: req.fromUserId,
-              friendName: req.fromUserName || 'Unknown',
-              friendAvatar: req.fromUserAvatar || '',
-              friendCity: req.fromUserCity || '',
-              friendCountry: req.fromUserCountry || '',
+              friendName: fromData.name || req.fromUserName || 'Unknown',
+              friendAvatar: fromData.avatar || req.fromUserAvatar || '',
+              friendCity: fromData.city || req.fromUserCity || '',
+              friendCountry: fromData.country || req.fromUserCountry || '',
               addedAt: serverTimestamp()
             });
 
@@ -515,16 +545,26 @@ export default function RequestsTab() {
           const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
           const currentUserData = currentUserDoc.data() || {};
           
+          // Fetch fresh profiles for all gift request senders
+          const freshProfiles = {};
+          await Promise.all(giftRequests.map(async (req) => {
+            try {
+              const snap = await getDoc(doc(db, 'users', req.fromUserId));
+              if (snap.exists()) freshProfiles[req.fromUserId] = snap.data();
+            } catch (e) { console.error('Error fetching profile:', e); }
+          }));
+
           const batch = writeBatch(db);
           for (const req of giftRequests) {
+            const fromData = freshProfiles[req.fromUserId] || {};
             const friendRef1 = doc(collection(db, 'friends'));
             batch.set(friendRef1, {
               userId: user.uid,
               friendId: req.fromUserId,
-              friendName: req.fromUserName || 'Unknown',
-              friendAvatar: req.fromUserAvatar || '',
-              friendCity: req.fromUserCity || '',
-              friendCountry: req.fromUserCountry || '',
+              friendName: fromData.name || req.fromUserName || 'Unknown',
+              friendAvatar: fromData.avatar || req.fromUserAvatar || '',
+              friendCity: fromData.city || req.fromUserCity || '',
+              friendCountry: fromData.country || req.fromUserCountry || '',
               addedAt: serverTimestamp()
             });
 
@@ -697,27 +737,32 @@ export default function RequestsTab() {
 
   const renderIncomingItem = ({ item }) => {
     const isProcessing = processingId === item.id;
+    const profile = userProfiles[item.fromUserId] || {};
+    const displayName = item.fromUserName || profile.name || 'User';
+    const displayAvatar = item.fromUserAvatar || profile.avatar;
+    const displayAge = item.fromUserAge || profile.age || profile.age;
+
     return (
       <View style={styles.card}>
         <View style={styles.cardInfo}>
-        <View style={styles.avatarContainer}>
-          {item.fromUserAvatar ? (
-            <Image source={{ uri: item.fromUserAvatar }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.fromUserId) }]}>
-              <Text style={styles.avatarInitial}>{item.fromUserName ? item.fromUserName.charAt(0).toUpperCase() : '?'}</Text>
-            </View>
-          )}
-          <OnlineStatusIndicator userId={item.fromUserId} />
-        </View>
+          <View style={styles.avatarContainer}>
+            {displayAvatar ? (
+              <Image source={{ uri: displayAvatar }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.fromUserId) }]}>
+                <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+            <OnlineStatusIndicator userId={item.fromUserId} />
+          </View>
           <View style={styles.textContainer}>
             <View style={{flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap'}}>
               <Text style={styles.userName} numberOfLines={1}>
-                {item.fromUserName}
+                {displayName}
               </Text>
-              {(item.fromUserAge || item.age) && (
+              {displayAge && (
                 <Text style={styles.userName}>
-                  , {item.fromUserAge || item.age}
+                  , {displayAge}
                 </Text>
               )}
               {item.hasGift && (
@@ -754,26 +799,33 @@ export default function RequestsTab() {
 
   const renderSentItem = ({ item }) => {
     const isProcessing = processingId === item.id;
+    const profile = userProfiles[item.toUserId] || {};
+    const displayName = item.toUserName || profile.name || 'User';
+    const displayAvatar = item.toUserAvatar || profile.avatar;
+    const displayAge = item.toUserAge || profile.age;
+    const displayCity = item.toUserCity || profile.city;
+    const displayCountry = item.toUserCountry || profile.country;
+
     return (
       <View style={styles.card}>
         <View style={styles.cardInfo}>
         <View style={styles.avatarContainer}>
-          {item.toUserAvatar ? (
-            <Image source={{ uri: item.toUserAvatar }} style={styles.avatar} />
+          {displayAvatar ? (
+            <Image source={{ uri: displayAvatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.toUserId) }]}>
-              <Text style={styles.avatarInitial}>{item.toUserName ? item.toUserName.charAt(0).toUpperCase() : '?'}</Text>
+              <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
             </View>
           )}
           <OnlineStatusIndicator userId={item.toUserId} />
         </View>
           <View style={styles.textContainer}>
             <Text style={styles.userName} numberOfLines={1}>
-              {item.toUserName}
-              {(item.toUserAge || userAges[item.toUserId]) ? `, ${item.toUserAge || userAges[item.toUserId]}` : ''}
+              {displayName}
+              {displayAge ? `, ${displayAge}` : ''}
             </Text>
-            {(item.toUserCity || item.toUserCountry) && (
-              <Text style={styles.userLocation} numberOfLines={1}>{[item.toUserCity, item.toUserCountry].filter(Boolean).join(', ')}</Text>
+            {(displayCity || displayCountry) && (
+              <Text style={styles.userLocation} numberOfLines={1}>{[displayCity, displayCountry].filter(Boolean).join(', ')}</Text>
             )}
           </View>
         </View>
@@ -875,7 +927,8 @@ export default function RequestsTab() {
                   if (u.email === 'admin@nexus.com') return false;
                   if (u.name === 'Admin') return false;
                   if (isUserSoftDeleted(u)) return false;
-                  if (myBlockedIds.includes(uid) || blockedMeIds.includes(uid)) return false;
+                  // Exclude only if they blocked me (Unidirectional search visibility)
+                  if (blockedMeIds.includes(uid)) return false;
                   return true;
                 })}
                 keyExtractor={item => item.uid}
@@ -934,7 +987,7 @@ export default function RequestsTab() {
                 data={activeTab === 'incoming' ? incomingRequests : sentRequests}
                 keyExtractor={item => item.id}
                 renderItem={activeTab === 'incoming' ? renderIncomingItem : renderSentItem}
-                extraData={userAges}
+                extraData={[userProfiles, processingId]}
                 contentContainerStyle={[styles.listContainer, { flexGrow: 1 }]}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={

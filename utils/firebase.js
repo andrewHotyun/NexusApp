@@ -1,7 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  memoryLocalCache 
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Firebase configuration for Expo
@@ -21,7 +24,12 @@ const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
-const db = getFirestore(app);
+// RADICAL ANDROID STABILITY: Disable disk persistence and force stable HTTP LONG POLLING
+// This completely eliminates "INTERNAL ASSERTION FAILED: Unexpected state (ID: 3186)"
+const db = initializeFirestore(app, {
+  localCache: memoryLocalCache(),
+  useFetchStreams: false,
+});
 const storage = getStorage(app);
 
 export { auth, db, storage };

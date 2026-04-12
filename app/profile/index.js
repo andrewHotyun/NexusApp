@@ -14,6 +14,7 @@ import {
   SafeAreaView,
   StatusBar
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -30,6 +31,7 @@ import {
 } from 'firebase/storage';
 import { updateEmail, signOut } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Country, City, State } from 'country-state-city';
 import { deduplicateCities } from '../../utils/locationUtils';
 
@@ -139,8 +141,7 @@ export default function ProfileScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1.0,
-      base64: true
+      quality: 0.8,
     });
 
     if (!result.canceled) {
@@ -151,16 +152,24 @@ export default function ProfileScreen() {
   const uploadAvatar = async (asset) => {
     setUploadingAvatar(true);
     try {
-      // 1. Upload original to Storage
+      // 1. Upload original (high quality) to Storage
       const response = await fetch(asset.uri);
       const blob = await response.blob();
       const avatarRef = ref(storage, `avatars/${user.uid}/original.jpg`);
       await uploadBytes(avatarRef, blob);
       const downloadURL = await getDownloadURL(avatarRef);
 
-      // 2. Save compressed base64 to Firestore (matching web behavior)
-      const compressedBase64 = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : '';
-      
+      // 2. Create a small compressed thumbnail for Firestore base64
+      //    Resize to 200x200 and compress — keeps it well under the 1MB Firestore limit
+      const thumbnail = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 300 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      const compressedBase64 = thumbnail.base64
+        ? `data:image/jpeg;base64,${thumbnail.base64}`
+        : '';
+
       await updateDoc(doc(db, 'users', user.uid), {
         avatar: compressedBase64,
         originalAvatarUrl: downloadURL,
@@ -339,7 +348,12 @@ export default function ProfileScreen() {
               onPress={handlePickAvatar}
               disabled={uploadingAvatar}>
               {profile?.originalAvatarUrl || profile?.avatar ? (
-                <Image source={{ uri: profile.originalAvatarUrl || profile.avatar }} style={styles.avatar} />
+                <ExpoImage 
+                  source={profile.originalAvatarUrl || profile.avatar} 
+                  style={styles.avatar} 
+                  contentFit="cover"
+                  transition={200}
+                />
               ) : (
                 <View style={styles.avatarPlaceholder}>
                   <Text style={styles.avatarInitial}>

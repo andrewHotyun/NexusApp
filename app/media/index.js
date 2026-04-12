@@ -30,8 +30,9 @@ import {
   deleteDoc, 
   serverTimestamp 
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import { auth, db, storage } from '../../utils/firebase';
 import { Colors } from '../../constants/theme';
@@ -60,6 +61,7 @@ export default function MediaGalleryScreen() {
   });
   const [selectedImage, setSelectedImage] = useState(null);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
+  const [settingAvatar, setSettingAvatar] = useState(false);
 
   // Real-time folders listener
   useEffect(() => {
@@ -227,6 +229,55 @@ export default function MediaGalleryScreen() {
     });
   };
 
+  const handleSetAsAvatar = async (imageUrl) => {
+    setSettingAvatar(true);
+    try {
+      // 1. Download the original image
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+
+      // 2. Upload to Storage as the avatar original
+      const avatarRef = ref(storage, `avatars/${user.uid}/original.jpg`);
+      await uploadBytes(avatarRef, blob);
+      const downloadURL = await getDownloadURL(avatarRef);
+
+      // 3. Create compressed 200×200 thumbnail for Firestore base64
+      const thumbnail = await ImageManipulator.manipulateAsync(
+        imageUrl,
+        [{ resize: { width: 300 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      const compressedBase64 = thumbnail.base64
+        ? `data:image/jpeg;base64,${thumbnail.base64}`
+        : '';
+
+      // 4. Update user document
+      await updateDoc(doc(db, 'users', user.uid), {
+        avatar: compressedBase64,
+        originalAvatarUrl: downloadURL,
+        updatedAt: serverTimestamp()
+      });
+
+      setIsImageViewerVisible(false);
+      setActionModal({
+        visible: true,
+        title: t('common.success'),
+        message: t('profile.successAvatar'),
+        showCancel: false
+      });
+    } catch (error) {
+      console.error('Set as avatar error:', error);
+      setActionModal({
+        visible: true,
+        title: t('common.error'),
+        message: t('profile.errorAvatar'),
+        showCancel: false
+      });
+    } finally {
+      setSettingAvatar(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -382,6 +433,22 @@ export default function MediaGalleryScreen() {
               style={styles.fullScreenImage} 
               resizeMode="contain" 
             />
+          </View>
+
+          <View style={styles.viewerBottomBar}>
+            <TouchableOpacity
+              style={styles.setAvatarBtn}
+              onPress={() => handleSetAsAvatar(selectedImage)}
+              disabled={settingAvatar}>
+              {settingAvatar ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <IconSymbol name="person.crop.circle.badge.checkmark" size={20} color="#fff" />
+                  <Text style={styles.setAvatarBtnText}>{t('profile.set_as_avatar')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -580,5 +647,31 @@ const styles = StyleSheet.create({
   },
   viewerFooter: {
     height: Platform.OS === 'ios' ? 100 : 80,
+  },
+  viewerBottomBar: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 50 : 30,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  setAvatarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    minWidth: 200,
+  },
+  setAvatarBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

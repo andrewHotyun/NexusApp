@@ -104,7 +104,7 @@ const ReanimFlight = React.memo(({ msg, onComplete }) => {
     else if (t > 0.9) sc = 0.5 + 0.5 * ((1 - t) / 0.1);
 
     return {
-      left: x - 70,
+      left: Math.max(-10, Math.min(x - 70, width - 180)), // Clamping to prevent screen bleeding
       top: y - 20,
       opacity: op,
       transform: [{ scale: sc }],
@@ -164,10 +164,10 @@ export default function LandingScreen() {
     const picked = shuffledRaw.slice(0, 4);
 
     const zones = [
-      { minX: -10, maxX: 60, minY: 20, maxY: 90 },
-      { minX: 190, maxX: 260, minY: 20, maxY: 90 },
-      { minX: -10, maxX: 60, minY: 200, maxY: 250 },
-      { minX: 190, maxX: 260, minY: 200, maxY: 250 }
+      { minX: 10, maxX: 50, minY: 20, maxY: 90 },
+      { minX: 160, maxX: 200, minY: 20, maxY: 90 },
+      { minX: 10, maxX: 50, minY: 200, maxY: 250 },
+      { minX: 160, maxX: 200, minY: 200, maxY: 250 }
     ];
 
     const mountedUsers = picked.map((u, i) => {

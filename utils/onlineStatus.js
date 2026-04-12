@@ -1,9 +1,10 @@
 import { doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import i18next from 'i18next';
 
-// Track user's online status
-// ... (rest of the tracking functions remain unchanged)
+// Track user's online status (React Native compatible)
+import { AppState } from 'react-native';
+
 export const trackUserOnlineStatus = (userId) => {
   if (!userId) return null;
 
@@ -12,6 +13,7 @@ export const trackUserOnlineStatus = (userId) => {
 
   // Set user as online
   const setOnline = async () => {
+    if (!auth.currentUser) return;
     try {
       await updateDoc(userRef, {
         isOnline: true,
@@ -24,13 +26,17 @@ export const trackUserOnlineStatus = (userId) => {
 
   // Set user as offline
   const setOffline = async () => {
+    if (!auth.currentUser) return;
     try {
       await updateDoc(userRef, {
         isOnline: false,
         lastSeen: serverTimestamp()
       });
     } catch (error) {
-      console.error('Error setting user offline:', error);
+      // Ignore permission errors during logout/offline transition
+      if (error.code !== 'permission-denied') {
+        console.error('Error setting user offline:', error);
+      }
     }
   };
 
@@ -39,7 +45,7 @@ export const trackUserOnlineStatus = (userId) => {
     setOnline();
     heartbeatInterval = setInterval(() => {
       setOnline();
-    }, 180000); // 3 minutes interval
+    }, 60000); // 1 minute interval (mobile-friendly)
   };
 
   // Stop heartbeat
@@ -52,55 +58,24 @@ export const trackUserOnlineStatus = (userId) => {
 
   startHeartbeat();
 
-  let lastActivity = Date.now();
-  const autoOfflineInterval = setInterval(() => {
-    const now = Date.now();
-    const timeSinceLastActivity = now - lastActivity;
-
-    if (timeSinceLastActivity > 300000) { // 5 minutes inactivity
-      stopHeartbeat();
-      setOffline();
-    }
-  }, 30000);
-
-  const trackActivity = () => {
-    lastActivity = Date.now();
-  };
-
-  const activityEvents = ['mousedown', 'keypress', 'scroll', 'touchstart', 'click']; // Removed mousemove for performance
-  activityEvents.forEach(event => {
-    document.addEventListener(event, trackActivity, true);
-  });
-
-  const handleBeforeUnload = () => {
-    stopHeartbeat();
-    clearInterval(autoOfflineInterval);
-    setOffline();
-  };
-
-  const handleVisibilityChange = () => {
-    if (document.hidden) {
-      stopHeartbeat();
-      setOffline();
-    } else {
+  // React Native: listen to app state changes (foreground/background)
+  const handleAppStateChange = (nextAppState) => {
+    if (nextAppState === 'active') {
       startHeartbeat();
+    } else {
+      stopHeartbeat();
+      setOffline();
     }
   };
 
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  document.addEventListener('visibilitychange', handleVisibilityChange);
+  const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 
   const cleanup = () => {
     stopHeartbeat();
-    clearInterval(autoOfflineInterval);
     setOffline();
-
-    activityEvents.forEach(event => {
-      document.removeEventListener(event, trackActivity, true);
-    });
-
-    window.removeEventListener('beforeunload', handleBeforeUnload);
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    if (appStateSubscription && typeof appStateSubscription.remove === 'function') {
+      appStateSubscription.remove();
+    }
   };
 
   return cleanup;

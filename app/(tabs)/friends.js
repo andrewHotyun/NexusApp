@@ -287,7 +287,7 @@ export default function FriendsTab() {
           {processingId === item.friendId ? (
             <ActivityIndicator size="small" color="#e74c3c" />
           ) : (
-            <IconSymbol name="trash.fill" size={20} color="#e74c3c" />
+            <IconSymbol name="person.badge.minus" size={20} color="#e74c3c" />
           )}
         </TouchableOpacity>
       </View>

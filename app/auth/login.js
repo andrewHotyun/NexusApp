@@ -101,7 +101,7 @@ export default function LoginScreen() {
               await updateDoc(userDocRef, { deletionInfo: null });
               // Success automatically navigates via _layout
             } catch (error) {
-              console.error("Recovery error:", error);
+              console.log("Recovery error:", error);
               setActionModal({
                 visible: true,
                 title: t('common.error'),
@@ -133,7 +133,7 @@ export default function LoginScreen() {
 
       // Success — _layout.js will handle redirect
     } catch (err) {
-      console.error('Sign In error:', err);
+      console.log('Sign In error:', err);
       const errorMessage = getErrorMessage(err.code);
       setError(errorMessage);
     } finally {

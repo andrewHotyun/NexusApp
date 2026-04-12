@@ -26,8 +26,11 @@ const MAPPING = {
   'camera.fill': 'mat:photo-camera',
   'person.text.rectangle.fill': 'mat:person-outline',
   'person.2.fill': 'mat:people',
-  'person.badge.plus': 'mat:person-add',
+  'person.badge.plus': 'person-add-outline',
+  'person.badge.minus': 'custom:person-remove-circle',
+  'person.badge.xmark': 'person-remove-outline',
   'bell.fill': 'mat:notifications',
+  'clock.fill': 'time',
   'video.fill': 'mat:videocam',
   'arrow.left': 'arrow-back',
   'eye.fill': 'eye',
@@ -44,7 +47,15 @@ const MAPPING = {
   'photo': 'image',
   'chevron.down': 'chevron-down',
   'trash.fill': 'trash',
-  'person.crop.circle.badge.xmark': 'person-remove',
+  'location.fill': 'location',
+  'calendar.fill': 'calendar',
+  'calendar': 'calendar',
+  'birthday.cake.fill': 'mat:cake',
+  'female.fill': 'female',
+  'male.fill': 'male',
+  'female': 'female',
+  'male': 'male',
+  'person.crop.circle.badge.xmark': 'custom:person-block',
   'checkmark': 'mat:check',
   'xmark': 'mat:close',
   'magnifyingglass': 'search',
@@ -54,6 +65,15 @@ const MAPPING = {
   'info.circle.fill': 'mat:info-outline',
   'line.3.horizontal.decrease.circle': 'mat:filter-list',
   'person.crop.circle.badge.questionmark': 'custom:person-question',
+  'ellipsis.circle': 'ellipsis-horizontal-circle',
+  'person.slash.fill': 'person-remove-outline',
+  'person.fill.checkmark': 'lock-open',
+  'person.crop.circle.badge.checkmark': 'mat:account-circle',
+  'slash.circle': 'ban',
+  'paperclip': 'attach',
+  'face.smiling': 'happy-outline',
+  'mic': 'mic-outline',
+  'gift': 'gift-outline',
 };
 
 /**
@@ -82,6 +102,44 @@ export function IconSymbol({
           padding: 0
         }}>
           <Ionicons name="help-circle" size={size * 0.5} color={color} />
+        </View>
+      </View>
+    );
+  }
+
+  if (iconName === 'custom:person-remove-circle' && Platform.OS !== 'ios') {
+    return (
+      <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
+        <Ionicons name="person-outline" size={size} color={color} />
+        <View style={{ 
+          position: 'absolute', 
+          bottom: -size * 0.1, 
+          right: -size * 0.1, 
+          backgroundColor: '#1e293b', // Match ActionMenu background
+          borderRadius: size * 0.3,
+          padding: 0
+        }}>
+          <Ionicons name="remove-circle" size={size * 0.6} color={color} />
+        </View>
+      </View>
+    );
+  }
+
+  if (iconName === 'custom:person-block' && Platform.OS !== 'ios') {
+    return (
+      <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
+        {/* Main person circle outline */}
+        <Ionicons name="person-circle-outline" size={size} color={color} />
+        {/* Badge in the corner */}
+        <View style={{ 
+          position: 'absolute', 
+          bottom: size * 0.05, 
+          left: size * 0.05, 
+          backgroundColor: '#030e21', // Dark background to match Nexus
+          borderRadius: size * 0.25,
+          padding: 0
+        }}>
+          <Ionicons name="close-circle" size={size * 0.45} color={color} />
         </View>
       </View>
     );

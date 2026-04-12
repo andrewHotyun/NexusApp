@@ -1,5 +1,6 @@
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -110,8 +111,7 @@ export default function RegisterScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1.0,
-      base64: true,
+      quality: 0.8,
     });
 
     if (!result.canceled) {
@@ -217,10 +217,15 @@ export default function RegisterScreen() {
             await uploadBytes(avatarRef, blob);
             const downloadURL = await getDownloadURL(avatarRef);
 
-            // Save compressed base64 to Firestore (matching web behavior)
-            // The base64 from ImagePicker is already compressed by quality: 0.7
-            const compressedBase64 = avatar.base64 
-              ? `data:image/jpeg;base64,${avatar.base64}` 
+            // Create a small compressed thumbnail for Firestore base64
+            const ImageManip = require('expo-image-manipulator');
+            const thumbnail = await ImageManip.manipulateAsync(
+              avatar.uri,
+              [{ resize: { width: 300 } }],
+              { compress: 0.6, format: ImageManip.SaveFormat.JPEG, base64: true }
+            );
+            const compressedBase64 = thumbnail.base64
+              ? `data:image/jpeg;base64,${thumbnail.base64}`
               : '';
 
             await updateDoc(docRef(db, 'users', user.uid), {

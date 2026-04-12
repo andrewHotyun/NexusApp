@@ -35,6 +35,7 @@ export const ActionModal = ({
       transparent
       animationType="fade"
       visible={visible}
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>

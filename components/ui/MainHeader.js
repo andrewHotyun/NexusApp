@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '../../utils/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileMenuSheet from './ProfileMenuSheet';
 import { Colors } from '../../constants/theme';
 import { IconSymbol } from './icon-symbol';
@@ -56,10 +57,14 @@ export default function MainHeader() {
   }, [userProfile?.gender]);
 
   const toggleLanguage = () => {
-    const langs = ['en', 'ua', 'es', 'de', 'fr'];
-    const currentIdx = langs.indexOf(i18n.language);
+    const langs = ['en', 'uk', 'es', 'de', 'fr'];
+    // Normalize 'ua' to 'uk' if it was explicitly set before
+    const currentLang = i18n.language === 'ua' ? 'uk' : i18n.language;
+    let currentIdx = langs.indexOf(currentLang);
+    if (currentIdx === -1) currentIdx = 0; // Fallback to 'en' if unknown
     const nextLang = langs[(currentIdx + 1) % langs.length];
     i18n.changeLanguage(nextLang);
+    AsyncStorage.setItem('app_language', nextLang).catch(e => console.log('Lang cache error:', e));
   };
 
   const getInitials = (name) => {
@@ -117,13 +122,15 @@ export default function MainHeader() {
             {/* Language Switcher */}
             <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage} activeOpacity={0.7}>
               <Text style={styles.langIcon}>
-                {i18n.language === 'ua' ? '🇺🇦' : 
+                {['uk', 'ua'].includes(i18n.language) ? '🇺🇦' : 
                  i18n.language === 'en' ? '🇺🇸' : 
                  i18n.language === 'es' ? '🇪🇸' : 
                  i18n.language === 'de' ? '🇩🇪' : 
                  i18n.language === 'fr' ? '🇫🇷' : '🌐'}
               </Text>
-              <Text style={styles.langText}>{i18n.language.toUpperCase()}</Text>
+              <Text style={styles.langText}>{
+                ['uk', 'ua'].includes(i18n.language) ? 'UA' : i18n.language.toUpperCase()
+              }</Text>
             </TouchableOpacity>
 
             {/* Male Stats: Minutes Balance */}
@@ -187,7 +194,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#030e21', 
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
-    paddingTop: Platform.OS === 'android' ? 8 : 0,
   },
   container: {
     flexDirection: 'row',
