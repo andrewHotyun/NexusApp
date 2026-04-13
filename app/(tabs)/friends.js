@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Platform
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   collection, 
   query, 
@@ -45,7 +46,14 @@ export default function FriendsTab() {
 
   const [friends, setFriends] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState({}); // Track who is online in real-time
-  const [userAges, setUserAges] = useState({}); // Cache for friend ages
+  const [userAges, setUserAges] = useState({});
+  const [visibleFriendIds, setVisibleFriendIds] = useState([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem('friends_ages_cache').then(cached => {
+      if (cached) setUserAges(JSON.parse(cached));
+    }).catch(()=>{});
+  }, []); // Cache for friend ages
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOnlineOnly, setIsOnlineOnly] = useState(false);
@@ -141,21 +149,22 @@ export default function FriendsTab() {
 
       if (updated) {
         setUserAges(newAges);
+        AsyncStorage.setItem('friends_ages_cache', JSON.stringify(newAges)).catch(()=>{});
       }
     };
 
     fetchAges();
   }, [friends, userAges]);
 
-  // 3. Track online status for all friends in the list
+  // 3. Track online status ONLY for visible friends
   useEffect(() => {
-    if (friends.length === 0) return;
+    if (visibleFriendIds.length === 0) return;
 
-    const unsubscribers = friends.map(friend => {
-      return getUserOnlineStatus(friend.friendId, (status) => {
+    const unsubscribers = visibleFriendIds.map(friendId => {
+      return getUserOnlineStatus(friendId, (status) => {
         setOnlineUsers(prev => ({
           ...prev,
-          [friend.friendId]: status.isOnline
+          [friendId]: status.isOnline
         }));
       });
     });
@@ -163,7 +172,17 @@ export default function FriendsTab() {
     return () => {
       unsubscribers.forEach(unsub => unsub && unsub());
     };
-  }, [friends]);
+  }, [visibleFriendIds]);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    const ids = viewableItems.map(item => item.item.friendId).filter(Boolean);
+    setVisibleFriendIds(ids);
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 10,
+    minimumViewTime: 300,
+  }).current;
 
   // TEMPORARY: Auto-cleanup testing mock friends
   useEffect(() => {
@@ -248,6 +267,7 @@ export default function FriendsTab() {
 
   const renderFriendItem = ({ item }) => (
     <View style={styles.card}>
+      <View style={styles.accentBorder} />
       <View style={styles.cardInfo}>
         <View style={styles.avatarContainer}>
           {item.friendAvatar ? (
@@ -332,6 +352,7 @@ export default function FriendsTab() {
               />
             </View>
           </View>
+          <View style={styles.headerDivider} />
         </View>
 
         {loading ? (
@@ -359,6 +380,8 @@ export default function FriendsTab() {
                 </Text>
               </View>
             }
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
           />
         )}
 
@@ -391,8 +414,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingTop: 10, 
     paddingBottom: 10, 
-    borderBottomWidth: 1, 
-    borderBottomColor: 'rgba(255,255,255,0.05)' 
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(57, 255, 20, 0.3)',
+    marginTop: 10,
   },
   searchContainer: { 
     flexDirection: 'row', 
@@ -435,7 +461,19 @@ const styles = StyleSheet.create({
     padding: 12, 
     marginBottom: 12, 
     borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.1)' 
+    borderColor: 'rgba(255,255,255,0.08)',
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  accentBorder: {
+    position: 'absolute',
+    left: 0,
+    top: 15,
+    bottom: 15,
+    width: 3.5,
+    backgroundColor: '#39ff14', // Electric Green
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
   },
   cardInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   avatarContainer: { position: 'relative' },

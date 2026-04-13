@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, LogBox, Platform } from 'react-native';
+
+// Suppress known Firebase JS SDK bug on Android (non-fatal, doesn't affect functionality)
+if (Platform.OS === 'android') {
+  LogBox.ignoreLogs([
+    'FIRESTORE',
+    'INTERNAL ASSERTION FAILED',
+    'Unexpected state',
+  ]);
+}
 import { ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

@@ -21,6 +21,9 @@ export function IconSymbol({
   if (name === 'calendar') {
     return <Ionicons name="calendar-outline" size={size} color={color} style={style} />;
   }
+  if (name === 'person.crop.circle.badge.questionmark') {
+    return <Ionicons name="person-circle-outline" size={size} color={color} style={style} />;
+  }
 
   return (
     <SymbolView

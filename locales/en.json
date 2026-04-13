@@ -378,10 +378,10 @@
     "delete": "Delete",
     "error": "❌ Error",
     "info": "Info",
-    "comingSoon": "Coming soon...",
-    "call_invite": "Video Call Invitation",
     "accept": "Accept",
     "decline": "Decline",
+    "comingSoon": "Coming soon...",
+    "call_invite": "Video Call Invitation",
     "removed_friend": "Removed from friends: {{name}}",
     "remove_friend_error": "Failed to remove from friends",
     "blocked_user": "Blocked {{name}}",
@@ -439,6 +439,8 @@
     "successAvatar": "Avatar updated successfully!",
     "errorAvatar": "Error updating avatar.",
     "set_as_avatar": "Set as avatar",
+    "who_liked": "Liked by",
+    "no_likes": "No likes yet",
     "errors": {
       "update_failed": "There was an error updating your profile.",
       "email_reauth": "This is a sensitive operation. Please log out and log in again to change your email address.",
@@ -696,15 +698,21 @@
     "blocked_by_user": "You cannot add this user."
   },
   "notifications": {
-    "title": "Missed Messages ({{count}})",
-    "subtitle_active": "You have unread messages from these users",
-    "subtitle_empty": "No missed messages",
+    "title": "Notifications ({{count}})",
+    "subtitle_active": "New alerts needing your attention",
+    "subtitle_empty": "No new activity",
     "loading": "Loading notifications...",
     "new_messages": "{{count}} new messages",
     "one_new_message": "1 new message",
     "all_caught_up": "All caught up!",
     "no_missed": "No missed messages",
-    "icon": "🎉"
+    "icon": "🎉",
+    "sent_message_notif": "sent you a message",
+    "new_alert": "NEW MESSAGE",
+    "friend_request": "FRIEND REQUEST",
+    "sent_request_notif": "sent you a friend request",
+    "liked_photo_notif": "liked your photo",
+    "liked_alert": "LIKED"
   },
   "translator": {
     "title": "Translator Panel",

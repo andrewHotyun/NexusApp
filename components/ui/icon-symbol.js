@@ -30,6 +30,7 @@ const MAPPING = {
   'person.badge.minus': 'custom:person-remove-circle',
   'person.badge.xmark': 'person-remove-outline',
   'bell.fill': 'mat:notifications',
+  'bell.slash.fill': 'mat:notifications-off',
   'clock.fill': 'time',
   'video.fill': 'mat:videocam',
   'arrow.left': 'arrow-back',
@@ -38,6 +39,7 @@ const MAPPING = {
   'rectangle.portrait.and.arrow.right': 'log-out',
   'star.fill': 'star',
   'heart.fill': 'heart',
+  'heart': 'heart-outline',
   'gearshape.fill': 'settings',
   'translate': 'language',
   'plus': 'add',
@@ -153,5 +155,9 @@ export function IconSymbol({
     return <MaterialIcons color={color} size={size} name={iconName.replace('mat:', '')} style={style} />;
   }
   
+  if (Platform.OS === 'ios') {
+    return <Ionicons color={color} size={size} name={MAPPING[name] || name} style={style} />;
+  }
+
   return <Ionicons color={color} size={size} name={iconName} style={style} />;
 }

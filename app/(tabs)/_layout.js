@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../utils/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { HapticTab } from '../../components/haptic-tab';
 import { IconSymbol } from '../../components/ui/icon-symbol';
@@ -16,10 +17,40 @@ export default function TabLayout() {
   const [requestsCount, setRequestsCount] = useState(0);
   const [friendsCount, setFriendsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
 
   useEffect(() => {
     if (!auth.currentUser) return;
     const user = auth.currentUser;
+
+    // Load cached counts for instant UI
+    let currentCache = {};
+    const loadCache = async () => {
+      try {
+        if (!user) return;
+        const cached = await AsyncStorage.getItem(`badge_counts_${user.uid}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          currentCache = { ...parsed };
+          if (parsed.req !== undefined) setRequestsCount(parsed.req);
+          if (parsed.fri !== undefined) setFriendsCount(parsed.fri);
+          if (parsed.unread !== undefined) setUnreadMessagesCount(parsed.unread);
+          if (parsed.likes !== undefined) setLikesCount(parsed.likes);
+        }
+      } catch (e) {}
+    };
+    loadCache();
+
+    let saveTimeout = null;
+    const saveCount = (key, val) => {
+      currentCache[key] = val;
+      if (saveTimeout) clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(() => {
+        if (user) {
+           AsyncStorage.setItem(`badge_counts_${user.uid}`, JSON.stringify(currentCache)).catch(()=>{});
+        }
+      }, 1000);
+    };
 
     // Listen to friend requests count
     const qRequests = query(
@@ -28,7 +59,9 @@ export default function TabLayout() {
       where('status', '==', 'pending')
     );
     const unsubRequests = onSnapshot(qRequests, (snap) => {
-      setRequestsCount(snap.docs.length);
+      const count = snap.docs.length;
+      setRequestsCount(count);
+      saveCount('req', count);
     });
 
     // Listen to friends count
@@ -37,7 +70,9 @@ export default function TabLayout() {
       where('userId', '==', user.uid)
     );
     const unsubFriends = onSnapshot(qFriends, (snap) => {
-      setFriendsCount(snap.docs.length);
+      const count = snap.docs.length;
+      setFriendsCount(count);
+      saveCount('fri', count);
     });
 
     // Listen to unread messages count
@@ -47,13 +82,29 @@ export default function TabLayout() {
       where('read', '==', false)
     );
     const unsubUnread = onSnapshot(qUnread, (snap) => {
-      setUnreadMessagesCount(snap.docs.length);
+      const uniqueSenders = new Set(snap.docs.map(d => d.data().senderId));
+      const count = uniqueSenders.size;
+      setUnreadMessagesCount(count);
+      saveCount('unread', count);
+    });
+    
+    // Listen to likes count (unread)
+    const qLikes = query(
+      collection(db, 'likes'),
+      where('targetUserId', '==', user.uid),
+      where('read', '==', false)
+    );
+    const unsubLikes = onSnapshot(qLikes, (snap) => {
+      const count = snap.docs.length;
+      setLikesCount(count);
+      saveCount('likes', count);
     });
 
     return () => {
       unsubRequests();
       unsubFriends();
       unsubUnread();
+      unsubLikes();
     };
   }, []);
 
@@ -184,6 +235,18 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <IconSymbol size={26} name="bell.fill" color={color} />
             ),
+            tabBarBadge: (unreadMessagesCount + requestsCount + likesCount) > 0 ? (unreadMessagesCount + requestsCount + likesCount) : undefined,
+            tabBarBadgeStyle: { 
+              backgroundColor: '#e74c3c', 
+              color: '#fff',
+              fontSize: 10, 
+              minWidth: 16, 
+              height: 16, 
+              borderRadius: 8,
+              lineHeight: 16,
+              textAlign: 'center',
+              marginTop: -2 
+            }
           }}
         />
 

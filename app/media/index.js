@@ -14,7 +14,8 @@ import {
   Modal,
   Platform,
   StatusBar,
-  Pressable
+  Pressable,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -28,7 +29,8 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
 import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -38,6 +40,8 @@ import { auth, db, storage } from '../../utils/firebase';
 import { Colors } from '../../constants/theme';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { ActionModal } from '../../components/ui/ActionModal';
+import { earningsManager } from '../../utils/earningsManager';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -60,8 +64,44 @@ export default function MediaGalleryScreen() {
     visible: false, title: '', message: '', confirmText: '', onConfirm: () => {}, isDestructive: false 
   });
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [settingAvatar, setSettingAvatar] = useState(false);
+  const [likedItems, setLikedItems] = useState(new Set());
+  const [isLiking, setIsLiking] = useState(false);
+  const likeScale = React.useRef(new Animated.Value(1)).current;
+  const [likersModalVisible, setLikersModalVisible] = useState(false);
+  const [likersData, setLikersData] = useState([]);
+  const [likersLoading, setLikersLoading] = useState(false);
+
+  const showLikers = async (item) => {
+    const likedBy = item.likedBy || [];
+    if (likedBy.length === 0) return;
+
+    setLikersModalVisible(true);
+    setLikersLoading(true);
+    
+    try {
+      const profiles = await Promise.all(
+        likedBy.map(async (uid) => {
+          try {
+            const snap = await getDoc(doc(db, 'users', uid));
+            if (snap.exists()) {
+              return { uid, ...snap.data() };
+            }
+            return { uid, name: 'Unknown' };
+          } catch {
+            return { uid, name: 'Unknown' };
+          }
+        })
+      );
+      setLikersData(profiles);
+    } catch (e) {
+      console.error('Error fetching likers:', e);
+    } finally {
+      setLikersLoading(false);
+    }
+  };
 
   // Real-time folders listener
   useEffect(() => {
@@ -229,6 +269,66 @@ export default function MediaGalleryScreen() {
     });
   };
 
+  const animateLike = () => {
+    Animated.sequence([
+      Animated.spring(likeScale, { toValue: 1.3, useNativeDriver: true, friction: 3 }),
+      Animated.spring(likeScale, { toValue: 1, useNativeDriver: true, friction: 3 }),
+    ]).start();
+  };
+
+  const isLiked = (item) => {
+    if (!item) return false;
+    if (likedItems.has(item.url)) return true;
+    return item.likedBy?.includes(user?.uid);
+  };
+
+  const handleLikePhoto = async (item, index) => {
+    if (!user || !item || isLiking) return;
+    setIsLiking(true);
+
+    const alreadyLiked = isLiked(item);
+
+    // Optimistic UI update
+    setLikedItems(prev => {
+      const next = new Set(prev);
+      if (alreadyLiked) {
+        next.delete(item.url);
+      } else {
+        next.add(item.url);
+      }
+      return next;
+    });
+
+    animateLike();
+
+    try {
+      if (currentFolder) {
+        const folderRef = doc(db, 'galleries', currentFolder.id);
+        const updatedItems = (currentFolder.items || []).map(i => {
+          if (i.url === item.url) {
+            const currentLikedBy = i.likedBy || [];
+            return {
+              ...i,
+              likedBy: alreadyLiked
+                ? currentLikedBy.filter(uid => uid !== user.uid)
+                : [...currentLikedBy, user.uid]
+            };
+          }
+          return i;
+        });
+        await updateDoc(folderRef, { items: updatedItems });
+      }
+
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
   const handleSetAsAvatar = async (imageUrl) => {
     setSettingAvatar(true);
     try {
@@ -368,32 +468,75 @@ export default function MediaGalleryScreen() {
           data={currentFolder.items || []}
           keyExtractor={(_, index) => index.toString()}
           numColumns={COLUMN_COUNT}
-          renderItem={({ item, index }) => (
-            <TouchableOpacity 
-              style={styles.mediaItem}
-              onLongPress={() => handleDeleteMedia(index)}
-              onPress={() => {
-                if (item.type === 'image') {
-                  setSelectedImage(item.url);
-                  setIsImageViewerVisible(true);
-                } else {
-                  setActionModal({
-                    visible: true,
-                    title: t('common.info'),
-                    message: t('common.comingSoon'),
-                    showCancel: false
-                  });
-                }
-              }}>
-              {item.type === 'image' ? (
-                <Image source={{ uri: item.url }} style={styles.mediaImage} />
-              ) : (
-                <View style={styles.videoPlaceholder}>
-                  <IconSymbol name="play.fill" size={24} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
+          renderItem={({ item, index }) => {
+            const likesCount = item.likedBy?.length || 0;
+            const liked = isLiked(item);
+            // Adjust count for optimistic UI
+            const isOriginallyLiked = item.likedBy?.includes(user?.uid);
+            const isLocallyLiked = likedItems.has(item.url);
+            let displayCount = likesCount;
+            if (isLocallyLiked && !isOriginallyLiked) displayCount = likesCount + 1;
+            if (!isLocallyLiked && isOriginallyLiked) displayCount = Math.max(0, likesCount - 1);
+
+            return (
+              <TouchableOpacity 
+                style={styles.mediaItem}
+                onLongPress={() => handleDeleteMedia(index)}
+                onPress={() => {
+                  if (item.type === 'image') {
+                    setSelectedImage(item.url);
+                    setSelectedImageIndex(index);
+                    setIsImageViewerVisible(true);
+                  } else {
+                    setActionModal({
+                      visible: true,
+                      title: t('common.info'),
+                      message: t('common.comingSoon'),
+                      showCancel: false
+                    });
+                  }
+                }}>
+                {item.type === 'image' ? (
+                  <Image source={{ uri: item.url }} style={styles.mediaImage} />
+                ) : (
+                  <View style={styles.videoPlaceholder}>
+                    <IconSymbol name="play.fill" size={24} color="#fff" />
+                  </View>
+                )}
+                {/* Like button - bottom left */}
+                <TouchableOpacity 
+                  style={[styles.mediaLikeBtn, liked && styles.mediaLikeBtnActive]}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    handleLikePhoto(item, index);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <IconSymbol 
+                    name={liked ? "heart.fill" : "heart"} 
+                    size={14} 
+                    color="#fff" 
+                  />
+                  {displayCount > 0 && (
+                    <Text style={styles.mediaLikeCount}>{displayCount}</Text>
+                  )}
+                </TouchableOpacity>
+                {/* Eye button - bottom right */}
+                {displayCount > 0 && (
+                  <TouchableOpacity 
+                    style={styles.mediaEyeBtn}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      showLikers(item);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <IconSymbol name="eye.fill" size={13} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            );
+          }}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={(
             <View style={styles.emptyState}>
@@ -436,6 +579,8 @@ export default function MediaGalleryScreen() {
           </View>
 
           <View style={styles.viewerBottomBar}>
+
+            {/* Set as Avatar Button */}
             <TouchableOpacity
               style={styles.setAvatarBtn}
               onPress={() => handleSetAsAvatar(selectedImage)}
@@ -449,6 +594,55 @@ export default function MediaGalleryScreen() {
                 </>
               )}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Who Liked Modal */}
+      <Modal
+        visible={likersModalVisible}
+        transparent={true}
+        animationType="slide"
+        statusBarTranslucent={true}
+        onRequestClose={() => setLikersModalVisible(false)}
+      >
+        <View style={styles.likersOverlay}>
+          <TouchableOpacity style={styles.likersOverlayBg} activeOpacity={1} onPress={() => setLikersModalVisible(false)} />
+          <View style={styles.likersSheet}>
+            <View style={styles.likersHandle} />
+            <Text style={styles.likersTitle}>
+              {t('profile.who_liked', 'Liked by')} ({likersData.length})
+            </Text>
+
+            {likersLoading ? (
+              <ActivityIndicator size="large" color={Colors.dark.primary} style={{ marginTop: 30 }} />
+            ) : (
+              <FlatList
+                data={likersData}
+                keyExtractor={(item) => item.uid}
+                renderItem={({ item: liker }) => (
+                  <View style={styles.likerRow}>
+                    {liker.avatar ? (
+                      <Image source={{ uri: liker.avatar }} style={styles.likerAvatar} />
+                    ) : (
+                      <View style={[styles.likerAvatarPlaceholder, { backgroundColor: '#34495e' }]}>
+                        <Text style={styles.likerAvatarLetter}>{liker.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
+                      </View>
+                    )}
+                    <View style={styles.likerInfo}>
+                      <Text style={styles.likerName}>{liker.name || 'User'}{liker.age ? `, ${liker.age}` : ''}</Text>
+                      {liker.city && liker.country && (
+                        <Text style={styles.likerLocation}>{liker.city}, {liker.country}</Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+                contentContainerStyle={{ paddingBottom: 40 }}
+                ListEmptyComponent={
+                  <Text style={styles.likersEmpty}>{t('profile.no_likes', 'No likes yet')}</Text>
+                }
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -673,5 +867,146 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+  },
+  mediaLikeBtn: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    height: 28,
+    minWidth: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    gap: 4,
+  },
+  mediaLikeBtnActive: {
+    backgroundColor: '#ff4757',
+    borderWidth: 0,
+    shadowColor: '#ff4757',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  mediaLikeCount: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  mediaEyeBtn: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewerLikeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    minWidth: 100,
+  },
+  viewerLikeText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  likersOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  likersOverlayBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  likersSheet: {
+    backgroundColor: '#0d1b2a',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '60%',
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomWidth: 0,
+  },
+  likersHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  likersTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  likerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  likerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  likerAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  likerAvatarLetter: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  likerInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  likerName: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  likerLocation: {
+    color: '#7f8c8d',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  likersEmpty: {
+    color: '#7f8c8d',
+    fontSize: 15,
+    textAlign: 'center',
+    marginTop: 30,
   },
 });

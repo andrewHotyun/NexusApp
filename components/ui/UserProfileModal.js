@@ -2,8 +2,9 @@ import { ResizeMode, Video } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import { collection, doc, onSnapshot, query, where, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -14,11 +15,14 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Alert
 } from 'react-native';
 import { Colors } from '../../constants/theme';
-import { db } from '../../utils/firebase';
+import { db, auth } from '../../utils/firebase';
 import { IconSymbol } from './icon-symbol';
+import { earningsManager } from '../../utils/earningsManager';
+import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -88,8 +92,114 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
   const [folders, setFolders] = useState([]);
   const [selectedFolderId, setSelectedFolderId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [fullScreenItem, setFullScreenItem] = useState(null);
+  const [fullScreenMediaUrl, setFullScreenMediaUrl] = useState(null);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [likedItems, setLikedItems] = useState(new Set());
+  const [isLiking, setIsLiking] = useState(false);
+  const likeScale = useRef(new Animated.Value(1)).current;
+
+  // Pop animation for the like button
+  const animateLike = () => {
+    Animated.sequence([
+      Animated.spring(likeScale, {
+        toValue: 1.3,
+        useNativeDriver: true,
+        speed: 50,
+        bounciness: 12,
+      }),
+      Animated.spring(likeScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 20,
+      })
+    ]).start();
+  };
+
+  // Find current item dynamically from folders to avoid stale data
+  const getCurrentItem = () => {
+    if (!fullScreenMediaUrl) return null;
+    for (const folder of folders) {
+      const item = folder.items?.find(i => i.url === fullScreenMediaUrl);
+      if (item) return item;
+    }
+    return null;
+  };
+
+  const currentItem = getCurrentItem();
+
+  // Check if item was already liked in the session OR in the Firestore data
+  const isLiked = (item) => {
+    if (!item) return false;
+    if (likedItems.has(item.url)) return true;
+    return item.likedBy?.includes(auth.currentUser?.uid);
+  };
+
+  const handleLikePhoto = async (item) => {
+    if (!auth.currentUser || !userId || isLiking || !item) return;
+
+    const alreadyLiked = isLiked(item);
+    // Optimistic UI update: toggle local state immediately
+    setLikedItems(prev => {
+      const next = new Set(prev);
+      if (alreadyLiked) next.delete(item.url);
+      else next.add(item.url);
+      return next;
+    });
+
+    setIsLiking(true);
+    animateLike();
+
+    try {
+      // Find the folder document to update the 'likedBy' array (for web compatibility)
+      const folder = folders.find(f => f.items?.some(i => i.url === item.url));
+      if (folder) {
+        const folderRef = doc(db, 'galleries', folder.id);
+        const updatedItems = folder.items.map(i => {
+          if (i.url === item.url) {
+            const currentLikedBy = i.likedBy || [];
+            return {
+              ...i,
+              likedBy: alreadyLiked 
+                ? currentLikedBy.filter(uid => uid !== auth.currentUser.uid)
+                : [...currentLikedBy, auth.currentUser.uid]
+            };
+          }
+          return i;
+        });
+
+        await updateDoc(folderRef, { items: updatedItems });
+      }
+
+      if (!alreadyLiked) {
+        // Record like for notifications (new likes only)
+        await addDoc(collection(db, 'likes'), {
+          senderId: auth.currentUser.uid,
+          targetUserId: userId,
+          contentUrl: item.url,
+          contentType: item.type || 'image',
+          createdAt: serverTimestamp(),
+          read: false
+        });
+
+        // Add earnings if recipient is a woman
+        await earningsManager.addLikeEarnings(
+          userId, 
+          auth.currentUser.uid, 
+          'gallery', 
+          item.url
+        );
+        
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      // Revert optimistic update on error if needed (optional)
+    } finally {
+      setIsLiking(false);
+    }
+  };
 
   useEffect(() => {
     if (!isVisible || !userId) return;
@@ -196,7 +306,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
                         <TouchableOpacity
                           activeOpacity={0.9}
                           onPress={() => {
-                            setFullScreenItem({ url: profile.originalAvatarUrl || profile.avatar, type: 'image' });
+                            setFullScreenMediaUrl(profile.originalAvatarUrl || profile.avatar);
                             setIsVideoPlaying(true);
                           }}
                         >
@@ -298,7 +408,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
                               style={styles.mediaItem}
                               activeOpacity={0.9}
                               onPress={() => {
-                                setFullScreenItem(item);
+                                setFullScreenMediaUrl(item.url);
                                 setIsVideoPlaying(true);
                               }}
                             >
@@ -366,28 +476,63 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
       </View>
 
       {/* Full Screen Media Viewer */}
-      <Modal visible={!!fullScreenItem} transparent={false} animationType="fade" statusBarTranslucent>
+      <Modal visible={!!fullScreenMediaUrl} transparent={false} animationType="fade" statusBarTranslucent>
         <View style={styles.fullScreenContainer}>
           <TouchableOpacity
             style={styles.fullScreenClose}
-            onPress={() => setFullScreenItem(null)}
+            onPress={() => setFullScreenMediaUrl(null)}
           >
             <IconSymbol name="xmark" size={24} color="#fff" />
           </TouchableOpacity>
-          {fullScreenItem?.type === 'video' ? (
+          {currentItem?.type === 'video' ? (
             <CustomVideoPlayer 
-              url={fullScreenItem.url} 
+              url={currentItem.url} 
               isPlaying={isVideoPlaying} 
               onTogglePlay={() => setIsVideoPlaying(!isVideoPlaying)} 
             />
           ) : (
             <ExpoImage
-              source={fullScreenItem?.url}
+              source={currentItem?.url}
               style={styles.fullScreenImage}
               contentFit="contain"
               transition={300}
             />
           )}
+
+          {/* Like Button Overlay */}
+          <Animated.View style={[
+            styles.likeButtonWrapper,
+            { transform: [{ scale: likeScale }] }
+          ]}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => handleLikePhoto(currentItem)}
+              style={styles.likeButtonTouchable}
+            >
+              <BlurView
+                intensity={30}
+                tint="dark"
+                style={styles.likeButtonBlur}
+              >
+                <IconSymbol 
+                  name={isLiked(currentItem) ? "heart.fill" : "heart"} 
+                  size={24} 
+                  color={isLiked(currentItem) ? "#ff4757" : "#fff"} 
+                />
+                <Text style={styles.likesCountText}>
+                  {(() => {
+                    const baseCount = currentItem?.likedBy?.length || 0;
+                    const isOriginallyLiked = currentItem?.likedBy?.includes(auth.currentUser?.uid);
+                    const isLocallyLiked = likedItems.has(currentItem?.url);
+                    
+                    if (isLocallyLiked && !isOriginallyLiked) return baseCount + 1;
+                    if (!isLocallyLiked && isOriginallyLiked) return Math.max(0, baseCount - 1);
+                    return baseCount;
+                  })()}
+                </Text>
+              </BlurView>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </Modal>
     </Modal>
@@ -767,5 +912,34 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 16,
     fontWeight: '600',
+  },
+  likeButtonWrapper: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 80 : 40,
+    right: 24,
+    zIndex: 40,
+  },
+  likeButtonTouchable: {
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  likeButtonBlur: {
+    paddingHorizontal: 14,
+    height: 48,
+    minWidth: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  likesCountText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   }
 });

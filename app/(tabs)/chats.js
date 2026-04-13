@@ -53,16 +53,9 @@ export default function ChatsTab() {
   const [profileFetchCount, setProfileFetchCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [typingUsers, setTypingUsers] = useState({}); // { senderId: boolean }
-  const profileUnsubscribers = useRef(new Map());
-
-  // Clean up all real-time profile listeners on logout or unmount
+  // Clean up in-memory cache on logout if user changes
   useEffect(() => {
     return () => {
-      profileUnsubscribers.current.forEach(unsub => {
-        if (typeof unsub === 'function') unsub();
-      });
-      profileUnsubscribers.current.clear();
-      
       // Also clear in-memory cache on logout if user changes
       if (!user) {
         Object.keys(userProfileCache).forEach(key => delete userProfileCache[key]);
@@ -248,54 +241,52 @@ export default function ChatsTab() {
             userProfileCache[chat.id]._fetching = true;
           }
           
-          // Only create one listener per user ID
-          if (!profileUnsubscribers.current.has(chat.id)) {
-            const unsub = onSnapshot(doc(db, 'users', chat.id), (userDoc) => {
-              if (userDoc.exists()) {
-                userProfileCache[chat.id] = { 
-                  ...userProfileCache[chat.id], 
-                  ...userDoc.data(), 
-                  _fresh: true, 
-                  _fetching: false 
-                };
-              } else {
-                userProfileCache[chat.id] = { 
-                  ...userProfileCache[chat.id], 
-                  _notFound: true, 
-                  _fresh: true, 
-                  _fetching: false 
-                };
-              }
-              
-              // Incrementally update the existing chats state without re-triggering the full aggregate effect
-              setChats(prevChats => {
-                let changed = false;
-                const next = prevChats.map(c => {
-                  if (c.id === chat.id) {
-                    changed = true;
-                    return {
-                      ...c,
-                      partner: { 
-                        ...(userProfileCache[chat.id]._notFound ? {} : userProfileCache[chat.id]), 
-                        name: userProfileCache[chat.id].name || c.partner.name,
-                        uid: chat.id 
-                      }
-                    };
-                  }
-                  return c;
-                });
-                return changed ? next : prevChats;
-              });
-
-            }, (e) => {
-              if (userProfileCache[chat.id]) userProfileCache[chat.id]._fetching = false;
-              if (e.code !== 'permission-denied') {
-                console.error(`Error syncing user ${chat.id}:`, e);
-              }
-            });
+          // Perform a ONE-OFF background fetch instead of a permanent DB listener
+          getDoc(doc(db, 'users', chat.id)).then(userDoc => {
+            if (userDoc.exists()) {
+              userProfileCache[chat.id] = { 
+                ...userProfileCache[chat.id], 
+                ...userDoc.data(), 
+                _fresh: true, 
+                _fetching: false 
+              };
+            } else {
+              userProfileCache[chat.id] = { 
+                ...userProfileCache[chat.id], 
+                _notFound: true, 
+                _fresh: true, 
+                _fetching: false 
+              };
+            }
             
-            profileUnsubscribers.current.set(chat.id, unsub);
-          }
+            // Incrementally update the existing chats state without re-triggering the full aggregate effect
+            setChats(prevChats => {
+              let changed = false;
+              const next = prevChats.map(c => {
+                if (c.id === chat.id) {
+                  changed = true;
+                  return {
+                    ...c,
+                    partner: { 
+                      ...(userProfileCache[chat.id]._notFound ? {} : userProfileCache[chat.id]), 
+                      name: userProfileCache[chat.id].name || c.partner.name,
+                      uid: chat.id 
+                    }
+                  };
+                }
+                return c;
+              });
+              
+              // Sync to backup cache
+              if (changed && user?.uid) {
+                AsyncStorage.setItem(`chats_cache_${user.uid}`, JSON.stringify(next)).catch(()=>{});
+              }
+              return changed ? next : prevChats;
+            });
+          }).catch(e => {
+            if (userProfileCache[chat.id]) userProfileCache[chat.id]._fetching = false;
+            console.error(`Error fetching user ${chat.id}:`, e);
+          });
         }
         
         const updatedCached = userProfileCache[chat.id];
@@ -485,6 +476,7 @@ export default function ChatsTab() {
         onSwipeableWillOpen={() => setDeletingChatId(partner.uid || item.id)}
       >
         <View style={styles.chatCardWrapper}>
+          <View style={styles.accentBorder} />
           <RectButton 
             style={styles.chatCard}
             underlayColor="rgba(255,255,255,0.1)"
@@ -579,6 +571,7 @@ export default function ChatsTab() {
                 {searchQuery ? t('chats.search_results', 'Search Results') : t('chats.all_chats', { count: chats.length })}
               </Text>
             </View>
+            <View style={styles.headerDivider} />
           </View>
 
           {loading && !refreshing ? (
@@ -640,8 +633,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingTop: 10, 
     paddingBottom: 10, 
-    borderBottomWidth: 1, 
-    borderBottomColor: 'rgba(255,255,255,0.05)' 
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 240, 255, 0.3)',
+    marginTop: 12,
   },
   searchContainer: { 
     flexDirection: 'row', 
@@ -676,7 +672,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#121e31',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1e293b', // Solid color equivalent to prevent transparent bleed during android swipe
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    position: 'relative'
+  },
+  accentBorder: {
+    position: 'absolute',
+    left: 0,
+    top: 15,
+    bottom: 15,
+    width: 3.5,
+    backgroundColor: '#00f0ff', // Electric Blue
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    zIndex: 10,
   },
   chatCard: {
     flexDirection: 'row',

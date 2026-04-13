@@ -1,9 +1,10 @@
-import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   initializeFirestore, 
-  memoryLocalCache 
+  memoryLocalCache,
+  getFirestore
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -18,18 +19,28 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-const app = initializeApp(firebaseConfig);
+let app, auth, db, storage;
 
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage)
-});
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+  
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
 
-// RADICAL ANDROID STABILITY: Disable disk persistence and force stable HTTP LONG POLLING
-// This completely eliminates "INTERNAL ASSERTION FAILED: Unexpected state (ID: 3186)"
-const db = initializeFirestore(app, {
-  localCache: memoryLocalCache(),
-  useFetchStreams: false,
-});
-const storage = getStorage(app);
+  // RADICAL ANDROID STABILITY: Disable disk persistence and force stable HTTP LONG POLLING
+  // This completely eliminates "INTERNAL ASSERTION FAILED: Unexpected state (ID: 3186)"
+  db = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+    experimentalForceLongPolling: true,
+    useFetchStreams: false,
+  });
+} else {
+  app = getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+}
+
+storage = getStorage(app);
 
 export { auth, db, storage };

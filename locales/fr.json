@@ -373,10 +373,10 @@
     "edited": "modifié",
     "error": "❌ Erreur",
     "info": "Info",
-    "comingSoon": "À venir...",
-    "call_invite": "Invitation au chat vidéo",
     "accept": "Accepter",
     "decline": "Refuser",
+    "comingSoon": "À venir...",
+    "call_invite": "Invitation au chat vidéo",
     "removed_friend": "Supprimé des amis : {{name}}",
     "remove_friend_error": "Échec de la suppression de l'ami",
     "blocked_user": "Utilisateur bloqué : {{name}}",
@@ -438,6 +438,8 @@
     "successAvatar": "Avatar mis à jour avec succès !",
     "errorAvatar": "Erreur lors de la mise à jour de l'avatar.",
     "set_as_avatar": "Définir comme avatar",
+    "who_liked": "Aimé par",
+    "no_likes": "Pas encore de likes",
     "errors": {
       "update_failed": "Une erreur s'est produite lors de la mise à jour de votre profil.",
       "email_reauth": "C'est une opération sensible. Veuillez vous déconnecter et vous reconnecter pour changer votre adresse e-mail.",
@@ -692,15 +694,21 @@
     "sent_gift": "A envoyé un cadeau"
   },
   "notifications": {
-    "title": "Messages manqués ({{count}})",
-    "subtitle_active": "Vous avez des messages non lus de ces utilisateurs",
-    "subtitle_empty": "Aucun message manqué",
+    "title": "Notifications ({{count}})",
+    "subtitle_active": "Nouvelles alertes nécessitant votre attention",
+    "subtitle_empty": "Aucune nouvelle activité",
     "loading": "Chargement des notifications...",
     "new_messages": "{{count}} nouveaux messages",
     "one_new_message": "1 nouveau message",
     "all_caught_up": "Tout est à jour !",
     "no_missed": "Aucun message manqué",
-    "icon": "🔔"
+    "icon": "🔔",
+    "sent_message_notif": "vous a envoyé un message",
+    "new_alert": "NOUVEAU MESSAGE",
+    "friend_request": "DEMANDE D'AMI",
+    "sent_request_notif": "vous a envoyé une demande d'ami",
+    "liked_photo_notif": "a aimé votre photo",
+    "liked_alert": "J'AIME"
   },
   "translator": {
     "title": "Tableau de bord du traducteur",

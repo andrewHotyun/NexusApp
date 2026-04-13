@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -62,7 +63,7 @@ export default function RequestsTab() {
   const router = useRouter();
   const user = auth.currentUser;
 
-  const [activeTab, setActiveTab] = useState('incoming'); // 'incoming' | 'sent'
+  const [activeTab, setActiveTab] = useState('incoming'); // Default to incoming as requested
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [userProfiles, setUserProfiles] = useState({}); // Stores { name, avatar, age } by UID
@@ -113,6 +114,14 @@ export default function RequestsTab() {
     visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true
   });
   const [currentUserData, setCurrentUserData] = useState(null);
+  
+  // Reset tab to 'incoming' when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setActiveTab('incoming');
+      setSearchQuery('');
+    }, [])
+  );
 
 
   const allCountries = useMemo(() => {
@@ -683,6 +692,7 @@ export default function RequestsTab() {
 
     return (
       <View style={styles.card}>
+        <View style={styles.accentBorderSearch} />
         <View style={styles.cardInfo}>
         <View style={styles.avatarContainer}>
           {item.avatar ? (
@@ -744,6 +754,7 @@ export default function RequestsTab() {
 
     return (
       <View style={styles.card}>
+        <View style={styles.accentBorderRequest} />
         <View style={styles.cardInfo}>
           <View style={styles.avatarContainer}>
             {displayAvatar ? (
@@ -808,6 +819,7 @@ export default function RequestsTab() {
 
     return (
       <View style={styles.card}>
+        <View style={styles.accentBorderRequest} />
         <View style={styles.cardInfo}>
         <View style={styles.avatarContainer}>
           {displayAvatar ? (
@@ -909,6 +921,7 @@ export default function RequestsTab() {
                 </TouchableOpacity>
               </View>
           </Animated.View>
+          <View style={styles.headerDivider} />
         </Animated.View>
 
         {isSearchActive ? (
@@ -949,33 +962,39 @@ export default function RequestsTab() {
           /* INCOMING / SENT VIEW */
           <>
             <View style={styles.segmentedControl}>
-              <TouchableOpacity style={[styles.segmentBtn, activeTab === 'incoming' && styles.segmentBtnActive]} onPress={() => setActiveTab('incoming')}>
+              <TouchableOpacity 
+                style={[styles.segmentBtn, activeTab === 'incoming' && styles.segmentBtnActive]} 
+                onPress={() => setActiveTab('incoming')}
+              >
                 <Text style={[styles.segmentText, activeTab === 'incoming' && styles.segmentTextActive]}>
                   {t('friends.incoming', 'Incoming')} {incomingRequests.length > 0 ? `(${incomingRequests.length})` : ''}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.segmentBtn, activeTab === 'sent' && styles.segmentBtnActive]} onPress={() => setActiveTab('sent')}>
+              <TouchableOpacity 
+                style={[styles.segmentBtn, activeTab === 'sent' && styles.segmentBtnActive]} 
+                onPress={() => setActiveTab('sent')}
+              >
                 <Text style={[styles.segmentText, activeTab === 'sent' && styles.segmentTextActive]}>
                   {t('friends.sent', 'Sent')} {sentRequests.length > 0 ? `(${sentRequests.length})` : ''}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {activeTab === 'incoming' && incomingRequests.length > 0 && !isSearchActive && (
+            {incomingRequests.length > 0 && activeTab === 'incoming' && (
               <View style={styles.bulkActionsBar}>
                 <TouchableOpacity style={styles.bulkBtnAccept} onPress={handleAcceptAll}>
                   <IconSymbol name="checkmark.circle.fill" size={14} color="#fff" />
-                  <Text style={styles.bulkBtnText} adjustsFontSizeToFit numberOfLines={1}>{t('friends.accept_all')}</Text>
+                  <Text style={styles.bulkBtnText}>{t('friends.accept_all', 'Accept All')}</Text>
                 </TouchableOpacity>
                 {currentUserData?.gender === 'woman' && (
                   <TouchableOpacity style={styles.bulkBtnGift} onPress={handleAcceptWithGifts}>
                     <IconSymbol name="gift.fill" size={14} color="#fff" />
-                    <Text style={styles.bulkBtnText} adjustsFontSizeToFit numberOfLines={1}>{t('friends.accept_only_gifts')}</Text>
+                    <Text style={styles.bulkBtnText}>{t('friends.accept_only_gifts', 'Accept Gifts')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity style={styles.bulkBtnReject} onPress={handleRejectAll}>
                   <IconSymbol name="xmark.circle.fill" size={14} color="#e74c3c" />
-                  <Text style={styles.bulkBtnTextReject} adjustsFontSizeToFit numberOfLines={1}>{t('friends.reject_all')}</Text>
+                  <Text style={styles.bulkBtnTextReject}>{t('friends.reject_all', 'Reject All')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -992,8 +1011,17 @@ export default function RequestsTab() {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <IconSymbol name="person.crop.circle.badge.questionmark" size={60} color="#34495e" />
-                    <Text style={styles.emptyText}>{activeTab === 'incoming' ? t('friends.no_incoming_requests', 'No incoming requests.') : t('friends.no_sent_requests', 'No sent requests.')}</Text>
+                    <IconSymbol 
+                      name={activeTab === 'incoming' ? "person.badge.plus" : "person.crop.circle.badge.questionmark"} 
+                      size={60} 
+                      color="#34495e" 
+                    />
+                    <Text style={styles.emptyText}>
+                      {activeTab === 'incoming' 
+                        ? t('friends.no_incoming_requests', 'No incoming requests.') 
+                        : t('friends.no_sent_requests', 'No sent requests.')
+                      }
+                    </Text>
                   </View>
                 }
               />
@@ -1057,7 +1085,16 @@ export default function RequestsTab() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.dark.background },
-  searchHeaderArea: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  searchHeaderArea: { 
+    paddingHorizontal: 16, 
+    paddingTop: 12, 
+    paddingBottom: 0, 
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 240, 255, 0.3)',
+    marginTop: 12,
+  },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52, 73, 94, 0.4)', borderRadius: 12, height: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: '#34495e' },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, color: '#fff', fontSize: 16, height: '100%' },
@@ -1078,7 +1115,41 @@ const styles = StyleSheet.create({
   searchResultsContainer: { flex: 1 },
   sectionHeaderTitle: { color: '#7f8c8d', fontSize: 13, textTransform: 'uppercase', paddingHorizontal: 16, paddingTop: 16, fontWeight: '600' },
   listContainer: { padding: 16, paddingBottom: 100 },
-  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  card: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    backgroundColor: 'rgba(255,255,255,0.07)', 
+    borderRadius: 20, 
+    padding: 16, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)',
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  accentBorderRequest: {
+    position: 'absolute',
+    left: 0,
+    top: 15,
+    bottom: 15,
+    width: 3.5,
+    backgroundColor: '#fff01f', // Neon Yellow
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    zIndex: 10,
+  },
+  accentBorderSearch: {
+    position: 'absolute',
+    left: 0,
+    top: 15,
+    bottom: 15,
+    width: 3.5,
+    backgroundColor: '#00f0ff', // Electric Blue
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    zIndex: 10,
+  },
   cardInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   avatarContainer: { position: 'relative' },
   avatar: { 

@@ -373,10 +373,10 @@
     "delete": "Löschen",
     "error": "❌ Fehler",
     "info": "Info",
-    "comingSoon": "Demnächst...",
-    "call_invite": "Einladung zum Video-Chat",
     "accept": "Annehmen",
     "decline": "Ablehnen",
+    "comingSoon": "Demnächst...",
+    "call_invite": "Einladung zum Video-Chat",
     "removed_friend": "Aus Freunden entfernt: {{name}}",
     "remove_friend_error": "Fehler beim Entfernen des Freundes",
     "blocked_user": "Benutzer blockiert: {{name}}",
@@ -437,6 +437,8 @@
     "successAvatar": "Avatar erfolgreich aktualisiert!",
     "errorAvatar": "Fehler beim Aktualisieren des Avatars.",
     "set_as_avatar": "Als Avatar festlegen",
+    "who_liked": "Gefällt",
+    "no_likes": "Noch keine Likes",
     "errors": {
       "update_failed": "Beim Aktualisieren Ihres Profils ist ein Fehler aufgetreten.",
       "email_reauth": "Dies ist ein vertraulicher Vorgang. Bitte melden Sie sich ab und wieder an, um Ihre E-Mail-Adresse zu ändern.",
@@ -700,15 +702,21 @@
     "blocked_by_user": "Sie können diesen Benutzer nicht hinzufügen."
   },
   "notifications": {
-    "title": "Verpasste Nachrichten ({{count}})",
-    "subtitle_active": "Sie haben ungelesene Nachrichten von diesen Benutzern",
-    "subtitle_empty": "Keine verpassten Nachrichten",
+    "title": "Benachrichtigungen ({{count}})",
+    "subtitle_active": "Neue Benachrichtigungen, die Ihre Aufmerksamkeit erfordern",
+    "subtitle_empty": "Keine neue Aktivität",
     "loading": "Benachrichtigungen werden geladen...",
     "new_messages": "{{count}} neue Nachrichten",
     "one_new_message": "1 neue Nachricht",
     "all_caught_up": "Alles erledigt!",
     "no_missed": "Keine verpassten Nachrichten",
-    "icon": "🔔"
+    "icon": "🔔",
+    "sent_message_notif": "hat dir eine Nachricht gesendet",
+    "new_alert": "NEUE NACHRICHT",
+    "friend_request": "FREUNDSCHAFTSANFRAGE",
+    "sent_request_notif": "hat dir eine Freundschaftsanfrage gesendet",
+    "liked_photo_notif": "hat dein Foto geliked",
+    "liked_alert": "LIKE"
   },
   "translator": {
     "title": "Translator-Dashboard",
