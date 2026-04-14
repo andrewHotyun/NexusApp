@@ -23,6 +23,9 @@ import { db, auth } from '../../utils/firebase';
 import { IconSymbol } from './icon-symbol';
 import { earningsManager } from '../../utils/earningsManager';
 import * as Haptics from 'expo-haptics';
+import { StoryAvatar } from './StoryAvatar';
+import { StoryViewer } from './StoryViewer';
+import { getAvatarColor } from '../../utils/avatarUtils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -96,6 +99,9 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const [likedItems, setLikedItems] = useState(new Set());
   const [isLiking, setIsLiking] = useState(false);
+  const [hasStories, setHasStories] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerStories, setViewerStories] = useState([]);
   const likeScale = useRef(new Animated.Value(1)).current;
 
   // Pop animation for the like button
@@ -232,9 +238,27 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
       }
     });
 
+    // Listen for user's active stories
+    // Uses userId + status only (index exists from web version).
+    const qStories = query(
+      collection(db, 'stories'),
+      where('userId', '==', userId),
+      where('status', '==', 'approved')
+    );
+    const storiesUnsubscribe = onSnapshot(qStories, (snap) => {
+      const now = new Date();
+      const hasActive = snap.docs.some(doc => {
+        const data = doc.data();
+        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        return expiresAt && expiresAt > now;
+      });
+      setHasStories(hasActive);
+    });
+
     return () => {
       userUnsubscribe();
       galleryUnsubscribe();
+      storiesUnsubscribe();
     };
   }, [isVisible, userId]);
 
@@ -298,31 +322,46 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
                 {/* Header Section */}
                 <View style={styles.header}>
                   <View style={styles.avatarContainer}>
-                    <LinearGradient
-                      colors={[Colors.dark.primary, '#0ef0ff']}
-                      style={styles.avatarBorder}
-                    >
-                      {profile.avatar ? (
-                        <TouchableOpacity
-                          activeOpacity={0.9}
-                          onPress={() => {
-                            setFullScreenMediaUrl(profile.originalAvatarUrl || profile.avatar);
-                            setIsVideoPlaying(true);
-                          }}
-                        >
-                          <ExpoImage
-                            source={profile.originalAvatarUrl || profile.avatar}
-                            style={styles.avatar}
-                            contentFit="cover"
-                            priority="high"
-                          />
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={[styles.avatar, styles.placeholderAvatar]}>
-                          <Text style={styles.avatarLetter}>{profile.name?.charAt(0) || 'U'}</Text>
-                        </View>
-                      )}
-                    </LinearGradient>
+                    <StoryAvatar 
+                      userId={userId} 
+                      avatarUrl={profile.avatar} 
+                      name={profile.name} 
+                      size={130}
+                      hasStories={hasStories}
+                      onPress={() => {
+                        setFullScreenMediaUrl(profile.originalAvatarUrl || profile.avatar);
+                        setIsVideoPlaying(true);
+                      }}
+                      onStoryPress={async () => {
+                        try {
+                          const q = query(
+                            collection(db, 'stories'),
+                            where('userId', '==', userId),
+                            where('status', '==', 'approved')
+                          );
+                          const storiesSnap = await getDocs(q);
+                          const now = new Date();
+                          const userStories = storiesSnap.docs
+                            .map(d => ({ id: d.id, ...d.data() }))
+                            .filter(s => {
+                              const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                              return expiresAt && expiresAt > now;
+                            })
+                            .sort((a, b) => {
+                              const timeA = a.createdAt?.toMillis?.() || 0;
+                              const timeB = b.createdAt?.toMillis?.() || 0;
+                              return timeA - timeB;
+                            });
+
+                          if (userStories.length > 0) {
+                            setViewerStories(userStories);
+                            setViewerVisible(true);
+                          }
+                        } catch (e) {
+                          console.error("Error loading stories for viewer:", e);
+                        }
+                      }}
+                    />
                     {profile.online && (
                       <View style={styles.onlineStatus}>
                         <View style={styles.onlineDot} />
@@ -535,6 +574,14 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
           </Animated.View>
         </View>
       </Modal>
+
+      <StoryViewer
+        visible={viewerVisible}
+        stories={viewerStories}
+        userName={profile?.name}
+        userAvatar={profile?.avatar}
+        onClose={() => setViewerVisible(false)}
+      />
     </Modal>
   );
 };

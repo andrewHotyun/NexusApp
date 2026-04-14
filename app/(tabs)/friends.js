@@ -38,6 +38,8 @@ import { useRouter } from 'expo-router';
 import { getAvatarColor } from '../../utils/avatarUtils';
 import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator';
 import { getUserOnlineStatus } from '../../utils/onlineStatus';
+import { StoryAvatar } from '../../components/ui/StoryAvatar';
+import { StoryViewer } from '../../components/ui/StoryViewer';
 
 export default function FriendsTab() {
   const { t } = useTranslation();
@@ -58,6 +60,10 @@ export default function FriendsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOnlineOnly, setIsOnlineOnly] = useState(false);
   const [processingId, setProcessingId] = useState(null);
+  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerStories, setViewerStories] = useState([]);
+  const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
 
   const [toast, setToast] = useState({ visible: false, messageKey: '', messageParams: {}, type: 'success' });
   const [actionModal, setActionModal] = useState({
@@ -204,6 +210,30 @@ export default function FriendsTab() {
     }
   }, [friends, user?.uid]);
 
+  // 4. Listen for all active stories to show rings
+  // Only filter by status (auto-indexed) — no composite index needed.
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'stories'),
+      where('status', '==', 'approved')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const now = new Date();
+      const ids = new Set();
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        if (expiresAt && expiresAt > now) {
+          ids.add(data.userId);
+        }
+      });
+      setActiveStoryUserIds(ids);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
 
   // 5. Filter friends based on search query and "online only" toggle
   const filteredFriends = useMemo(() => {
@@ -270,16 +300,44 @@ export default function FriendsTab() {
       <View style={styles.accentBorder} />
       <View style={styles.cardInfo}>
         <View style={styles.avatarContainer}>
-          {item.friendAvatar ? (
-            <Image source={{ uri: item.friendAvatar }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.friendId) }]}>
-              <Text style={styles.avatarInitial}>
-                {item.friendName ? item.friendName.charAt(0).toUpperCase() : 'U'}
-              </Text>
-            </View>
-          )}
-          <OnlineStatusIndicator userId={item.friendId} />
+          <StoryAvatar 
+            userId={item.friendId} 
+            avatarUrl={item.friendAvatar} 
+            name={item.friendName} 
+            size={50}
+            hasStories={activeStoryUserIds.has(item.friendId)}
+            onPress={() => router.push(`/chat/${item.friendId}`)}
+            onStoryPress={async () => {
+              try {
+                const q = query(
+                  collection(db, 'stories'),
+                  where('userId', '==', item.friendId),
+                  where('status', '==', 'approved')
+                );
+                const storiesSnap = await getDocs(q);
+                const now = new Date();
+                const userStories = storiesSnap.docs
+                  .map(d => ({ id: d.id, ...d.data() }))
+                  .filter(s => {
+                    const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                    return expiresAt && expiresAt > now;
+                  })
+                  .sort((a, b) => {
+                    const timeA = a.createdAt?.toMillis?.() || 0;
+                    const timeB = b.createdAt?.toMillis?.() || 0;
+                    return timeA - timeB;
+                  });
+
+                if (userStories.length > 0) {
+                  setViewerStories(userStories);
+                  setViewerUser({ name: item.friendName, avatar: item.friendAvatar });
+                  setViewerVisible(true);
+                }
+              } catch (e) {
+                console.error("Error loading stories for viewer:", e);
+              }
+            }}
+          />
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.userName} numberOfLines={1}>
@@ -402,6 +460,14 @@ export default function FriendsTab() {
           message={toast.messageKey ? t(toast.messageKey, toast.messageParams) : ''}
           type={toast.type}
           onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+        />
+
+        <StoryViewer
+          visible={viewerVisible}
+          stories={viewerStories}
+          userName={viewerUser.name}
+          userAvatar={viewerUser.avatar}
+          onClose={() => setViewerVisible(false)}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

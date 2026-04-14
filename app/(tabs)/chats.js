@@ -27,6 +27,8 @@ import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator
 import { Swipeable, GestureHandlerRootView, RectButton } from 'react-native-gesture-handler';
 import { ActionModal } from '../../components/ui/ActionModal';
 import { Alert } from 'react-native';
+import { StoryAvatar } from '../../components/ui/StoryAvatar';
+import { StoryViewer } from '../../components/ui/StoryViewer';
 
 // In-memory cache for user profiles to avoid redundant fetches
 const userProfileCache = {};
@@ -53,6 +55,10 @@ export default function ChatsTab() {
   const [profileFetchCount, setProfileFetchCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [typingUsers, setTypingUsers] = useState({}); // { senderId: boolean }
+  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerStories, setViewerStories] = useState([]);
+  const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
   // Clean up in-memory cache on logout if user changes
   useEffect(() => {
     return () => {
@@ -160,6 +166,31 @@ export default function ChatsTab() {
         }
       });
       setTypingUsers(typing);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  // 2.7 Listen for all active stories to show rings
+  // Only filter by status (auto-indexed) — no composite index needed.
+  // Filter by expiresAt locally to match web ChatList.js pattern.
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'stories'),
+      where('status', '==', 'approved')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const now = new Date();
+      const ids = new Set();
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        if (expiresAt && expiresAt > now) {
+          ids.add(data.userId);
+        }
+      });
+      setActiveStoryUserIds(ids);
     });
     return () => unsub();
   }, [user?.uid]);
@@ -477,44 +508,82 @@ export default function ChatsTab() {
       >
         <View style={styles.chatCardWrapper}>
           <View style={styles.accentBorder} />
-          <RectButton 
-            style={styles.chatCard}
-            underlayColor="rgba(255,255,255,0.1)"
-            activeOpacity={0.6}
-            onPress={() => router.push({
-              pathname: `/chat/${partner.uid || item.id}`,
-              params: { 
-                name: partner.name,
-                avatar: partner.avatar,
-                gender: partner.gender
-              }
-            })}>
-            <View style={styles.avatarContainer}>
-              {partner.avatar ? (
-                <Image source={{ uri: partner.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(partner.uid || item.id) }]}>
-                  <Text style={styles.avatarInitial}>{partner.name?.charAt(0).toUpperCase() || 'U'}</Text>
-                </View>
-              )}
-              <OnlineStatusIndicator userId={partner.uid || item.id} />
+          <View style={styles.chatCardRow}>
+            <View style={styles.avatarContainerWrapper}>
+              <StoryAvatar 
+                userId={partner.uid || item.id} 
+                avatarUrl={partner.avatar} 
+                name={partner.name} 
+                size={50}
+                hasStories={activeStoryUserIds.has(partner.uid || item.id)}
+                onPress={() => router.push({
+                  pathname: `/chat/${partner.uid || item.id}`,
+                  params: { 
+                    name: partner.name,
+                    avatar: partner.avatar,
+                    gender: partner.gender
+                  }
+                })}
+                onStoryPress={async () => {
+                  try {
+                    const q = query(
+                      collection(db, 'stories'),
+                      where('userId', '==', partner.uid || item.id),
+                      where('status', '==', 'approved')
+                    );
+                    // Single fetch for the modal
+                    const storiesSnap = await getDocs(q);
+                    const now = new Date();
+                    const userStories = storiesSnap.docs
+                      .map(d => ({ id: d.id, ...d.data() }))
+                      .filter(s => {
+                        const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                        return expiresAt && expiresAt > now;
+                      })
+                      .sort((a, b) => {
+                        const timeA = a.createdAt?.toMillis?.() || 0;
+                        const timeB = b.createdAt?.toMillis?.() || 0;
+                        return timeA - timeB;
+                      });
+                    if (userStories.length > 0) {
+                      setViewerStories(userStories);
+                      setViewerUser({ name: partner.name, avatar: partner.avatar });
+                      setViewerVisible(true);
+                    }
+                  } catch (e) {
+                    console.error("Error loading stories for viewer:", e);
+                  }
+                }}
+              />
             </View>
 
-            <View style={styles.chatInfo}>
-              <View style={styles.chatHeader}>
-                <Text style={styles.userName} numberOfLines={1}>{partner.name || 'User'}{partner.age ? `, ${partner.age}` : ''}</Text>
-                <Text style={styles.timeText}>{timeStr}</Text>
-              </View>
-              <View style={styles.lastMessageRow}>
-                {typingUsers[partner.uid || item.id] ? (
-                  <Text style={[styles.lastMessage, styles.typingIndicatorText]} numberOfLines={1}>
-                    {t('chat.typing', 'Typing...')}
-                  </Text>
-                ) : (
-                  <>
-                    <Text style={[styles.lastMessage, unreadCount > 0 && styles.unreadMessage]} numberOfLines={1}>
-                      {lastMessage.type === 'image' ? '📷 Photo' : lastMessage.type === 'video' ? '🎥 Video' : (lastMessage.text || t('chats.no_text', 'No text message'))}
+            <RectButton 
+              style={styles.chatCardInfoBtn}
+              underlayColor="rgba(255,255,255,0.1)"
+              activeOpacity={0.6}
+              onPress={() => router.push({
+                pathname: `/chat/${partner.uid || item.id}`,
+                params: { 
+                  name: partner.name,
+                  avatar: partner.avatar,
+                  gender: partner.gender
+                }
+              })}>
+              <View style={styles.chatInfo}>
+                <View style={styles.chatHeader}>
+                  <Text style={styles.userName} numberOfLines={1}>{partner.name || 'User'}{partner.age ? `, ${partner.age}` : ''}</Text>
+                  <Text style={styles.timeText}>{timeStr}</Text>
+                </View>
+                <View style={styles.lastMessageRow}>
+                  {typingUsers[partner.uid || item.id] ? (
+                    <Text style={[styles.lastMessage, styles.typingIndicatorText]} numberOfLines={1}>
+                      {t('chat.typing', 'Typing...')}
                     </Text>
+                  ) : (
+                    <>
+                      <Text style={[styles.lastMessage, unreadCount > 0 && styles.unreadMessage]} numberOfLines={1}>
+                        {lastMessage.type === 'image' ? '📷 Photo' : lastMessage.type === 'video' ? '🎥 Video' : (lastMessage.text || t('chats.no_text', 'No text message'))}
+                      </Text>
                     {lastMessage.senderId === user?.uid && unreadCount === 0 && (
                       <Ionicons 
                         name={lastMessage.read === true ? "checkmark-done" : "checkmark"} 
@@ -530,10 +599,11 @@ export default function ChatsTab() {
                     <Text style={styles.unreadText}>{unreadCount}</Text>
                   </View>
                 )}
-              </View>
             </View>
-          </RectButton>
-        </View>
+          </View>
+        </RectButton>
+      </View>
+    </View>
       </Swipeable>
     );
   };
@@ -618,6 +688,14 @@ export default function ChatsTab() {
           cancelText={t('common.cancel', { defaultValue: 'Cancel' })}
           isDestructive={true}
         />
+        
+        <StoryViewer
+          visible={viewerVisible}
+          stories={viewerStories}
+          userName={viewerUser.name}
+          userAvatar={viewerUser.avatar}
+          onClose={() => setViewerVisible(false)}
+        />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -687,10 +765,22 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
     zIndex: 10,
   },
-  chatCard: {
+  chatCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+  },
+  avatarContainerWrapper: {
+    paddingLeft: 16,
+    paddingVertical: 16,
+    zIndex: 20,
+  },
+  chatCardInfoBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingLeft: 12,
+    paddingRight: 16,
   },
   deleteAction: {
     backgroundColor: 'transparent',
@@ -723,7 +813,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary
   },
   avatarInitial: { color: Colors.dark.primary, fontSize: 20, fontWeight: '700' },
-  chatInfo: { flex: 1, marginLeft: 16 },
+  chatInfo: { flex: 1, marginLeft: 0 },
   chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   chatHeaderRight: { flexDirection: 'row', alignItems: 'center' },
   userName: { color: '#fff', fontSize: 18, fontWeight: '700', flex: 1, marginRight: 8 },

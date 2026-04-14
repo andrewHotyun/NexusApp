@@ -65,6 +65,8 @@ import { Colors } from '../../constants/theme';
 import { getAvatarColor } from '../../utils/avatarUtils';
 import { auth, db, storage } from '../../utils/firebase';
 import { formatLastSeen, getUserOnlineStatus } from '../../utils/onlineStatus';
+import { StoryAvatar } from '../../components/ui/StoryAvatar';
+import { StoryViewer } from '../../components/ui/StoryViewer';
 
 export default function ChatScreen() {
   const { id, name, avatar, gender } = useLocalSearchParams();
@@ -111,6 +113,11 @@ export default function ChatScreen() {
   const [fullScreenMedia, setFullScreenMedia] = useState(null);
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
+
+  // Story states
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerStories, setViewerStories] = useState([]);
+  const [hasPartnerStories, setHasPartnerStories] = useState(false);
 
   // --- Typing indicator Animation ---
   const typingDot1 = useSharedValue(0.4);
@@ -369,6 +376,28 @@ export default function ChatScreen() {
 
     return () => unsubFriends();
   }, [user?.uid, partnerId]);
+
+  // 1.05 Listen for partner's active stories to show ring in header
+  // Uses userId + status only (index exists from web version).
+  useEffect(() => {
+    if (!partnerId) return;
+
+    const q = query(
+      collection(db, 'stories'),
+      where('userId', '==', partnerId),
+      where('status', '==', 'approved')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const now = new Date();
+      const hasActive = snap.docs.some(doc => {
+        const data = doc.data();
+        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        return expiresAt && expiresAt > now;
+      });
+      setHasPartnerStories(hasActive);
+    });
+    return () => unsub();
+  }, [partnerId]);
 
   // 1.2 Listen for Blocked Status
   useEffect(() => {
@@ -1154,16 +1183,44 @@ export default function ChatScreen() {
           <IconSymbol name="chevron.left" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.partnerInfo}>
-          <TouchableOpacity onPress={() => partner?.avatar ? setFullScreenAvatarVisible(true) : null}>
-            {partner?.avatar ? (
-              <Image source={{ uri: partner.avatar }} style={styles.headerAvatar} />
-            ) : (
-              <View style={[styles.headerAvatarPlaceholder, { backgroundColor: getAvatarColor(partnerId) }]}>
-                <Text style={styles.headerAvatarInitial}>{partner?.name?.charAt(0).toUpperCase() || '?'}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={{ flex: 1, justifyContent: 'center' }}>
+          <StoryAvatar 
+            userId={partnerId} 
+            avatarUrl={partner?.avatar} 
+            name={partner?.name} 
+            size={40}
+            hasStories={hasPartnerStories}
+            onPress={() => partner?.avatar ? setFullScreenAvatarVisible(true) : null}
+            onStoryPress={async () => {
+              try {
+                const q = query(
+                  collection(db, 'stories'),
+                  where('userId', '==', partnerId),
+                  where('status', '==', 'approved')
+                );
+                const storiesSnap = await getDocs(q);
+                const now = new Date();
+                const userStories = storiesSnap.docs
+                  .map(d => ({ id: d.id, ...d.data() }))
+                  .filter(s => {
+                    const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                    return expiresAt && expiresAt > now;
+                  })
+                  .sort((a, b) => {
+                    const timeA = a.createdAt?.toMillis?.() || 0;
+                    const timeB = b.createdAt?.toMillis?.() || 0;
+                    return timeA - timeB;
+                  });
+
+                if (userStories.length > 0) {
+                  setViewerStories(userStories);
+                  setViewerVisible(true);
+                }
+              } catch (e) {
+                console.error("Error loading stories for viewer:", e);
+              }
+            }}
+          />
+          <View style={{ flex: 1, justifyContent: 'center', marginLeft: 10 }}>
             <Text style={styles.headerName}>{partner?.name || 'Loading...'}{partner?.age ? `, ${partner.age}` : ''}</Text>
             <Text style={[styles.onlineStatus, { color: isOnline ? Colors.dark.primary : 'rgba(255,255,255,0.5)' }]}>
               {isOnline
@@ -1551,6 +1608,14 @@ export default function ChatScreen() {
             performBlock();
           }}
           isDestructive={true}
+        />
+
+        <StoryViewer
+          visible={viewerVisible}
+          stories={viewerStories}
+          userName={partner?.name}
+          userAvatar={partner?.avatar}
+          onClose={() => setViewerVisible(false)}
         />
 
         <Modal visible={fullScreenAvatarVisible} transparent={false} animationType="fade" statusBarTranslucent>

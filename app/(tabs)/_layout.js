@@ -18,10 +18,12 @@ export default function TabLayout() {
   const [friendsCount, setFriendsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
+  const [storiesCount, setStoriesCount] = useState(0);
+  const [friendIds, setFriendIds] = useState([]);
+  const user = auth.currentUser;
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-    const user = auth.currentUser;
+    if (!user) return;
 
     // Load cached counts for instant UI
     let currentCache = {};
@@ -36,6 +38,7 @@ export default function TabLayout() {
           if (parsed.fri !== undefined) setFriendsCount(parsed.fri);
           if (parsed.unread !== undefined) setUnreadMessagesCount(parsed.unread);
           if (parsed.likes !== undefined) setLikesCount(parsed.likes);
+          if (parsed.stories !== undefined) setStoriesCount(parsed.stories);
         }
       } catch (e) {}
     };
@@ -64,13 +67,15 @@ export default function TabLayout() {
       saveCount('req', count);
     });
 
-    // Listen to friends count
+    // Listen to friends count and IDs
     const qFriends = query(
       collection(db, 'friends'),
       where('userId', '==', user.uid)
     );
     const unsubFriends = onSnapshot(qFriends, (snap) => {
-      const count = snap.docs.length;
+      const ids = snap.docs.map(d => d.data().friendId);
+      const count = ids.length;
+      setFriendIds(ids);
       setFriendsCount(count);
       saveCount('fri', count);
     });
@@ -100,13 +105,37 @@ export default function TabLayout() {
       saveCount('likes', count);
     });
 
+    // Listen to stories from friends (active only)
+    // Only filter by status (auto-indexed single field) to avoid composite index requirement.
+    // Filter by expiresAt and friendIds locally — matches web ChatList.js pattern.
+    const qStories = query(
+      collection(db, 'stories'),
+      where('status', '==', 'approved')
+    );
+    const unsubStories = onSnapshot(qStories, (snap) => {
+      const now = new Date();
+      const uniquePosters = new Set();
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        
+        if (friendIds.includes(data.userId) && expiresAt && expiresAt > now && !data.viewedBy?.includes(user?.uid)) {
+          uniquePosters.add(data.userId);
+        }
+      });
+      const count = uniquePosters.size;
+      setStoriesCount(count);
+      saveCount('stories', count);
+    });
+
     return () => {
       unsubRequests();
       unsubFriends();
       unsubUnread();
       unsubLikes();
+      unsubStories();
     };
-  }, []);
+  }, [user?.uid, friendIds.join(',')]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.dark.background }}>
@@ -235,7 +264,7 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <IconSymbol size={26} name="bell.fill" color={color} />
             ),
-            tabBarBadge: (unreadMessagesCount + requestsCount + likesCount) > 0 ? (unreadMessagesCount + requestsCount + likesCount) : undefined,
+            tabBarBadge: (unreadMessagesCount + requestsCount + likesCount + storiesCount) > 0 ? (unreadMessagesCount + requestsCount + likesCount + storiesCount) : undefined,
             tabBarBadgeStyle: { 
               backgroundColor: '#e74c3c', 
               color: '#fff',

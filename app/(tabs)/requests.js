@@ -49,6 +49,9 @@ import { deduplicateCities } from '../../utils/locationUtils';
 import { getAvatarColor } from '../../utils/avatarUtils';
 import { useRouter } from 'expo-router';
 import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator';
+import { StoryAvatar } from '../../components/ui/StoryAvatar';
+import { StoryViewer } from '../../components/ui/StoryViewer';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // In-memory cache for search — force reset on app reload
 let globalUsersCache = null;
@@ -113,6 +116,13 @@ export default function RequestsTab() {
   const [actionModal, setActionModal] = useState({
     visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true
   });
+  
+  // Story States
+  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerStories, setViewerStories] = useState([]);
+  const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
+
   const [currentUserData, setCurrentUserData] = useState(null);
   
   // Reset tab to 'incoming' when screen is focused
@@ -218,6 +228,29 @@ export default function RequestsTab() {
       unsubBlockedMe();
       unsubProfile();
     };
+  }, [user?.uid]);
+
+  // 5. Listen for all active stories to show rings
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'stories'),
+      where('status', '==', 'approved')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const now = new Date();
+      const ids = new Set();
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        if (expiresAt && expiresAt > now) {
+          ids.add(data.userId);
+        }
+      });
+      setActiveStoryUserIds(ids);
+    });
+    return () => unsub();
   }, [user?.uid]);
 
   const isUserSoftDeleted = (u) => {
@@ -694,16 +727,43 @@ export default function RequestsTab() {
       <View style={styles.card}>
         <View style={styles.accentBorderSearch} />
         <View style={styles.cardInfo}>
-        <View style={styles.avatarContainer}>
-          {item.avatar ? (
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.uid) }]}>
-              <Text style={styles.avatarInitial}>{item.name ? item.name.charAt(0).toUpperCase() : 'U'}</Text>
-            </View>
-          )}
-          <OnlineStatusIndicator userId={item.uid} />
-        </View>
+          <View style={styles.avatarWrapper}>
+            <StoryAvatar 
+              userId={item.uid} 
+              avatarUrl={item.avatar} 
+              name={item.name} 
+              size={50}
+              hasStories={activeStoryUserIds.has(item.uid)}
+              onPress={() => router.push(`/chat/${item.uid}`)}
+              onStoryPress={async () => {
+                try {
+                  const qStories = query(
+                    collection(db, 'stories'),
+                    where('userId', '==', item.uid),
+                    where('status', '==', 'approved')
+                  );
+                  const storiesSnap = await getDocs(qStories);
+                  const now = new Date();
+                  const userStories = storiesSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(s => {
+                      const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                      return expiresAt && expiresAt > now;
+                    })
+                    .sort((a, b) => {
+                      const timeA = a.createdAt?.toMillis?.() || 0;
+                      const timeB = b.createdAt?.toMillis?.() || 0;
+                      return timeA - timeB;
+                    });
+                  if (userStories.length > 0) {
+                    setViewerStories(userStories);
+                    setViewerUser({ name: item.name, avatar: item.avatar });
+                    setViewerVisible(true);
+                  }
+                } catch (e) {}
+              }}
+            />
+          </View>
           <View style={styles.textContainer}>
             <Text style={styles.userName} numberOfLines={1}>{item.name}{item.age ? `, ${item.age}` : ''}</Text>
             {(item.city || item.country) && (
@@ -756,15 +816,42 @@ export default function RequestsTab() {
       <View style={styles.card}>
         <View style={styles.accentBorderRequest} />
         <View style={styles.cardInfo}>
-          <View style={styles.avatarContainer}>
-            {displayAvatar ? (
-              <Image source={{ uri: displayAvatar }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.fromUserId) }]}>
-                <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
-            <OnlineStatusIndicator userId={item.fromUserId} />
+          <View style={styles.avatarWrapper}>
+            <StoryAvatar 
+              userId={item.fromUserId} 
+              avatarUrl={displayAvatar} 
+              name={displayName} 
+              size={50}
+              hasStories={activeStoryUserIds.has(item.fromUserId)}
+              onPress={() => router.push(`/chat/${item.fromUserId}`)}
+              onStoryPress={async () => {
+                try {
+                  const qStories = query(
+                    collection(db, 'stories'),
+                    where('userId', '==', item.fromUserId),
+                    where('status', '==', 'approved')
+                  );
+                  const storiesSnap = await getDocs(qStories);
+                  const now = new Date();
+                  const userStories = storiesSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(s => {
+                      const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                      return expiresAt && expiresAt > now;
+                    })
+                    .sort((a, b) => {
+                      const timeA = a.createdAt?.toMillis?.() || 0;
+                      const timeB = b.createdAt?.toMillis?.() || 0;
+                      return timeA - timeB;
+                    });
+                  if (userStories.length > 0) {
+                    setViewerStories(userStories);
+                    setViewerUser({ name: displayName, avatar: displayAvatar });
+                    setViewerVisible(true);
+                  }
+                } catch (e) {}
+              }}
+            />
           </View>
           <View style={styles.textContainer}>
             <View style={{flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap'}}>
@@ -821,16 +908,43 @@ export default function RequestsTab() {
       <View style={styles.card}>
         <View style={styles.accentBorderRequest} />
         <View style={styles.cardInfo}>
-        <View style={styles.avatarContainer}>
-          {displayAvatar ? (
-            <Image source={{ uri: displayAvatar }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.toUserId) }]}>
-              <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
-            </View>
-          )}
-          <OnlineStatusIndicator userId={item.toUserId} />
-        </View>
+          <View style={styles.avatarWrapper}>
+            <StoryAvatar 
+              userId={item.toUserId} 
+              avatarUrl={displayAvatar} 
+              name={displayName} 
+              size={50}
+              hasStories={activeStoryUserIds.has(item.toUserId)}
+              onPress={() => router.push(`/chat/${item.toUserId}`)}
+              onStoryPress={async () => {
+                try {
+                  const qStories = query(
+                    collection(db, 'stories'),
+                    where('userId', '==', item.toUserId),
+                    where('status', '==', 'approved')
+                  );
+                  const storiesSnap = await getDocs(qStories);
+                  const now = new Date();
+                  const userStories = storiesSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(s => {
+                      const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                      return expiresAt && expiresAt > now;
+                    })
+                    .sort((a, b) => {
+                      const timeA = a.createdAt?.toMillis?.() || 0;
+                      const timeB = b.createdAt?.toMillis?.() || 0;
+                      return timeA - timeB;
+                    });
+                  if (userStories.length > 0) {
+                    setViewerStories(userStories);
+                    setViewerUser({ name: displayName, avatar: displayAvatar });
+                    setViewerVisible(true);
+                  }
+                } catch (e) {}
+              }}
+            />
+          </View>
           <View style={styles.textContainer}>
             <Text style={styles.userName} numberOfLines={1}>
               {displayName}
@@ -1072,6 +1186,14 @@ export default function RequestsTab() {
         }}
         onClose={() => setActionModal(prev => ({ ...prev, visible: false }))}
       />
+
+      <StoryViewer 
+        visible={viewerVisible}
+        stories={viewerStories}
+        userName={viewerUser.name}
+        userAvatar={viewerUser.avatar}
+        onClose={() => setViewerVisible(false)}
+      />
       
       <Toast 
         visible={toast.visible} 
@@ -1159,8 +1281,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.primary
   },
-  avatarPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(52, 73, 94, 0.6)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.dark.primary },
-  avatarInitial: { color: Colors.dark.primary, fontSize: 18, fontWeight: '700' },
+  avatarPlaceholder: { 
+    width: 50, 
+    height: 50, 
+    borderRadius: 25, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  avatarWrapper: {
+    paddingVertical: 4,
+    marginRight: 12,
+  },
+  avatarInitial: { color: '#fff', fontSize: 20, fontWeight: '700' },
   textContainer: { marginLeft: 12, flex: 1, paddingRight: 10 },
   userName: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 2 },
   userLocation: { color: '#7f8c8d', fontSize: 13 },

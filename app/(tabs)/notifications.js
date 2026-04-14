@@ -1,37 +1,38 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  Image, 
-  TouchableOpacity, 
-  SafeAreaView,
-  ActivityIndicator
-} from 'react-native';
-import { auth, db } from '../../utils/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  orderBy, 
-  limit, 
-  doc, 
-  getDoc, 
-  updateDoc,
-  writeBatch,
-  serverTimestamp,
-  deleteDoc
-} from 'firebase/firestore';
-import { useTranslation } from 'react-i18next';
-import { Colors } from '../../constants/theme';
-import { IconSymbol } from '../../components/ui/icon-symbol';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { getAvatarColor } from '../../utils/avatarUtils';
-import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+  writeBatch
+} from 'firebase/firestore';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { IconSymbol } from '../../components/ui/icon-symbol';
+import { StoryAvatar } from '../../components/ui/StoryAvatar';
+import { StoryViewer } from '../../components/ui/StoryViewer';
+import { Colors } from '../../constants/theme';
+import { auth, db } from '../../utils/firebase';
 
 // Simple in-memory cache for profile details
 const userCache = {};
@@ -40,12 +41,19 @@ export default function NotificationsTab() {
   const { t } = useTranslation();
   const router = useRouter();
   const user = auth.currentUser;
-  
+
   const [messages, setMessages] = useState([]);
   const [requests, setRequests] = useState([]);
   const [likes, setLikes] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [stories, setStories] = useState([]);
+  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerStories, setViewerStories] = useState([]);
+  const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
 
   // Optimistic UI: Load from cache
   useEffect(() => {
@@ -60,7 +68,7 @@ export default function NotificationsTab() {
           if (parsed.likes) setLikes(parsed.likes);
           setLoading(false); // Instantly remove loader
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     loadCache();
   }, [user?.uid]);
@@ -69,12 +77,12 @@ export default function NotificationsTab() {
   useEffect(() => {
     if (!user) return;
     if (messages.length === 0 && requests.length === 0 && likes.length === 0 && loading) return;
-    
+
     // Batch save
     const saveTimeout = setTimeout(() => {
-      AsyncStorage.setItem(`notifications_cache_${user.uid}`, JSON.stringify({ messages, requests, likes })).catch(()=>{});
+      AsyncStorage.setItem(`notifications_cache_${user.uid}`, JSON.stringify({ messages, requests, likes })).catch(() => { });
     }, 1000);
-    
+
     return () => clearTimeout(saveTimeout);
   }, [messages, requests, likes, user?.uid, loading]);
 
@@ -94,13 +102,13 @@ export default function NotificationsTab() {
 
     const unsub = onSnapshot(q, async (snap) => {
       const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
+
       msgs.sort((a, b) => {
         const tA = a.timestamp?.toMillis?.() || (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
         const tB = b.timestamp?.toMillis?.() || (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
         return tB - tA;
       });
-      
+
       const bySender = {};
       for (const m of msgs) {
         if (!bySender[m.senderId]) bySender[m.senderId] = [];
@@ -121,7 +129,7 @@ export default function NotificationsTab() {
             console.error('Error fetching sender data:', e);
           }
         }
-        
+
         const defaultData = userData || { uid: senderId, name: 'User' };
         grouped.push({
           id: `msg-${senderId}`,
@@ -174,7 +182,7 @@ export default function NotificationsTab() {
 
     return () => unsubReq();
   }, [user?.uid]);
-  
+
   // 3. Listen for likes
   useEffect(() => {
     if (!user) {
@@ -193,7 +201,7 @@ export default function NotificationsTab() {
       const items = await Promise.all(snap.docs.map(async (d) => {
         const data = d.data();
         const senderId = data.senderId;
-        
+
         let userData = userCache[senderId];
         if (!userData) {
           try {
@@ -206,7 +214,7 @@ export default function NotificationsTab() {
             console.error('Error fetching sender data for like:', e);
           }
         }
-        
+
         return {
           id: d.id,
           type: 'like',
@@ -227,8 +235,97 @@ export default function NotificationsTab() {
 
 
 
-  // 4. Combined & Sorted Activity
-  const activityItems = [...messages, ...requests, ...likes].sort((a, b) => b.sortTime - a.sortTime);
+  // 4. Listen for friends to track their stories
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const friendsQuery = query(
+      collection(db, 'friends'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(friendsQuery, (snapshot) => {
+      const friendIds = snapshot.docs.map(d => d.data().friendId);
+      setFriends(friendIds);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // 5. Listen for stories from friends
+  useEffect(() => {
+    if (!user?.uid || friends.length === 0) {
+      setStories([]);
+      return;
+    }
+
+    // Only filter by status (auto-indexed) — no composite index needed.
+    const storiesQuery = query(
+      collection(db, 'stories'),
+      where('status', '==', 'approved')
+    );
+
+    const unsubscribe = onSnapshot(storiesQuery, async (snapshot) => {
+      const friendStories = [];
+      const seenUsers = new Set();
+      const newActiveStoryUserIds = new Set();
+      const now = new Date();
+
+      for (const d of snapshot.docs) {
+        const data = d.data();
+        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+
+        if (expiresAt && expiresAt > now) {
+          // Track everyone who has an active story for the rings
+          newActiveStoryUserIds.add(data.userId);
+
+          // Add to notification list ONLY if not viewed by current user
+          if (friends.includes(data.userId) && !seenUsers.has(data.userId) && !data.viewedBy?.includes(user?.uid)) {
+            seenUsers.add(data.userId);
+
+            let userData = userCache[data.userId];
+            if (!userData) {
+              try {
+                const uSnap = await getDoc(doc(db, 'users', data.userId));
+                if (uSnap.exists()) {
+                  userData = { uid: data.userId, ...uSnap.data() };
+                  userCache[data.userId] = userData;
+                }
+              } catch (e) { }
+            }
+
+            friendStories.push({
+              id: `story-${data.userId}`,
+              type: 'story',
+              sender: userData || { uid: data.userId, name: 'User' },
+              timestamp: data.createdAt,
+              sortTime: data.createdAt?.toMillis?.() || (data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now())
+            });
+          }
+        }
+      }
+      setStories(friendStories);
+      setActiveStoryUserIds(newActiveStoryUserIds);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, friends]);
+
+  // 6. Filter categories
+  const filterCategories = [
+    { id: 'all', icon: 'bell.fill', color: '#2ecc71' },
+    { id: 'message', icon: 'message.fill', color: '#0ef0ff', count: messages.length },
+    { id: 'friend_request', icon: 'person.badge.plus', color: '#f1c40f', count: requests.length },
+    { id: 'like', icon: 'heart.fill', color: '#ff4757', count: likes.length },
+    { id: 'story', icon: 'play.circle.fill', color: '#a855f7', count: stories.length },
+  ];
+
+  // 7. Combined & Filtered Activity
+  const activityItems = useMemo(() => {
+    const all = [...messages, ...requests, ...likes, ...stories];
+    const filtered = activeFilter === 'all' ? all : all.filter(item => item.type === activeFilter);
+    return filtered.sort((a, b) => b.sortTime - a.sortTime);
+  }, [messages, requests, likes, stories, activeFilter]);
 
   const acceptRequest = async (request) => {
     if (!user) return;
@@ -296,10 +393,10 @@ export default function NotificationsTab() {
 
     if (item.type === 'friend_request') {
       return (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.cardContainer}
           onPress={() => router.push(`/chat/${item.sender.uid}`)}
-          activeOpacity={0.7}
+          activeOpacity={0.6}
         >
           <LinearGradient
             colors={['#1c2a4d', '#0a1224']}
@@ -320,14 +417,41 @@ export default function NotificationsTab() {
 
             <View style={styles.cardBody}>
               <View style={styles.avatarContainer}>
-                {item.sender.avatar ? (
-                  <Image source={{ uri: item.sender.avatar }} style={styles.avatar} />
-                ) : (
-                  <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.sender.uid) }]}>
-                    <Text style={styles.avatarInitial}>{item.sender.name?.charAt(0).toUpperCase() || 'U'}</Text>
-                  </View>
-                )}
-                <OnlineStatusIndicator userId={item.sender.uid} />
+                <StoryAvatar
+                  userId={item.sender.uid}
+                  avatarUrl={item.sender.avatar}
+                  name={item.sender.name}
+                  size={50}
+                  hasStories={activeStoryUserIds.has(item.sender.uid)}
+                  onPress={() => router.push(`/chat/${item.sender.uid}`)}
+                  onStoryPress={async () => {
+                    try {
+                      const qStories = query(
+                        collection(db, 'stories'),
+                        where('userId', '==', item.sender.uid),
+                        where('status', '==', 'approved')
+                      );
+                      const storiesSnap = await getDocs(qStories);
+                      const now = new Date();
+                      const userStories = storiesSnap.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .filter(s => {
+                          const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                          return expiresAt && expiresAt > now;
+                        })
+                        .sort((a, b) => {
+                          const timeA = a.createdAt?.toMillis?.() || 0;
+                          const timeB = b.createdAt?.toMillis?.() || 0;
+                          return timeA - timeB;
+                        });
+                      if (userStories.length > 0) {
+                        setViewerStories(userStories);
+                        setViewerUser({ name: item.sender.name, avatar: item.sender.avatar });
+                        setViewerVisible(true);
+                      }
+                    } catch (e) { }
+                  }}
+                />
                 <View style={styles.unreadDot} />
               </View>
 
@@ -336,10 +460,10 @@ export default function NotificationsTab() {
                   <Text style={styles.nameText}>{item.sender.name}</Text>
                   {' '}{t('notifications.sent_request_notif', { defaultValue: 'sent you a friend request' })}
                 </Text>
-                
+
                 <View style={styles.requestActions}>
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.acceptButton]} 
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.acceptButton]}
                     onPress={(e) => {
                       e.stopPropagation();
                       acceptRequest(item);
@@ -352,8 +476,8 @@ export default function NotificationsTab() {
                       <IconSymbol name="checkmark" size={20} color="#fff" />
                     )}
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.rejectButton]} 
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.rejectButton]}
                     onPress={(e) => {
                       e.stopPropagation();
                       rejectRequest(item.id);
@@ -372,7 +496,7 @@ export default function NotificationsTab() {
 
     if (item.type === 'like') {
       return (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.cardContainer}
           onPress={async () => {
             try {
@@ -403,14 +527,13 @@ export default function NotificationsTab() {
 
             <View style={styles.cardBody}>
               <View style={styles.avatarContainer}>
-                {item.sender.avatar ? (
-                  <Image source={{ uri: item.sender.avatar }} style={styles.avatar} />
-                ) : (
-                  <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.sender.uid) }]}>
-                    <Text style={styles.avatarInitial}>{item.sender.name?.charAt(0).toUpperCase() || 'U'}</Text>
-                  </View>
-                )}
-                <OnlineStatusIndicator userId={item.sender.uid} />
+                <StoryAvatar
+                  userId={item.sender.uid}
+                  avatarUrl={item.sender.avatar}
+                  name={item.sender.name}
+                  size={50}
+                  onPress={() => router.push(`/chat/${item.sender.uid}`)}
+                />
               </View>
 
               <View style={styles.infoLike}>
@@ -434,8 +557,87 @@ export default function NotificationsTab() {
       );
     }
 
+    if (item.type === 'story') {
+      return (
+        <TouchableOpacity
+          style={styles.cardContainer}
+          onPress={async () => {
+            try {
+              const qStories = query(
+                collection(db, 'stories'),
+                where('userId', '==', item.sender.uid),
+                where('status', '==', 'approved')
+              );
+
+              const storiesSnap = await getDocs(qStories);
+              const now = new Date();
+              const userStories = storiesSnap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(s => {
+                  const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                  return expiresAt && expiresAt > now;
+                })
+                .sort((a, b) => {
+                  const timeA = a.createdAt?.toMillis?.() || 0;
+                  const timeB = b.createdAt?.toMillis?.() || 0;
+                  return timeA - timeB;
+                });
+
+              if (userStories.length > 0) {
+                setViewerStories(userStories);
+                setViewerUser({ name: item.sender.name, avatar: item.sender.avatar });
+                setViewerVisible(true);
+              } else {
+                router.push(`/chat/${item.sender.uid}`);
+              }
+            } catch (e) {
+              router.push(`/chat/${item.sender.uid}`);
+            }
+          }}
+          activeOpacity={0.6}
+        >
+          <LinearGradient
+            colors={['#1c1c2e', '#0a0a0f']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
+          >
+            <View style={styles.accentBorderStory} />
+            <View style={styles.cardHeader}>
+              <View style={styles.alertTypeContainerStory}>
+                <IconSymbol name="play.circle.fill" size={12} color="#a855f7" />
+                <Text style={styles.alertTypeTextStory}>
+                  {t('notifications.new_story', { defaultValue: 'NEW STORY' })}
+                </Text>
+              </View>
+              <Text style={styles.timeText}>{formatTime(item.timestamp)}</Text>
+            </View>
+
+            <View style={styles.cardBody}>
+              <View style={styles.avatarContainer}>
+                <StoryAvatar
+                  userId={item.sender.uid}
+                  avatarUrl={item.sender.avatar}
+                  name={item.sender.name}
+                  size={50}
+                  hasStories={true}
+                />
+              </View>
+
+              <View style={styles.info}>
+                <Text style={styles.notificationText}>
+                  <Text style={styles.nameText}>{item.sender.name}</Text>
+                  {' '}{t('notifications.posted_story_notif', { defaultValue: 'posted a new story' })}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    }
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.cardContainer}
         activeOpacity={0.8}
         onPress={() => router.push({
@@ -462,14 +664,13 @@ export default function NotificationsTab() {
 
           <View style={styles.cardBody}>
             <View style={styles.avatarContainer}>
-              {item.sender.avatar ? (
-                <Image source={{ uri: item.sender.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: getAvatarColor(item.sender.uid) }]}>
-                  <Text style={styles.avatarInitial}>{item.sender.name?.charAt(0).toUpperCase() || 'U'}</Text>
-                </View>
-              )}
-              <OnlineStatusIndicator userId={item.sender.uid} />
+              <StoryAvatar
+                userId={item.sender.uid}
+                avatarUrl={item.sender.avatar}
+                name={item.sender.name}
+                size={50}
+                onPress={() => router.push(`/chat/${item.sender.uid}`)}
+              />
             </View>
 
             <View style={styles.info}>
@@ -477,12 +678,12 @@ export default function NotificationsTab() {
                 <Text style={styles.nameText}>{item.sender.name || 'User'}</Text>
                 {' '}{t('notifications.sent_message_notif', { defaultValue: 'sent you a message' })}
               </Text>
-              
+
               <Text style={styles.messageSnippet} numberOfLines={1}>
-                {item.lastMessage.type === 'gift' ? '🎁 Gift' : 
-                 item.lastMessage.type === 'image' ? '📷 Photo' : 
-                 item.lastMessage.type === 'video' ? '🎥 Video' : 
-                 (item.lastMessage.text || '...')}
+                {item.lastMessage.type === 'gift' ? '🎁 Gift' :
+                  item.lastMessage.type === 'image' ? '📷 Photo' :
+                    item.lastMessage.type === 'video' ? '🎥 Video' :
+                      (item.lastMessage.text || '...')}
               </Text>
             </View>
 
@@ -500,7 +701,7 @@ export default function NotificationsTab() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerArea}>
-        <Text 
+        <Text
           style={styles.headerTitle}
           numberOfLines={1}
           adjustsFontSizeToFit={true}
@@ -508,6 +709,41 @@ export default function NotificationsTab() {
           {t('notifications.title', { defaultValue: 'Notifications', count: activityItems.length })}
         </Text>
         <View style={styles.headerDivider} />
+      </View>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {filterCategories.map((cat) => {
+            const isActive = activeFilter === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={[
+                  styles.filterTab,
+                  isActive && { backgroundColor: `${cat.color}20`, borderColor: `${cat.color}50` },
+                ]}
+                onPress={() => setActiveFilter(cat.id)}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  name={cat.icon}
+                  size={18}
+                  color={isActive ? cat.color : '#64748b'}
+                />
+                {cat.count > 0 && (
+                  <View style={[styles.filterBadge, { backgroundColor: cat.color }]}>
+                    <Text style={styles.filterBadgeText}>{cat.count > 99 ? '99+' : cat.count}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {loading ? (
@@ -522,13 +758,21 @@ export default function NotificationsTab() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <IconSymbol name="bell.slash.fill" size={64} color="#34495e" />
+              <IconSymbol name="bell.fill" size={64} color="#34495e" />
               <Text style={styles.emptyTitle}>{t('notifications.all_caught_up', { defaultValue: "All caught up" })}</Text>
               <Text style={styles.emptySubtitle}>{t('notifications.no_missed', { defaultValue: 'No missed messages' })}</Text>
             </View>
           }
         />
       )}
+
+      <StoryViewer
+        visible={viewerVisible}
+        stories={viewerStories}
+        userName={viewerUser.name}
+        userAvatar={viewerUser.avatar}
+        onClose={() => setViewerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -568,7 +812,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   listContent: {
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 100,
   },
   cardContainer: {
@@ -614,6 +858,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     borderBottomRightRadius: 4,
   },
+  accentBorderStory: {
+    position: 'absolute',
+    left: 0,
+    top: 15,
+    bottom: 15,
+    width: 3.5,
+    backgroundColor: '#a855f7', // Purple
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+  },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -644,6 +898,14 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 10,
   },
+  alertTypeContainerStory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
   alertTypeText: {
     color: '#00f0ff',
     fontSize: 10,
@@ -660,6 +922,13 @@ const styles = StyleSheet.create({
   },
   alertTypeTextLike: {
     color: '#ff0070',
+    fontSize: 10,
+    fontWeight: '900',
+    marginLeft: 6,
+    letterSpacing: 0.8,
+  },
+  alertTypeTextStory: {
+    color: '#a855f7',
     fontSize: 10,
     fontWeight: '900',
     marginLeft: 6,
@@ -806,5 +1075,39 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
     elevation: 3,
+  },
+  // Filter Bar Styles
+  filterBar: {
+    paddingBottom: 8,
+  },
+  filterScrollContent: {
+    paddingHorizontal: 16,
+    gap: 10,
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  filterTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  filterBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  filterBadgeText: {
+    color: '#000',
+    fontSize: 11,
+    fontWeight: '900',
   },
 });

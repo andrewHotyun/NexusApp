@@ -46,6 +46,7 @@ const MAPPING = {
   'folder.fill': 'folder',
   'photo.on.rectangle.angled': 'images',
   'play.fill': 'play',
+  'play.circle.fill': 'play-circle',
   'photo': 'image',
   'chevron.down': 'chevron-down',
   'trash.fill': 'trash',
