@@ -388,6 +388,33 @@ export default function NotificationsTab() {
     return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const handleOpenStories = async (uid, name, avatar) => {
+    try {
+      const qStories = query(
+        collection(db, 'stories'),
+        where('userId', '==', uid),
+        where('status', '==', 'approved')
+      );
+      const storiesSnap = await getDocs(qStories);
+      const now = new Date();
+      const userStories = storiesSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => {
+          const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+          return expiresAt && expiresAt > now;
+        })
+        .sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
+
+      if (userStories.length > 0) {
+        setViewerStories(userStories);
+        setViewerUser({ name, avatar });
+        setViewerVisible(true);
+      }
+    } catch (e) {
+      console.error("Error opening stories from notification:", e);
+    }
+  };
+
   const renderItem = ({ item }) => {
     const isProcessing = processingId === item.id;
 
@@ -424,33 +451,7 @@ export default function NotificationsTab() {
                   size={50}
                   hasStories={activeStoryUserIds.has(item.sender.uid)}
                   onPress={() => router.push(`/chat/${item.sender.uid}`)}
-                  onStoryPress={async () => {
-                    try {
-                      const qStories = query(
-                        collection(db, 'stories'),
-                        where('userId', '==', item.sender.uid),
-                        where('status', '==', 'approved')
-                      );
-                      const storiesSnap = await getDocs(qStories);
-                      const now = new Date();
-                      const userStories = storiesSnap.docs
-                        .map(d => ({ id: d.id, ...d.data() }))
-                        .filter(s => {
-                          const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
-                          return expiresAt && expiresAt > now;
-                        })
-                        .sort((a, b) => {
-                          const timeA = a.createdAt?.toMillis?.() || 0;
-                          const timeB = b.createdAt?.toMillis?.() || 0;
-                          return timeA - timeB;
-                        });
-                      if (userStories.length > 0) {
-                        setViewerStories(userStories);
-                        setViewerUser({ name: item.sender.name, avatar: item.sender.avatar });
-                        setViewerVisible(true);
-                      }
-                    } catch (e) { }
-                  }}
+                  onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
                 />
                 <View style={styles.unreadDot} />
               </View>
@@ -532,7 +533,9 @@ export default function NotificationsTab() {
                   avatarUrl={item.sender.avatar}
                   name={item.sender.name}
                   size={50}
+                  hasStories={activeStoryUserIds.has(item.sender.uid)}
                   onPress={() => router.push(`/chat/${item.sender.uid}`)}
+                  onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
                 />
               </View>
 
@@ -561,39 +564,7 @@ export default function NotificationsTab() {
       return (
         <TouchableOpacity
           style={styles.cardContainer}
-          onPress={async () => {
-            try {
-              const qStories = query(
-                collection(db, 'stories'),
-                where('userId', '==', item.sender.uid),
-                where('status', '==', 'approved')
-              );
-
-              const storiesSnap = await getDocs(qStories);
-              const now = new Date();
-              const userStories = storiesSnap.docs
-                .map(d => ({ id: d.id, ...d.data() }))
-                .filter(s => {
-                  const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
-                  return expiresAt && expiresAt > now;
-                })
-                .sort((a, b) => {
-                  const timeA = a.createdAt?.toMillis?.() || 0;
-                  const timeB = b.createdAt?.toMillis?.() || 0;
-                  return timeA - timeB;
-                });
-
-              if (userStories.length > 0) {
-                setViewerStories(userStories);
-                setViewerUser({ name: item.sender.name, avatar: item.sender.avatar });
-                setViewerVisible(true);
-              } else {
-                router.push(`/chat/${item.sender.uid}`);
-              }
-            } catch (e) {
-              router.push(`/chat/${item.sender.uid}`);
-            }
-          }}
+          onPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
           activeOpacity={0.6}
         >
           <LinearGradient
@@ -621,6 +592,8 @@ export default function NotificationsTab() {
                   name={item.sender.name}
                   size={50}
                   hasStories={true}
+                  onPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
+                  onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
                 />
               </View>
 
@@ -669,7 +642,9 @@ export default function NotificationsTab() {
                 avatarUrl={item.sender.avatar}
                 name={item.sender.name}
                 size={50}
+                hasStories={activeStoryUserIds.has(item.sender.uid)}
                 onPress={() => router.push(`/chat/${item.sender.uid}`)}
+                onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
               />
             </View>
 
@@ -730,16 +705,18 @@ export default function NotificationsTab() {
                 onPress={() => setActiveFilter(cat.id)}
                 activeOpacity={0.7}
               >
-                <IconSymbol
-                  name={cat.icon}
-                  size={18}
-                  color={isActive ? cat.color : '#64748b'}
-                />
-                {cat.count > 0 && (
-                  <View style={[styles.filterBadge, { backgroundColor: cat.color }]}>
-                    <Text style={styles.filterBadgeText}>{cat.count > 99 ? '99+' : cat.count}</Text>
-                  </View>
-                )}
+                <View style={styles.iconContainer}>
+                  <IconSymbol 
+                    name={cat.icon} 
+                    size={20} 
+                    color={isActive ? cat.color : '#64748b'} 
+                  />
+                  {cat.count > 0 && (
+                    <View style={[styles.filterBadge, { backgroundColor: '#ff3b30' }]}>
+                      <Text style={styles.filterBadgeText}>{cat.count > 99 ? '99+' : cat.count}</Text>
+                    </View>
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -1081,33 +1058,42 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   filterScrollContent: {
-    paddingHorizontal: 16,
-    gap: 10,
+    paddingHorizontal: 12,
+    gap: 8,
     flexGrow: 1,
     justifyContent: 'center',
   },
   filterTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 50,
+  },
+  iconContainer: {
+    position: 'relative',
+    padding: 2,
   },
   filterBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    position: 'absolute',
+    top: -8,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.background,
   },
   filterBadgeText: {
     color: '#000',
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '900',
   },
 });
