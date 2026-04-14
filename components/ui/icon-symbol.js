@@ -1,7 +1,9 @@
+import React from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { View, Platform } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 
 /**
  * Add your SF Symbols to Ionicons mappings here.
@@ -77,6 +79,16 @@ const MAPPING = {
   'face.smiling': 'happy-outline',
   'mic': 'mic-outline',
   'gift': 'gift-outline',
+  'timer': 'time-outline',
+  'clock.fill': 'time',
+  'creditcard': 'card-outline',
+  'creditcard.fill': 'card',
+  'wallet.pass': 'mat:account-balance-wallet',
+  'wallet.pass.fill': 'mat:account-balance-wallet',
+  'plus.circle.fill': 'add-circle',
+  'xmark.circle.fill': 'close-circle',
+  'p.square.fill': 'logo-paypal',
+  'bitcoinsign.circle.fill': 'logo-bitcoin',
 };
 
 /**
@@ -90,75 +102,92 @@ export function IconSymbol({
   color,
   style,
 }) {
-  const iconName = MAPPING[name] || 'help-outline'; // Safe fallback
-
-  if (iconName === 'custom:person-question' && Platform.OS !== 'ios') {
-    return (
-      <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
-        <Ionicons name="person-circle-outline" size={size} color={color} />
-        <View style={{ 
-          position: 'absolute', 
-          bottom: -size * 0.05, 
-          left: -size * 0.05, 
-          backgroundColor: '#030e21', // Dark background to match Nexus
-          borderRadius: size * 0.25,
-          padding: 0
-        }}>
-          <Ionicons name="help-circle" size={size * 0.5} color={color} />
+  // Internal helper to render the actual vector icon based on mapped name or prefix
+  const renderBaseIcon = (targetName) => {
+    if (targetName === 'custom:person-question') {
+      return (
+        <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
+          <Ionicons name="person-circle-outline" size={size} color={color} />
+          <View style={{ 
+            position: 'absolute', 
+            bottom: -size * 0.05, 
+            left: -size * 0.05, 
+            backgroundColor: '#030e21',
+            borderRadius: size * 0.25,
+            padding: 0
+          }}>
+            <Ionicons name="help-circle" size={size * 0.5} color={color} />
+          </View>
         </View>
-      </View>
+      );
+    }
+
+    if (targetName === 'custom:person-remove-circle') {
+      return (
+        <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
+          <Ionicons name="person-outline" size={size} color={color} />
+          <View style={{ 
+            position: 'absolute', 
+            bottom: -size * 0.1, 
+            right: -size * 0.1, 
+            backgroundColor: '#1e293b',
+            borderRadius: size * 0.3,
+            padding: 0
+          }}>
+            <Ionicons name="remove-circle" size={size * 0.6} color={color} />
+          </View>
+        </View>
+      );
+    }
+
+    if (targetName === 'custom:person-block') {
+      return (
+        <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
+          <Ionicons name="person-circle-outline" size={size} color={color} />
+          <View style={{ 
+            position: 'absolute', 
+            bottom: size * 0.05, 
+            left: size * 0.05, 
+            backgroundColor: '#030e21',
+            borderRadius: size * 0.25,
+            padding: 0
+          }}>
+            <Ionicons name="close-circle" size={size * 0.45} color={color} />
+          </View>
+        </View>
+      );
+    }
+    
+    if (targetName.startsWith('mc:')) {
+      return <MaterialCommunityIcons color={color} size={size} name={targetName.replace('mc:', '')} style={style} />;
+    }
+    
+    if (targetName.startsWith('mat:')) {
+      return <MaterialIcons color={color} size={size} name={targetName.replace('mat:', '')} style={style} />;
+    }
+
+    if (targetName.startsWith('ion:')) {
+      return <Ionicons color={color} size={size} name={targetName.replace('ion:', '')} style={style} />;
+    }
+    
+    return <Ionicons color={color} size={size} name={targetName} style={style} />;
+  };
+
+  const isForcedIcon = name.startsWith('mat:') || name.startsWith('custom:') || name.startsWith('mc:') || name.startsWith('ion:');
+  const mappedName = isForcedIcon ? name : (MAPPING[name] || 'help-outline');
+
+  if (Platform.OS === 'ios' && !isForcedIcon) {
+    const sfName = name === 'timer' ? 'clock.fill' : name;
+    return (
+      <SymbolView
+        name={sfName}
+        size={size}
+        tintColor={color}
+        style={style}
+        fallback={renderBaseIcon(mappedName)}
+      />
     );
   }
 
-  if (iconName === 'custom:person-remove-circle' && Platform.OS !== 'ios') {
-    return (
-      <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
-        <Ionicons name="person-outline" size={size} color={color} />
-        <View style={{ 
-          position: 'absolute', 
-          bottom: -size * 0.1, 
-          right: -size * 0.1, 
-          backgroundColor: '#1e293b', // Match ActionMenu background
-          borderRadius: size * 0.3,
-          padding: 0
-        }}>
-          <Ionicons name="remove-circle" size={size * 0.6} color={color} />
-        </View>
-      </View>
-    );
-  }
-
-  if (iconName === 'custom:person-block' && Platform.OS !== 'ios') {
-    return (
-      <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
-        {/* Main person circle outline */}
-        <Ionicons name="person-circle-outline" size={size} color={color} />
-        {/* Badge in the corner */}
-        <View style={{ 
-          position: 'absolute', 
-          bottom: size * 0.05, 
-          left: size * 0.05, 
-          backgroundColor: '#030e21', // Dark background to match Nexus
-          borderRadius: size * 0.25,
-          padding: 0
-        }}>
-          <Ionicons name="close-circle" size={size * 0.45} color={color} />
-        </View>
-      </View>
-    );
-  }
-  
-  if (iconName.startsWith('mc:')) {
-    return <MaterialCommunityIcons color={color} size={size} name={iconName.replace('mc:', '')} style={style} />;
-  }
-  
-  if (iconName.startsWith('mat:')) {
-    return <MaterialIcons color={color} size={size} name={iconName.replace('mat:', '')} style={style} />;
-  }
-  
-  if (Platform.OS === 'ios') {
-    return <Ionicons color={color} size={size} name={MAPPING[name] || name} style={style} />;
-  }
-
-  return <Ionicons color={color} size={size} name={iconName} style={style} />;
+  return renderBaseIcon(mappedName);
 }

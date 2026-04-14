@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileMenuSheet from './ProfileMenuSheet';
 import { Colors } from '../../constants/theme';
 import { IconSymbol } from './icon-symbol';
+import { MinutesPurchaseModal } from './MinutesPurchaseModal';
 
 export default function MainHeader() {
   const { t, i18n } = useTranslation();
@@ -16,6 +17,7 @@ export default function MainHeader() {
   const [autoTranslate, setAutoTranslate] = useState(false);
   const [dailyStats, setDailyStats] = useState({ minutes: 0, earnings: 0 });
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -135,8 +137,11 @@ export default function MainHeader() {
 
             {/* Male Stats: Minutes Balance */}
             {userProfile.gender === 'man' && (
-              <TouchableOpacity style={styles.statsBadge} activeOpacity={0.7}>
-                <Text style={styles.statsIcon}>🕐</Text>
+              <TouchableOpacity 
+                style={styles.statsBadge} 
+                activeOpacity={0.7}
+                onPress={() => setShowPurchaseModal(true)}>
+                <IconSymbol name="timer" size={14} color="#0ef0ff" style={{ marginRight: 4 }} />
                 <Text style={styles.statsValue}>{userProfile.minutesBalance || 0}</Text>
               </TouchableOpacity>
             )}
@@ -184,6 +189,12 @@ export default function MainHeader() {
         isVisible={isMenuVisible} 
         onClose={() => setIsMenuVisible(false)} 
         userProfile={userProfile} 
+      />
+
+      <MinutesPurchaseModal
+        visible={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        userProfile={userProfile}
       />
     </>
   );

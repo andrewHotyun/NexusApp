@@ -322,7 +322,9 @@ export default function NotificationsTab() {
 
   // 7. Combined & Filtered Activity
   const activityItems = useMemo(() => {
-    const all = [...messages, ...requests, ...likes, ...stories];
+    // Only show unread likes to keep the list clean as requested
+    const unreadLikes = likes.filter(l => !l.read);
+    const all = [...messages, ...requests, ...unreadLikes, ...stories];
     const filtered = activeFilter === 'all' ? all : all.filter(item => item.type === activeFilter);
     return filtered.sort((a, b) => b.sortTime - a.sortTime);
   }, [messages, requests, likes, stories, activeFilter]);
@@ -501,9 +503,18 @@ export default function NotificationsTab() {
           style={styles.cardContainer}
           onPress={async () => {
             try {
-              await updateDoc(doc(db, 'likes', item.id), { read: true });
+              const batch = writeBatch(db);
+              
+              // Find all unread likes from THIS sender to clear them all at once
+              const unreadFromThisSender = likes.filter(l => l.sender.uid === item.sender.uid && !l.read);
+              
+              unreadFromThisSender.forEach(likeItem => {
+                batch.update(doc(db, 'likes', likeItem.id), { read: true });
+              });
+              
+              await batch.commit();
             } catch (e) {
-              console.error('Error marking like as read on click:', e);
+              console.error('Error bulk marking likes as read:', e);
             }
             router.push(`/chat/${item.sender.uid}`);
           }}

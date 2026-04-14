@@ -598,16 +598,22 @@
       "cvv": "CVV muss 3 oder 4 Stellen haben",
       "invalid_cvv": "Ungültiger CVV",
       "cardholder_name": "Name des Karteninhabers ist erforderlich",
+      "invalid_cardholder": "Name darf keine Ziffern enthalten",
       "paypal_email": "Eine gültige PayPal-Adresse ist erforderlich",
       "wallet_address": "Ungültige Wallet-Adresse",
       "crypto_type": "Bitte wählen Sie einen Kryptotyp aus"
     }
   },
   "purchase": {
+    "delete_method_title": "Methode löschen",
+    "delete_method_confirm": "Sind Sie sicher, dass Sie diese Zahlungsmethode löschen möchten?",
+    "method_deleted_toast": "Methode erfolgreich gelöscht",
+    "method_delete_error": "Fehler beim Löschen der Methode",
     "title": "Minuten kaufen",
     "current_balance": "Aktueller Kontostand:",
     "choose_package": "Wählen Sie ein Paket:",
     "buy_btn": "Minuten kaufen",
+    "error_select_method": "Bitte wählen Sie eine Zahlungsmethode für den Kauf aus",
     "choose_payment": "Zahlungsmethode wählen",
     "add_new_payment": "Neue Zahlungsmethode hinzufügen",
     "card": "Kreditkarte",

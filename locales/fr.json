@@ -592,16 +592,22 @@
       "cvv": "Le CVV doit comporter 3 ou 4 chiffres",
       "invalid_cvv": "CVV invalide",
       "cardholder_name": "Le nom du titulaire est obligatoire",
+      "invalid_cardholder": "Le nom ne peut pas contenir de chiffres",
       "paypal_email": "Une adresse PayPal valide est requise",
       "wallet_address": "Adresse de portefeuille invalide",
       "crypto_type": "Veuillez sélectionner un type de crypto"
     }
   },
   "purchase": {
+    "delete_method_title": "Supprimer la méthode",
+    "delete_method_confirm": "Êtes-vous sûr de vouloir supprimer cette méthode de paiement ?",
+    "method_deleted_toast": "Méthode supprimée avec succès",
+    "method_delete_error": "Erreur lors de la suppression de la méthode",
     "title": "Achat de minutes",
     "current_balance": "Solde actuel :",
     "choose_package": "Choisissez un forfait :",
     "buy_btn": "Acheter des minutes",
+    "error_select_method": "Veuillez sélectionner un mode de paiement pour l'achat",
     "choose_payment": "Choisissez le mode de paiement",
     "add_new_payment": "Ajouter un nouveau mode de paiement",
     "card": "Carte de crédit",

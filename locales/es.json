@@ -595,16 +595,22 @@
       "cvv": "El CVV debe tener 3 o 4 dígitos",
       "invalid_cvv": "CVV inválido",
       "cardholder_name": "El nombre del titular es obligatorio",
+      "invalid_cardholder": "El nombre no puede contener números",
       "paypal_email": "Se requiere una dirección de PayPal válida",
       "wallet_address": "Dirección de billetera inválida",
       "crypto_type": "Por favor selecciona un tipo de cripto"
     }
   },
   "purchase": {
+    "delete_method_title": "Eliminar método",
+    "delete_method_confirm": "¿Estás seguro de que quieres eliminar este método de pago?",
+    "method_deleted_toast": "Método eliminado con éxito",
+    "method_delete_error": "Error al eliminar el método",
     "title": "Comprar minutos",
     "current_balance": "Saldo actual:",
     "choose_package": "Elige un paquete:",
     "buy_btn": "Comprar minutos",
+    "error_select_method": "Por favor, seleccione un método de pago para la compra",
     "choose_payment": "Elegir método de pago",
     "add_new_payment": "Añadir nuevo método de pago",
     "card": "Tarjeta de crédito",

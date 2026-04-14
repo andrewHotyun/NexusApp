@@ -8,6 +8,10 @@
     "min": "min",
     "next_minute_in": "Remaining in current minute"
   },
+  "common": {
+    "back": "Back",
+    "save": "Save"
+  },
   "greeting": {
     "night": "Good night",
     "morning": "Good morning",
@@ -594,17 +598,25 @@
       "cvv": "CVV must be 3 or 4 digits",
       "invalid_cvv": "Invalid CVV",
       "cardholder_name": "Cardholder name is required",
+      "invalid_cardholder": "Name cannot contain digits",
       "paypal_email": "A valid PayPal address is required",
       "wallet_address": "Invalid wallet address",
       "crypto_type": "Please select a crypto type"
     }
   },
   "purchase": {
+    "delete_method_title": "Delete Method",
+    "delete_method_confirm": "Are you sure you want to delete this payment method?",
+    "method_deleted_toast": "Method deleted successfully",
+    "method_delete_error": "Error deleting method",
     "title": "Buy Minutes",
     "current_balance": "Current Balance:",
     "choose_package": "Choose a Package:",
+    "back": "Back",
     "buy_btn": "Buy Minutes",
+    "error_select_method": "Please select a payment method for purchase",
     "choose_payment": "Choose Payment Method",
+    "add_method_title": "Select Method Type",
     "add_new_payment": "Add New Payment Method",
     "card": "Credit Card",
     "paypal": "PayPal",

@@ -3,15 +3,15 @@ import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
 
 import en from './locales/en.json';
-import ua from './locales/ua.json';
+import uk from './locales/uk.json';
 import es from './locales/es.json';
 import de from './locales/de.json';
 import fr from './locales/fr.json';
 
 const resources = {
   en: { translation: en },
-  ua: { translation: ua },
-  uk: { translation: ua },
+  ua: { translation: uk },
+  uk: { translation: uk },
   es: { translation: es },
   de: { translation: de },
   fr: { translation: fr },

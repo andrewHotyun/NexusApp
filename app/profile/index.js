@@ -40,6 +40,7 @@ import { Colors } from '../../constants/theme';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { SearchablePicker } from '../../components/ui/SearchablePicker';
 import { ActionModal } from '../../components/ui/ActionModal';
+import { MinutesPurchaseModal } from '../../components/ui/MinutesPurchaseModal';
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -54,6 +55,7 @@ export default function ProfileScreen() {
   const [actionModal, setActionModal] = useState({ 
     visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true 
   });
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -487,14 +489,20 @@ export default function ProfileScreen() {
                 </View>
 
                 {profile?.gender === 'man' && (
-                  <>
-                    <View style={styles.infoRow}>
+                  <View style={styles.infoRow}>
+                    <View style={styles.balanceHeader}>
                       <Text style={styles.infoLabel}>{t('profile.minutes_balance')}</Text>
-                      <Text style={styles.infoValue}>
-                        {t('profile.minutes_unit', { count: profile?.minutesBalance || 0 })}
-                      </Text>
+                      <TouchableOpacity 
+                        style={styles.topUpBtn}
+                        onPress={() => setShowPurchaseModal(true)}>
+                        <IconSymbol name="plus" size={14} color="#fff" />
+                        <Text style={styles.topUpBtnText}>{t('purchase.buy_btn')}</Text>
+                      </TouchableOpacity>
                     </View>
-                  </>
+                    <Text style={styles.infoValue}>
+                      {t('profile.minutes_unit', { count: profile?.minutesBalance || 0 })}
+                    </Text>
+                  </View>
                 )}
               </>
             )}
@@ -557,6 +565,11 @@ export default function ProfileScreen() {
         showCancel={actionModal.showCancel}
         onConfirm={actionModal.onConfirm}
         onClose={() => setActionModal(prev => ({ ...prev, visible: false }))}
+      />
+      <MinutesPurchaseModal
+        visible={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        userProfile={profile}
       />
     </SafeAreaView>
   );
@@ -787,6 +800,26 @@ const styles = StyleSheet.create({
   balanceValue: {
     color: '#2ecc71',
     fontSize: 20,
+    fontWeight: '700',
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  topUpBtn: {
+    backgroundColor: Colors.dark.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  topUpBtnText: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: '700',
   },
 });
