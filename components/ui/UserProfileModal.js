@@ -124,6 +124,17 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
   // Find current item dynamically from folders to avoid stale data
   const getCurrentItem = () => {
     if (!fullScreenMediaUrl) return null;
+
+    // Check if it's the avatar
+    if (fullScreenMediaUrl === profile?.originalAvatarUrl || fullScreenMediaUrl === profile?.avatar) {
+      return {
+        url: fullScreenMediaUrl,
+        type: 'image',
+        likedBy: [], // Avatar doesn't have likes in this implementation
+        id: 'avatar'
+      };
+    }
+
     for (const folder of folders) {
       const item = folder.items?.find(i => i.url === fullScreenMediaUrl);
       if (item) return item;
@@ -141,7 +152,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
   };
 
   const handleLikePhoto = async (item) => {
-    if (!auth.currentUser || !userId || isLiking || !item) return;
+    if (!auth.currentUser || !userId || isLiking || !item || item.id === 'avatar') return;
 
     const alreadyLiked = isLiked(item);
     // Optimistic UI update: toggle local state immediately
@@ -365,12 +376,6 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
                         }
                       }}
                     />
-                    {profile.online && (
-                      <View style={styles.onlineStatus}>
-                        <View style={styles.onlineDot} />
-                        <Text style={styles.onlineText}>{t('profile.online')}</Text>
-                      </View>
-                    )}
                   </View>
 
                   <Text style={styles.name}>{profile.name}, {profile.age}</Text>
@@ -400,7 +405,12 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
                   </View>
                   <View style={styles.statsRow}>
                     {renderQuickStat('birthday.cake.fill', t('profile.age_label'), t('profile.age_value', { count: profile.age }))}
-                    {renderQuickStat('calendar', t('profile.registration_date'), new Date(profile.createdAt?.seconds * 1000).toLocaleDateString())}
+                    {renderQuickStat('calendar', t('profile.registration_date'), (() => {
+                      const rawDate = profile.createdAt || profile.joinedAt;
+                      if (!rawDate) return t('common.not_specified');
+                      const d = rawDate.seconds ? new Date(rawDate.seconds * 1000) : new Date(rawDate);
+                      return isNaN(d.getTime()) ? t('common.not_specified') : d.toLocaleDateString();
+                    })())}
                   </View>
                 </View>
 
@@ -662,32 +672,38 @@ const styles = StyleSheet.create({
   },
   onlineStatus: {
     position: 'absolute',
-    bottom: -4,
-    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+    bottom: 4,
+    backgroundColor: 'rgba(7, 10, 20, 0.95)',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(46, 204, 113, 0.3)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(46, 204, 113, 0.4)',
     alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
   },
   onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#2ecc71',
-    marginRight: 6,
+    marginRight: 8,
     shadowColor: '#2ecc71',
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+    shadowOpacity: 1,
+    shadowRadius: 6,
   },
   onlineText: {
     color: '#2ecc71',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '900',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   name: {
     fontSize: 26,

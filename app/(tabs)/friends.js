@@ -48,14 +48,14 @@ export default function FriendsTab() {
 
   const [friends, setFriends] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState({}); // Track who is online in real-time
-  const [userAges, setUserAges] = useState({});
+  const [userProfiles, setUserProfiles] = useState({});
   const [visibleFriendIds, setVisibleFriendIds] = useState([]);
 
   useEffect(() => {
-    AsyncStorage.getItem('friends_ages_cache').then(cached => {
-      if (cached) setUserAges(JSON.parse(cached));
+    AsyncStorage.getItem('friends_profiles_cache').then(cached => {
+      if (cached) setUserProfiles(JSON.parse(cached));
     }).catch(()=>{});
-  }, []); // Cache for friend ages
+  }, []); // Cache for friend profiles
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOnlineOnly, setIsOnlineOnly] = useState(false);
@@ -115,7 +115,10 @@ export default function FriendsTab() {
       setFriends(friendsData);
       setLoading(false);
     }, (error) => {
-      console.error('Error fetching friends:', error);
+      console.error('[FriendsTab] Error in friends listener:', error);
+      if (error.code === 'permission-denied') {
+        console.warn('[FriendsTab] Friends listener permission denied');
+      }
       setLoading(false);
     });
 
@@ -123,17 +126,18 @@ export default function FriendsTab() {
   }, [user?.uid]);
 
   // 2. Fetch missing ages for friends
+  // 2. Fetch and synchronize latest friend profile data (avatar, name, age)
   useEffect(() => {
     if (friends.length === 0) return;
 
-    const fetchAges = async () => {
+    const fetchProfiles = async () => {
       const uidsToFetch = friends
         .map(f => f.friendId)
-        .filter(uid => uid && typeof userAges[uid] === 'undefined');
+        .filter(uid => uid && (!userProfiles[uid] || !userProfiles[uid]._fresh));
 
       if (uidsToFetch.length === 0) return;
 
-      const newAges = { ...userAges };
+      const newProfiles = { ...userProfiles };
       let updated = false;
 
       await Promise.all(
@@ -141,26 +145,35 @@ export default function FriendsTab() {
           try {
             const userDoc = await getDoc(doc(db, 'users', uid));
             if (userDoc.exists()) {
-              newAges[uid] = userDoc.data().age || null;
+              const data = userDoc.data();
+              newProfiles[uid] = {
+                name: data.name || null,
+                avatar: data.avatar || null,
+                age: data.age || null,
+                city: data.city || null,
+                country: data.country || null,
+                _fresh: true,
+                _timestamp: Date.now()
+              };
               updated = true;
             } else {
-              newAges[uid] = null;
+              newProfiles[uid] = { _notFound: true, _fresh: true };
               updated = true;
             }
           } catch (e) {
-            console.error(`Error fetching age for ${uid}:`, e);
+            console.error(`Error fetching profile for ${uid}:`, e);
           }
         })
       );
 
       if (updated) {
-        setUserAges(newAges);
-        AsyncStorage.setItem('friends_ages_cache', JSON.stringify(newAges)).catch(()=>{});
+        setUserProfiles(newProfiles);
+        AsyncStorage.setItem('friends_profiles_cache', JSON.stringify(newProfiles)).catch(()=>{});
       }
     };
 
-    fetchAges();
-  }, [friends, userAges]);
+    fetchProfiles();
+  }, [friends, userProfiles]);
 
   // 3. Track online status ONLY for visible friends
   useEffect(() => {
@@ -230,7 +243,13 @@ export default function FriendsTab() {
         }
       });
       setActiveStoryUserIds(ids);
-    }, (err) => console.warn('FriendsStories listener error:', err));
+    }, (err) => {
+      if (err.code === 'permission-denied') {
+        console.warn('[FriendsTab] Stories listener permission denied');
+      } else {
+        console.error('[FriendsTab] FriendsStories listener error:', err);
+      }
+    });
     return () => unsub();
   }, [user?.uid]);
 
@@ -295,82 +314,91 @@ export default function FriendsTab() {
   };
 
 
-  const renderFriendItem = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.accentBorder} />
-      <View style={styles.cardInfo}>
-        <View style={styles.avatarContainer}>
-          <StoryAvatar 
-            userId={item.friendId} 
-            avatarUrl={item.friendAvatar} 
-            name={item.friendName} 
-            size={50}
-            hasStories={activeStoryUserIds.has(item.friendId)}
-            onPress={() => router.push(`/chat/${item.friendId}`)}
-            onStoryPress={async () => {
-              try {
-                const q = query(
-                  collection(db, 'stories'),
-                  where('userId', '==', item.friendId),
-                  where('status', '==', 'approved')
-                );
-                const storiesSnap = await getDocs(q);
-                const now = new Date();
-                const userStories = storiesSnap.docs
-                  .map(d => ({ id: d.id, ...d.data() }))
-                  .filter(s => {
-                    const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
-                    return expiresAt && expiresAt > now;
-                  })
-                  .sort((a, b) => {
-                    const timeA = a.createdAt?.toMillis?.() || 0;
-                    const timeB = b.createdAt?.toMillis?.() || 0;
-                    return timeA - timeB;
-                  });
+  const renderFriendItem = ({ item }) => {
+    const profile = userProfiles[item.friendId] || {};
+    const displayName = profile.name || item.friendName;
+    const displayAvatar = profile.avatar || item.friendAvatar;
+    const displayAge = profile.age || item.friendAge;
+    const displayCity = profile.city || item.friendCity;
+    const displayCountry = profile.country || item.friendCountry;
 
-                if (userStories.length > 0) {
-                  setViewerStories(userStories);
-                  setViewerUser({ name: item.friendName, avatar: item.friendAvatar });
-                  setViewerVisible(true);
+    return (
+      <View style={styles.card}>
+        <View style={styles.accentBorder} />
+        <View style={styles.cardInfo}>
+          <View style={styles.avatarContainer}>
+            <StoryAvatar 
+              userId={item.friendId} 
+              avatarUrl={displayAvatar} 
+              name={displayName} 
+              size={50}
+              hasStories={activeStoryUserIds.has(item.friendId)}
+              onPress={() => router.push(`/chat/${item.friendId}`)}
+              onStoryPress={async () => {
+                try {
+                  const q = query(
+                    collection(db, 'stories'),
+                    where('userId', '==', item.friendId),
+                    where('status', '==', 'approved')
+                  );
+                  const storiesSnap = await getDocs(q);
+                  const now = new Date();
+                  const userStories = storiesSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(s => {
+                      const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                      return expiresAt && expiresAt > now;
+                    })
+                    .sort((a, b) => {
+                      const timeA = a.createdAt?.toMillis?.() || 0;
+                      const timeB = b.createdAt?.toMillis?.() || 0;
+                      return timeA - timeB;
+                    });
+
+                  if (userStories.length > 0) {
+                    setViewerStories(userStories);
+                    setViewerUser({ name: displayName, avatar: displayAvatar });
+                    setViewerVisible(true);
+                  }
+                } catch (e) {
+                  console.error("Error loading stories for viewer:", e);
                 }
-              } catch (e) {
-                console.error("Error loading stories for viewer:", e);
-              }
-            }}
-          />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {`${item.friendName}${userAges[item.friendId] ? `, ${userAges[item.friendId]}` : ''}`}
-          </Text>
-          {(item.friendCity || item.friendCountry) && (
-            <Text style={styles.userLocation} numberOfLines={1}>
-              {[item.friendCity, item.friendCountry].filter(Boolean).join(', ')}
+              }}
+            />
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {`${displayName}${displayAge ? `, ${displayAge}` : ''}`}
             </Text>
-          )}
+            {(displayCity || displayCountry) && (
+              <Text style={styles.userLocation} numberOfLines={1}>
+                {[displayCity, displayCountry].filter(Boolean).join(', ')}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={styles.chatBtn} 
+            onPress={() => router.push(`/chat/${item.friendId}`)}>
+            <IconSymbol name="message.fill" size={22} color={Colors.dark.primary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.removeBtn} 
+            onPress={() => handleRemoveFriend(item.friendId, item.friendName)}
+            disabled={processingId === item.friendId}>
+            {processingId === item.friendId ? (
+              <ActivityIndicator size="small" color="#e74c3c" />
+            ) : (
+              <IconSymbol name="person.badge.minus" size={20} color="#e74c3c" />
+            )}
+          </TouchableOpacity>
         </View>
       </View>
-
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.chatBtn} 
-          onPress={() => router.push(`/chat/${item.friendId}`)}>
-          <IconSymbol name="message.fill" size={22} color={Colors.dark.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.removeBtn} 
-          onPress={() => handleRemoveFriend(item.friendId, item.friendName)}
-          disabled={processingId === item.friendId}>
-          {processingId === item.friendId ? (
-            <ActivityIndicator size="small" color="#e74c3c" />
-          ) : (
-            <IconSymbol name="person.badge.minus" size={20} color="#e74c3c" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>

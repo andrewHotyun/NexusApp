@@ -60,7 +60,23 @@ export const StoryAvatar = ({
         renderAvatar(size)
       )}
       
-      {showStatus && <OnlineStatusIndicator userId={userId} style={styles.statusDot} />}
+      {showStatus && (
+        <OnlineStatusIndicator 
+          userId={userId} 
+          style={[
+            styles.statusDot,
+            {
+              width: size > 100 ? 18 : 12,
+              height: size > 100 ? 18 : 12,
+              borderRadius: size > 100 ? 9 : 6,
+              bottom: size > 100 ? size * 0.06 : 0,
+              right: size > 100 ? size * 0.06 : 0,
+              borderWidth: size > 100 ? 2.5 : 2,
+              borderColor: '#030e21',
+            }
+          ]} 
+        />
+      )}
     </View>
   );
 

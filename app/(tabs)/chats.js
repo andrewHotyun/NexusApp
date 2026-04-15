@@ -129,6 +129,7 @@ export default function ChatsTab() {
       limit(300)
     );
     const unsub = onSnapshot(q, (snap) => {
+      console.log('[ChatsTab] Sent messages received:', snap.docs.length);
       setSentMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setInitialFetchesDone(prev => ({ ...prev, sent: true }));
     }, (err) => console.warn('SentMessages listener error:', err));
@@ -145,6 +146,7 @@ export default function ChatsTab() {
       limit(300)
     );
     const unsub = onSnapshot(q, (snap) => {
+      console.log('[ChatsTab] Received messages received:', snap.docs.length);
       setReceivedMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setInitialFetchesDone(prev => ({ ...prev, received: true }));
     }, (err) => console.warn('ReceivedMessages listener error:', err));
@@ -363,12 +365,12 @@ export default function ChatsTab() {
       });
 
       // Filter out technical chats, phantom users, AND blocked users
+      console.log('[ChatsTab] Pre-filter chat count:', chatList.length, 'partners:', chatList.map(c => c.id));
       const filteredChats = chatList.filter(chat => {
         const cached = userProfileCache[chat.id];
         
-        // Hide only if it is completely brand new & fetching, OR permanently not found
-        const isTemporaryNewFetch = cached?._fetching && !cached?.name;
-        const hasProfile = cached && !cached._notFound && !isTemporaryNewFetch;
+        // Profile is known if we have a cached name (from DB or message metadata)
+        const hasKnownProfile = cached && !cached._notFound && cached.name;
         
         // Bidirectional Block Filter (Sync with Web: chat disappears for both)
         const isBlocked = (myBlockedIds && myBlockedIds.includes(chat.id)) || 
@@ -380,14 +382,14 @@ export default function ChatsTab() {
                             chat.lastMessage.type === 'video_call_declined' ||
                             lastMsgText.toLowerCase().includes('video call');
         
-        // CRITICAL RULE: Don't show the chat if the user is missing AND it's just a call record
-        // This removes the "User" ghost entries after random matches or technical sessions.
-        if (!hasProfile && isTechnical) return false;
+        // Hide technical/video-call chats if profile is unknown (ghost entries from random matches)
+        if (!hasKnownProfile && isTechnical) return false;
         if (chat.id === 'system' || chat.id === 'admin') return false;
         if (hiddenChats.has(chat.id)) return false;
 
         return true;
       });
+      console.log('[ChatsTab] Post-filter chat count:', filteredChats.length);
 
       // Final sort by latest message
       const sortedChats = filteredChats.sort((a, b) => {

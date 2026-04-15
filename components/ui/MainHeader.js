@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Pre
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '../../utils/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileMenuSheet from './ProfileMenuSheet';
 import { Colors } from '../../constants/theme';
@@ -42,21 +42,48 @@ export default function MainHeader() {
 
   useEffect(() => {
     const user = auth.currentUser;
-    if (!user || userProfile?.gender !== 'woman') return;
+    // CRITICAL: Ensure userProfile is loaded AND gender is 'woman' before querying earnings.
+    // Otherwise, it may attempt to query without permission during initial render.
+    if (!user || !userProfile || userProfile.gender !== 'woman') return;
 
-    const today = new Date().toISOString().split('T')[0];
-    const earningsRef = doc(db, 'earnings', `${user.uid}_${today}`);
-    
-    const unsubscribeEarnings = onSnapshot(earningsRef, (doc) => {
-      if (doc.exists()) {
-        setDailyStats(doc.data());
-      } else {
-        setDailyStats({ minutes: 0, earnings: 0 });
+    // Exact replica of web Header.js (lines 226-255):
+    // Query by userId only to avoid composite index; filter by date in memory
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const qE = query(
+      collection(db, 'earnings'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribeEarnings = onSnapshot(qE, {
+      next: (snap) => {
+        let totalMinutes = 0;
+        let totalEarnings = 0;
+        snap.forEach((d) => {
+          const data = d.data();
+          const createdAt = data.createdAt?.toDate?.() || new Date(0);
+          if (createdAt >= today && createdAt < tomorrow && data.status !== 'annulled') {
+            totalMinutes += data.minutes || 0;
+            totalEarnings += data.earnings || 0;
+          }
+        });
+        setDailyStats({ minutes: totalMinutes, earnings: totalEarnings });
+      },
+      error: (err) => {
+        // Suppress permission-denied errors if gender check somehow races
+        if (err.code === 'permission-denied') {
+          console.warn('[MainHeader] Earnings listener permission denied (expected for non-woman users)');
+        } else {
+          console.error('[MainHeader] Daily stats sync error:', err);
+        }
       }
-    }, (err) => console.log('Daily stats sync error:', err));
+    });
 
     return () => unsubscribeEarnings();
-  }, [userProfile?.gender]);
+  }, [userProfile?.gender, userProfile === null]); // Added userProfile === null to re-run when profile loads
 
   const toggleLanguage = () => {
     const langs = ['en', 'uk', 'es', 'de', 'fr'];
@@ -141,7 +168,7 @@ export default function MainHeader() {
                 style={styles.statsBadge} 
                 activeOpacity={0.7}
                 onPress={() => setShowPurchaseModal(true)}>
-                <IconSymbol name="timer" size={14} color="#0ef0ff" style={{ marginRight: 4 }} />
+                <IconSymbol name="timer" size={13} color="#0ef0ff" style={{ marginRight: 3 }} />
                 <Text style={styles.statsValue}>{userProfile.minutesBalance || 0}</Text>
               </TouchableOpacity>
             )}
@@ -149,7 +176,7 @@ export default function MainHeader() {
             {/* Female Stats: Daily Earnings */}
             {userProfile.gender === 'woman' && (
               <View style={styles.femaleStatsContainer}>
-                <View style={[styles.statsBadge, { marginRight: 6 }]}>
+                <View style={[styles.statsBadge, { marginRight: 4 }]}>
                   <Text style={styles.statsIcon}>⏱️</Text>
                   <Text style={styles.statsValue}>{dailyStats.minutes}</Text>
                 </View>
@@ -210,9 +237,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 8,
-    height: Platform.OS === 'android' ? 56 : 64, 
+    height: Platform.OS === 'android' ? 52 : 58, 
   },
   leftSection: {
     flexDirection: 'row',
@@ -223,21 +250,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   controlBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -252,13 +279,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 18,
+    marginRight: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
-    height: 36,
+    height: 30,
   },
   langIcon: {
     fontSize: 14,
@@ -266,29 +293,29 @@ const styles = StyleSheet.create({
   },
   langText: {
     color: '#0ef0ff',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
   },
   statsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(14, 240, 255, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 15,
+    marginRight: 4,
     borderWidth: 1,
     borderColor: 'rgba(14, 240, 255, 0.25)',
-    height: 36,
+    height: 28,
   },
   statsIcon: {
-    fontSize: 14,
-    marginRight: 4,
+    fontSize: 12,
+    marginRight: 2,
   },
   statsValue: {
     color: '#0ef0ff',
     fontWeight: '900',
-    fontSize: 14,
+    fontSize: 12,
   },
   femaleStatsContainer: {
     flexDirection: 'row',
@@ -298,13 +325,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#0ef0ff', 
   },
   avatarImage: {

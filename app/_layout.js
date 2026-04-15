@@ -132,7 +132,7 @@ export default function RootLayout() {
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log("[Nexus] User status:", userData.status);
+          console.log("[Nexus] User status:", userData.status || 'active (default)');
 
           if (userData.status === 'blocked' || userData.status === 'deleted' || userData.deletionInfo?.status === 'pending_deletion') {
             console.warn("[Nexus] Access denied (status/deletion). Signing out.");
