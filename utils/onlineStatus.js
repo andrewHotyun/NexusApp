@@ -132,6 +132,9 @@ export const getUserOnlineStatus = (userId, callback) => {
         lastSeen: null
       });
     }
+  }, (err) => {
+    console.log('Online status listener error:', err);
+    callback({ isOnline: false, lastSeen: null });
   });
 };
 

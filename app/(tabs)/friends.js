@@ -230,7 +230,7 @@ export default function FriendsTab() {
         }
       });
       setActiveStoryUserIds(ids);
-    });
+    }, (err) => console.warn('FriendsStories listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 

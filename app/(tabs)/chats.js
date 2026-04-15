@@ -37,7 +37,19 @@ const userProfileCache = {};
 export default function ChatsTab() {
   const { t } = useTranslation();
   const router = useRouter();
-  const user = auth.currentUser;
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
+
+  // 0. Listen for auth state changes to make 'user' reactive within this component
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged((u) => {
+      if (u?.uid !== currentUser?.uid) {
+        setCurrentUser(u);
+      }
+    });
+    return () => unsubAuth();
+  }, [currentUser?.uid]);
+
+  const user = currentUser;
   
   const [sentMessages, setSentMessages] = useState([]);
   const [receivedMessages, setReceivedMessages] = useState([]);
@@ -60,15 +72,27 @@ export default function ChatsTab() {
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
-  // Clean up in-memory cache on logout if user changes
+
+  // 0.1 RESET everything when user changes to prevent data leakage between sessions
   useEffect(() => {
-    return () => {
-      // Also clear in-memory cache on logout if user changes
-      if (!user) {
-        Object.keys(userProfileCache).forEach(key => delete userProfileCache[key]);
-      }
-    };
-  }, [user]);
+    console.log("[ChatsTab] User changed, resetting all states...");
+    setSentMessages([]);
+    setReceivedMessages([]);
+    setChats([]);
+    setInitialFetchesDone({ sent: false, received: false });
+    setLoading(true);
+    setBlocksLoaded(false);
+    setMyBlockedIds([]);
+    setBlockedMeIds([]);
+    setTypingUsers({});
+    setActiveStoryUserIds(new Set());
+    migrationDone.current = false;
+
+    // Clear in-memory profile cache on logout
+    if (!user) {
+      Object.keys(userProfileCache).forEach(key => delete userProfileCache[key]);
+    }
+  }, [user?.uid]);
 
   // Load chats from fast local cache immediately
   useEffect(() => {

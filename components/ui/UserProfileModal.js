@@ -218,6 +218,9 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
         setProfile({ id: docSnap.id, ...docSnap.data() });
       }
       setLoading(false);
+    }, (err) => {
+      console.warn('UserProfileModal sync error:', err);
+      setLoading(false);
     });
 
     // Listen to user's media folders
@@ -236,7 +239,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
       if (foldersData.length > 0) {
         setSelectedFolderId(prev => prev || foldersData[0].id);
       }
-    });
+    }, (err) => console.warn('UserGallery sync error:', err));
 
     // Listen for user's active stories
     // Uses userId + status only (index exists from web version).
@@ -253,7 +256,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
         return expiresAt && expiresAt > now;
       });
       setHasStories(hasActive);
-    });
+    }, (err) => console.warn('UserStories sync error:', err));
 
     return () => {
       userUnsubscribe();

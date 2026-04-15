@@ -65,7 +65,7 @@ export default function TabLayout() {
       const count = snap.docs.length;
       setRequestsCount(count);
       saveCount('req', count);
-    });
+    }, (err) => console.warn('BadgeRequests listener error:', err));
 
     // Listen to friends count and IDs
     const qFriends = query(
@@ -78,7 +78,7 @@ export default function TabLayout() {
       setFriendIds(ids);
       setFriendsCount(count);
       saveCount('fri', count);
-    });
+    }, (err) => console.warn('BadgeFriends listener error:', err));
 
     // Listen to unread messages count
     const qUnread = query(
@@ -91,7 +91,7 @@ export default function TabLayout() {
       const count = uniqueSenders.size;
       setUnreadMessagesCount(count);
       saveCount('unread', count);
-    });
+    }, (err) => console.warn('BadgeUnread listener error:', err));
     
     // Listen to likes count (unread)
     const qLikes = query(
@@ -103,7 +103,7 @@ export default function TabLayout() {
       const count = snap.docs.length;
       setLikesCount(count);
       saveCount('likes', count);
-    });
+    }, (err) => console.warn('BadgeLikes listener error:', err));
 
     // Listen to stories from friends (active only)
     // Only filter by status (auto-indexed single field) to avoid composite index requirement.
@@ -126,7 +126,7 @@ export default function TabLayout() {
       const count = uniquePosters.size;
       setStoriesCount(count);
       saveCount('stories', count);
-    });
+    }, (err) => console.warn('BadgeStories listener error:', err));
 
     return () => {
       unsubRequests();

@@ -102,7 +102,7 @@ export const StoryViewer = ({
         setLiveStoryData({ id: snap.id, ...data });
         setIsLiked(data.likedBy?.includes(currentUser?.uid));
       }
-    });
+    }, (err) => console.warn('StoryViewer detail listener error:', err));
 
     // Mark as viewed
     const markViewed = async () => {
