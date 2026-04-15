@@ -598,7 +598,11 @@
       "invalid_cardholder": "El nombre no puede contener números",
       "paypal_email": "Se requiere una dirección de PayPal válida",
       "wallet_address": "Dirección de billetera inválida",
-      "crypto_type": "Por favor selecciona un tipo de cripto"
+      "crypto_type": "Por favor selecciona un tipo de cripto",
+      "must_be_digits": "Debe tener {{count}} dígitos",
+      "enter_full_name": "Ingrese nombre y apellido",
+      "latin_only": "Use solo letras latinas",
+      "email_invalid_format": "Se requiere un email válido"
     }
   },
   "purchase": {
@@ -609,10 +613,14 @@
     "title": "Comprar minutos",
     "current_balance": "Saldo actual:",
     "choose_package": "Elige un paquete:",
+    "back": "Atrás",
     "buy_btn": "Comprar minutos",
     "error_select_method": "Por favor, seleccione un método de pago para la compra",
     "choose_payment": "Elegir método de pago",
+    "add_method_title": "Seleccionar tipo",
     "add_new_payment": "Añadir nuevo método de pago",
+    "method_selector_placeholder": "Elegir método de pago",
+    "select_method_title": "Seleccionar método",
     "card": "Tarjeta de crédito",
     "paypal": "PayPal",
     "bank_transfer": "Transferencia bancaria",

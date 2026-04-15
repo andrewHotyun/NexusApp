@@ -601,7 +601,11 @@
       "invalid_cardholder": "Name darf keine Ziffern enthalten",
       "paypal_email": "Eine gültige PayPal-Adresse ist erforderlich",
       "wallet_address": "Ungültige Wallet-Adresse",
-      "crypto_type": "Bitte wählen Sie einen Kryptotyp aus"
+      "crypto_type": "Bitte wählen Sie einen Kryptotyp aus",
+      "must_be_digits": "Muss {{count}} Stellen haben",
+      "enter_full_name": "Vor- und Nachnamen eingeben",
+      "latin_only": "Nur lateinische Buchstaben verwenden",
+      "email_invalid_format": "Gültige E-Mail erforderlich"
     }
   },
   "purchase": {
@@ -612,10 +616,14 @@
     "title": "Minuten kaufen",
     "current_balance": "Aktueller Kontostand:",
     "choose_package": "Wählen Sie ein Paket:",
+    "back": "Zurück",
     "buy_btn": "Minuten kaufen",
     "error_select_method": "Bitte wählen Sie eine Zahlungsmethode für den Kauf aus",
     "choose_payment": "Zahlungsmethode wählen",
+    "add_method_title": "Methode auswählen",
     "add_new_payment": "Neue Zahlungsmethode hinzufügen",
+    "method_selector_placeholder": "Zahlungsmethode wählen",
+    "select_method_title": "Methode auswählen",
     "card": "Kreditkarte",
     "paypal": "PayPal",
     "bank_transfer": "Banküberweisung",

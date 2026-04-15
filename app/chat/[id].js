@@ -18,7 +18,8 @@ import {
   where,
   writeBatch,
   limit,
-  orderBy
+  orderBy,
+  runTransaction
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -67,6 +68,10 @@ import { auth, db, storage } from '../../utils/firebase';
 import { formatLastSeen, getUserOnlineStatus } from '../../utils/onlineStatus';
 import { StoryAvatar } from '../../components/ui/StoryAvatar';
 import { StoryViewer } from '../../components/ui/StoryViewer';
+import GiftModal from '../../components/chat/GiftModal';
+import GiftAnimationOverlay from '../../components/chat/GiftAnimationOverlay';
+import { getEarningsRate } from '../../utils/earningsHelper';
+import { GIFTS, getGiftById } from '../../constants/gifts';
 
 export default function ChatScreen() {
   const { id, name, avatar, gender } = useLocalSearchParams();
@@ -112,12 +117,15 @@ export default function ChatScreen() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [fullScreenMedia, setFullScreenMedia] = useState(null);
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+  const [giftModalVisible, setGiftModalVisible] = useState(false);
   const typingTimeoutRef = useRef(null);
 
   // Story states
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [hasPartnerStories, setHasPartnerStories] = useState(false);
+  const [activeGiftAnimation, setActiveGiftAnimation] = useState(null);
+  const animatedGiftsRef = useRef(new Set());
 
   // --- Typing indicator Animation ---
   const typingDot1 = useSharedValue(0.4);
@@ -298,7 +306,7 @@ export default function ChatScreen() {
     return () => {
       if (user?.uid && partnerId) {
         const typingRef = doc(db, 'typingStatus', `${user.uid}_${partnerId}`);
-        updateDoc(typingRef, { isTyping: false, updatedAt: serverTimestamp() })
+        setDoc(typingRef, { isTyping: false, updatedAt: serverTimestamp() }, { merge: true })
           .catch(err => console.error("Error clearing typing status on unmount:", err));
       }
     };
@@ -311,12 +319,12 @@ export default function ChatScreen() {
     // Check if I blocked them
     const unsubMe = onSnapshot(doc(db, 'blocks', `${user.uid}_${partnerId}`), (snap) => {
       setIsBlockedByMe(snap.exists());
-    });
+    }, (err) => console.warn('BlockedByMe listener error:', err));
 
     // Check if they blocked me
     const unsubPartner = onSnapshot(doc(db, 'blocks', `${partnerId}_${user.uid}`), (snap) => {
       setIsBlockedByPartner(snap.exists());
-    });
+    }, (err) => console.warn('BlockedByPartner listener error:', err));
 
     return () => {
       unsubMe();
@@ -366,13 +374,13 @@ export default function ChatScreen() {
               } else {
                 setFriendshipStatus('not_friends');
               }
-            });
+            }, (err) => console.warn('ReceivedReq listener error:', err));
             return () => unsubReceived();
           }
-        });
+        }, (err) => console.warn('SentReq listener error:', err));
         return () => unsubSent();
       }
-    });
+    }, (err) => console.warn('Friends listener error:', err));
 
     return () => unsubFriends();
   }, [user?.uid, partnerId]);
@@ -395,7 +403,7 @@ export default function ChatScreen() {
         return expiresAt && expiresAt > now;
       });
       setHasPartnerStories(hasActive);
-    });
+    }, (err) => console.warn('Stories listener error:', err));
     return () => unsub();
   }, [partnerId]);
 
@@ -411,7 +419,7 @@ export default function ChatScreen() {
 
     const unsubBlock = onSnapshot(blockQuery, (snap) => {
       setIsBlockedByMe(!snap.empty);
-    });
+    }, (err) => console.warn('BlockStatus listener error:', err));
 
     return () => unsubBlock();
   }, [user?.uid, partnerId]);
@@ -485,6 +493,25 @@ export default function ChatScreen() {
       if (newIdsKey !== prevMessageIdsRef.current) {
         prevMessageIdsRef.current = newIdsKey;
         setMessages(merged);
+
+        // Check for new gifts to animate (scan all messages for un-animated fresh gifts)
+        const freshGifts = merged.filter(m => 
+          m.type === 'gift' && 
+          !animatedGiftsRef.current.has(m.id) && 
+          (Date.now() - extractTs(m)) < 15000 // 15s window for better reliability
+        );
+
+        if (freshGifts.length > 0) {
+          // Take the newest fresh gift
+          const latestGift = freshGifts[freshGifts.length - 1];
+          animatedGiftsRef.current.add(latestGift.id);
+          setActiveGiftAnimation({
+            gift: getGiftById(latestGift.giftId),
+            isSender: latestGift.senderId === user?.uid,
+            partnerName: partner?.name || 'User'
+          });
+        }
+
         setTimeout(() => markAsReadRef.current?.(merged), 300);
       }
       setIsInitialLoad(false);
@@ -585,9 +612,88 @@ export default function ChatScreen() {
       setReplyingToMessage(null);
     } catch (e) {
       console.error("Error sending message:", e);
-      setInputText(text);
+      setInputText(trimmedText);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSendGift = async (gift) => {
+    if (!user || !partnerId || !gift) return;
+
+    try {
+      const maleRef = doc(db, 'users', user.uid);
+      const femaleRef = doc(db, 'users', partnerId);
+      const chatId = [user.uid, partnerId].sort().join('_');
+      const ratePerMinute = await getEarningsRate();
+
+      await runTransaction(db, async (transaction) => {
+        const maleDoc = await transaction.get(maleRef);
+        const femaleDoc = await transaction.get(femaleRef);
+
+        if (!maleDoc.exists()) throw new Error("User docs do not exist");
+
+        const currentMinutes = parseInt(maleDoc.data().minutesBalance || 0, 10);
+        if (currentMinutes < gift.minutes) {
+          throw new Error("Insufficient balance");
+        }
+
+        // 1. Deduct minutes from man
+        transaction.update(maleRef, {
+          minutesBalance: currentMinutes - gift.minutes
+        });
+
+        // 2. Add earnings to woman
+        const giftEarnings = gift.minutes * ratePerMinute;
+        const femaleData = femaleDoc.data() || {};
+        const currentEarnings = parseFloat(femaleData.totalEarnings || 0);
+        const currentMinutesEarned = parseInt(femaleData.totalMinutesEarned || 0, 10);
+        const currentFemaleBalance = parseInt(femaleData.minutesBalance || 0, 10);
+
+        transaction.update(femaleRef, {
+          totalEarnings: parseFloat((currentEarnings + giftEarnings).toFixed(2)),
+          totalMinutesEarned: currentMinutesEarned + gift.minutes,
+          minutesBalance: currentFemaleBalance + gift.minutes
+        });
+
+        // 3. Create actual gift message
+        const messageData = {
+          chatId: chatId,
+          senderId: user.uid,
+          receiverId: partnerId,
+          text: `🎁 «${t(gift.nameKey)}» (+${gift.minutes} ${t('gifts.minutes_unit')})`,
+          timestamp: serverTimestamp(),
+          read: false,
+          type: 'gift',
+          giftId: gift.id,
+          minutes: gift.minutes,
+          participants: [user.uid, partnerId],
+          senderLanguage: i18n.language || 'en'
+        };
+
+        const messagesRef = collection(db, 'messages');
+        const newMessageRef = doc(messagesRef);
+        transaction.set(newMessageRef, messageData);
+
+        // 4. Create actual earnings record
+        const earningsRef = doc(collection(db, 'earnings'));
+        transaction.set(earningsRef, {
+          userId: partnerId,
+          partnerId: user.uid,
+          minutes: gift.minutes,
+          earnings: parseFloat((gift.minutes * ratePerMinute).toFixed(2)),
+          type: 'gift',
+          giftId: gift.id,
+          status: 'completed',
+          createdAt: serverTimestamp()
+        });
+      });
+
+      setToastMessage(t('gifts.gift_sent_success', { name: t(gift.nameKey) }));
+      setToastVisible(true);
+    } catch (error) {
+      console.error('Error sending gift:', error);
+      Alert.alert(t('common.error'), error.message === 'Insufficient balance' ? t('gifts.not_enough_minutes') : error.message);
     }
   };
 
@@ -1231,7 +1337,7 @@ export default function ChatScreen() {
         </View>
 
         {normalizeGender(currentUserData?.gender || currentUserData?.sex) === 'male' && normalizeGender(partner?.gender || partner?.sex) === 'female' && (
-          <TouchableOpacity onPress={() => { }} style={styles.giftHeaderBtn}>
+          <TouchableOpacity onPress={() => setGiftModalVisible(true)} style={styles.giftHeaderBtn}>
             <IconSymbol name="gift" size={24} color="#f1c40f" />
           </TouchableOpacity>
         )}
@@ -1368,7 +1474,16 @@ export default function ChatScreen() {
                 {editingMessage ? t('common.edit') : t('chat.replying_to', { name: replyingToMessage.senderId === user.uid ? 'Me' : (partner?.name || 'User') })}
               </Text>
               <Text style={styles.activeActionText} numberOfLines={1}>
-                {editingMessage ? originalEditText : replyingToMessage.text}
+                {editingMessage ? originalEditText : (() => {
+                  if (replyingToMessage.type === 'gift') {
+                    const gift = getGiftById(replyingToMessage.giftId);
+                    if (gift) {
+                      const localizedName = t(gift.nameKey);
+                      return `🎁 «${localizedName}» (+${replyingToMessage.minutes} ${t('gifts.minutes_unit')})`;
+                    }
+                  }
+                  return replyingToMessage.text;
+                })()}
               </Text>
             </View>
             <TouchableOpacity onPress={editingMessage ? cancelEdit : cancelReply} style={styles.activeActionClose}>
@@ -1699,7 +1814,24 @@ export default function ChatScreen() {
           message={toastMessage}
           onHide={() => setToastVisible(false)}
         />
+
+        <GiftModal
+          visible={giftModalVisible}
+          onClose={() => setGiftModalVisible(false)}
+          onSendGift={handleSendGift}
+          userBalance={currentUserData?.minutesBalance || 0}
+          recipientName={partner?.name || 'User'}
+        />
       </KeyboardAvoidingView>
+
+      {activeGiftAnimation && (
+        <GiftAnimationOverlay
+          gift={activeGiftAnimation.gift}
+          isSender={activeGiftAnimation.isSender}
+          partnerName={activeGiftAnimation.partnerName}
+          onComplete={() => setActiveGiftAnimation(null)}
+        />
+      )}
     </View>
   );
 }

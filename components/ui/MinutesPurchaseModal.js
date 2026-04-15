@@ -137,18 +137,18 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
       // Card Number Validation
       const expectedLength = cardType === 'amex' ? 15 : 16;
       if (!cleanNumber) {
-        newErrors.cardNumber = t('payment.errors.card_number') || 'Number required';
+        newErrors.cardNumber = t('payment.errors.number_required') || 'Number required';
       } else if (cleanNumber.length !== expectedLength && cardType !== 'unknown') {
-        newErrors.cardNumber = t('payment.errors.invalid_card') || `Must be ${expectedLength} digits`;
+        newErrors.cardNumber = t('payment.errors.must_be_digits', { count: expectedLength });
       } else if (cleanNumber.length < 13) {
-        newErrors.cardNumber = t('payment.errors.card_number') || 'Card number too short';
+        newErrors.cardNumber = t('payment.errors.invalid_card');
       } else if (!validateLuhn(cleanNumber)) {
-        newErrors.cardNumber = t('payment.errors.invalid_card') || 'Invalid card number';
+        newErrors.cardNumber = t('payment.errors.invalid_card');
       }
 
       // Expiry Validation
       if (!paymentData.expiryDate || !/^(0[1-9]|1[0-2])\/(\d{2})$/.test(paymentData.expiryDate)) {
-        newErrors.expiryDate = t('payment.errors.invalid_expiry') || 'Invalid Format (MM/YY)';
+        newErrors.expiryDate = t('payment.errors.invalid_expiry');
       } else {
         const [month, year] = paymentData.expiryDate.split('/');
         const now = new Date();
@@ -157,33 +157,33 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
         const expMonth = parseInt(month, 10);
         const expYear = parseInt(year, 10);
         if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
-          newErrors.expiryDate = t('payment.errors.expiry_past') || 'Card expired';
+          newErrors.expiryDate = t('payment.errors.expiry_past');
         }
       }
 
       // CVV Validation (Amex uses 4 digits, others 3)
       const expectedCvvLength = cardType === 'amex' ? 4 : 3;
       if (!paymentData.cvv) {
-        newErrors.cvv = t('payment.errors.cvv') || 'CVV required';
+        newErrors.cvv = t('payment.errors.cvv');
       } else if (paymentData.cvv.length !== expectedCvvLength && cardType !== 'unknown') {
-         newErrors.cvv = t('payment.errors.cvv') || `Must be ${expectedCvvLength} digits`;
+         newErrors.cvv = t('payment.errors.must_be_digits', { count: expectedCvvLength });
       } else if (!/^\d{3,4}$/.test(paymentData.cvv)) {
-        newErrors.cvv = t('payment.errors.cvv') || 'Invalid CVV';
+        newErrors.cvv = t('payment.errors.invalid_cvv');
       }
       
       // Name Validation (Strict Latin)
       const name = paymentData.cardholderName.trim();
       const nameParts = name.split(/\s+/).filter(p => p.length > 0);
       if (!name) {
-        newErrors.cardholderName = t('payment.errors.cardholder_name') || 'Name required';
+        newErrors.cardholderName = t('payment.errors.cardholder_name');
       } else if (nameParts.length < 2) {
-        newErrors.cardholderName = t('payment.errors.invalid_cardholder') || 'Enter First and Last Name';
+        newErrors.cardholderName = t('payment.errors.enter_full_name');
       } else if (/[^A-Z\s-]/.test(name.toUpperCase())) { // Latin only
-        newErrors.cardholderName = t('payment.errors.invalid_cardholder') || 'Use Latin letters only';
+        newErrors.cardholderName = t('payment.errors.latin_only');
       }
     } else if (addingMethodType === 'paypal') {
       if (!paymentData.paypalEmail || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10}$/.test(paymentData.paypalEmail)) {
-        newErrors.paypalEmail = t('payment.errors.paypal_email') || 'Valid email required (e.g. name@domain.com)';
+        newErrors.paypalEmail = t('payment.errors.email_invalid_format');
       }
     } else if (addingMethodType === 'crypto') {
       const wallet = paymentData.cryptoWallet.trim();
@@ -198,7 +198,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
         if (cryptoType === 'USDT' && !/^0x[a-fA-F0-9]{40}$/.test(wallet) && !/^T[A-Za-z1-9]{33}$/.test(wallet)) isValid = false;
         
         if (!isValid) {
-          newErrors.cryptoWallet = t('payment.errors.wallet_address') || 'Invalid wallet format for ' + cryptoType;
+          newErrors.cryptoWallet = t('payment.errors.wallet_address');
         }
       }
     }
@@ -261,10 +261,10 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
         setSelectedMethod(updatedMethods.length > 0 ? updatedMethods[0] : null);
       }
       
-      setToastMessage(t('purchase.method_deleted_toast') || 'Method deleted successfully');
+      setToastMessage(t('purchase.method_deleted_toast'));
       setToastVisible(true);
     } catch (err) {
-      setToastMessage(t('purchase.method_delete_error') || 'Error deleting method');
+      setToastMessage(t('purchase.method_delete_error'));
       setToastVisible(true);
     } finally {
       setIsDeleteModalVisible(false);
@@ -328,13 +328,13 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
         return (
           <View style={styles.modalBody}>
             <View style={styles.balanceContainer}>
-              <Text style={styles.balanceLabel}>{t('purchase.current_balance') || 'Current Balance:'}</Text>
+              <Text style={styles.balanceLabel}>{t('purchase.current_balance')}</Text>
               <Text style={styles.balanceValue}>
-                {userProfile?.minutesBalance || 0} {t('purchase.minutes_unit') || 'min'}
+                {userProfile?.minutesBalance || 0} {t('purchase.minutes_unit')}
               </Text>
             </View>
 
-            <Text style={styles.sectionTitle}>{t('purchase.choose_package') || 'Choose a Package:'}</Text>
+            <Text style={styles.sectionTitle}>{t('purchase.choose_package')}</Text>
             
             <View style={styles.packagesVerticalList}>
               {packages.map((pkg) => (
@@ -355,7 +355,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                       />
                     </View>
                     <Text style={styles.pkgMinutesWide}>
-                      {pkg.minutes} <Text style={styles.pkgUnitText}>min</Text>
+                      {pkg.minutes} <Text style={styles.pkgUnitText}>{t('purchase.minutes_unit')}</Text>
                     </Text>
                   </View>
                   <View style={[styles.pkgPriceTag, selectedPackage?.id === pkg.id && styles.pkgPriceTagSelected]}>
@@ -379,7 +379,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                     color="#bdc3c7" 
                   />
                   <Text style={styles.methodSelectorText}>
-                    {selectedMethod ? selectedMethod.displayName : (t('purchase.choose_payment') || 'Choose Payment Method')}
+                    {selectedMethod ? selectedMethod.displayName : t('purchase.method_selector_placeholder')}
                   </Text>
                 </View>
                 <IconSymbol name="chevron.right" size={14} color="rgba(255,255,255,0.3)" />
@@ -394,7 +394,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                 if (selectedMethod) {
                   handleManualPurchase(selectedPackage);
                 } else {
-                  setToastMessage(t('purchase.error_select_method') || 'Please select a payment method');
+                  setToastMessage(t('purchase.error_select_method'));
                   setToastVisible(true);
                 }
               }}
@@ -410,7 +410,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.mainBtnText}>
-                    {t('purchase.buy_btn') || 'Buy Minutes'}
+                    {t('purchase.buy_btn')}
                   </Text>
                 )}
               </LinearGradient>
@@ -424,10 +424,10 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
           <View style={styles.modalBody}>
             <TouchableOpacity style={styles.backBtn} onPress={() => setStep('packages')}>
               <IconSymbol name="chevron.left" size={20} color="#fff" />
-              <Text style={styles.backBtnText}>{t('purchase.back') || 'Back'}</Text>
+              <Text style={styles.backBtnText}>{t('purchase.back')}</Text>
             </TouchableOpacity>
             
-            <Text style={styles.sectionTitle}>{t('purchase.choose_payment') || 'Choose Payment Method'}</Text>
+            <Text style={styles.sectionTitle}>{t('purchase.choose_payment')}</Text>
             
             <ScrollView style={styles.methodsList} showsVerticalScrollIndicator={false}>
               {savedMethods.map((m, i) => (
@@ -450,7 +450,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
               
               <TouchableOpacity style={[styles.methodItem, styles.addNewItem]} onPress={() => setStep('add_details')}>
                 <IconSymbol name="plus.circle.fill" size={24} color="#0ef0ff" />
-                <Text style={[styles.methodName, { color: '#0ef0ff' }]}>{t('purchase.add_new_payment') || 'Add New Payment'}</Text>
+                <Text style={[styles.methodName, { color: '#0ef0ff' }]}>{t('purchase.add_new_payment')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -485,20 +485,20 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                 }}
               >
                 <IconSymbol name="chevron.left" size={20} color="#fff" />
-                <Text style={styles.backBtnText}>{t('purchase.back') || 'Back'}</Text>
+                <Text style={styles.backBtnText}>{t('purchase.back')}</Text>
               </TouchableOpacity>
 
               {!addingMethodType ? (
                 <>
-                  <Text style={styles.sectionTitle}>{t('purchase.add_method_title') || 'Select Method'}</Text>
+                  <Text style={styles.sectionTitle}>{t('purchase.select_method_title')}</Text>
                   <View style={styles.methodsChoiceList}>
                     <TouchableOpacity style={styles.choiceItem} onPress={() => setAddingMethodType('card')}>
                       <View style={styles.choiceIcon}>
                         <IconSymbol name="creditcard.fill" size={24} color="#0ef0ff" />
                       </View>
                       <View style={styles.choiceInfo}>
-                        <Text style={styles.choiceTitle}>{t('purchase.card') || 'Card'}</Text>
-                        <Text style={styles.choiceDesc}>{t('purchase.card_desc') || 'Pay with card'}</Text>
+                        <Text style={styles.choiceTitle}>{t('purchase.card')}</Text>
+                        <Text style={styles.choiceDesc}>{t('purchase.card_desc')}</Text>
                       </View>
                       <IconSymbol name="chevron.right" size={16} color="#7f8c8d" />
                     </TouchableOpacity>
@@ -508,8 +508,8 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                         <IconSymbol name="ion:logo-paypal" size={24} color="#0ef0ff" />
                       </View>
                       <View style={styles.choiceInfo}>
-                        <Text style={styles.choiceTitle}>{t('purchase.paypal') || 'PayPal'}</Text>
-                        <Text style={styles.choiceDesc}>{t('purchase.paypal_desc') || 'Safe payment'}</Text>
+                        <Text style={styles.choiceTitle}>{t('purchase.paypal')}</Text>
+                        <Text style={styles.choiceDesc}>{t('purchase.paypal_desc')}</Text>
                       </View>
                       <IconSymbol name="chevron.right" size={16} color="#7f8c8d" />
                     </TouchableOpacity>
@@ -519,8 +519,8 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                         <IconSymbol name="bitcoinsign.circle.fill" size={24} color="#0ef0ff" />
                       </View>
                       <View style={styles.choiceInfo}>
-                        <Text style={styles.choiceTitle}>{t('purchase.crypto') || 'Crypto'}</Text>
-                        <Text style={styles.choiceDesc}>{t('purchase.crypto_instructions') || 'Pay with crypto'}</Text>
+                        <Text style={styles.choiceTitle}>{t('purchase.crypto')}</Text>
+                        <Text style={styles.choiceDesc}>{t('purchase.crypto_instructions')}</Text>
                       </View>
                       <IconSymbol name="chevron.right" size={16} color="#7f8c8d" />
                     </TouchableOpacity>
@@ -532,7 +532,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                     <>
                       <TextInput 
                         style={[styles.input, errors.cardholderName && styles.inputError]} 
-                        placeholder={t('payment.cardholder_name') || 'Name'} 
+                        placeholder={t('payment.cardholder_name')} 
                         placeholderTextColor="#7f8c8d"
                         autoCorrect={false}
                         spellCheck={false}
@@ -547,7 +547,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                       {errors.cardholderName ? <Text style={styles.errorText}>{errors.cardholderName}</Text> : null}
                       <TextInput 
                         style={[styles.input, errors.cardNumber && styles.inputError]} 
-                        placeholder={t('payment.card_number') || 'Number'} 
+                        placeholder={t('payment.card_number')} 
                         placeholderTextColor="#7f8c8d"
                         keyboardType="numeric"
                         maxLength={19}
@@ -602,7 +602,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                     <>
                       <TextInput 
                         style={[styles.input, errors.paypalEmail && styles.inputError]} 
-                        placeholder={t('payment.paypal_email') || 'Email'} 
+                        placeholder={t('payment.paypal_email')} 
                         placeholderTextColor="#7f8c8d"
                         keyboardType="email-address"
                         autoCapitalize="none"
@@ -640,7 +640,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                       </View>
                       <TextInput 
                         style={[styles.input, errors.cryptoWallet && styles.inputError]} 
-                        placeholder={t('payment.wallet_address') || 'Wallet'} 
+                        placeholder={t('payment.wallet_address')} 
                         placeholderTextColor="#7f8c8d"
                         value={paymentData.cryptoWallet}
                         onChangeText={v => setPaymentData({...paymentData, cryptoWallet: v})}
@@ -656,7 +656,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                       end={{ x: 1, y: 0 }}
                       style={styles.mainBtnGradient}
                     >
-                      {processing ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{t('common.save') || 'Save'}</Text>}
+                      {processing ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{t('common.save')}</Text>}
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>

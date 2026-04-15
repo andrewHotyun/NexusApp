@@ -171,7 +171,7 @@ export default function RequestsTab() {
         .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
       );
       setLoading(false);
-    });
+    }, (err) => console.warn('IncomingReq listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 
@@ -188,7 +188,7 @@ export default function RequestsTab() {
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
       );
-    });
+    }, (err) => console.warn('SentReq listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 
@@ -201,7 +201,7 @@ export default function RequestsTab() {
     );
     const unsub = onSnapshot(friendsQuery, (snap) => {
       setFriendsList(snap.docs.map(doc => doc.data().friendId));
-    });
+    }, (err) => console.warn('FriendsList listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 
@@ -212,16 +212,16 @@ export default function RequestsTab() {
     const unsubMyBlocks = onSnapshot(query(collection(db, 'blocks'), where('blockerId', '==', user.uid)), (snap) => {
       setMyBlockedIds(snap.docs.map(doc => doc.data().blockedId).filter(Boolean));
       globalUsersCacheTimestamp = 0; // Invalidate cache
-    });
+    }, (err) => console.warn('MyBlockedIds listener error:', err));
 
     const unsubBlockedMe = onSnapshot(query(collection(db, 'blocks'), where('blockedId', '==', user.uid)), (snap) => {
       setBlockedMeIds(snap.docs.map(doc => doc.data().blockerId).filter(Boolean));
       globalUsersCacheTimestamp = 0; // Invalidate cache
-    });
+    }, (err) => console.warn('BlockedMeIds listener error:', err));
 
     const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
       if (snap.exists()) setCurrentUserData(snap.data());
-    });
+    }, (err) => console.warn('Profile listener error:', err));
 
     return () => {
       unsubMyBlocks();
@@ -249,7 +249,7 @@ export default function RequestsTab() {
         }
       });
       setActiveStoryUserIds(ids);
-    });
+    }, (err) => console.warn('StoriesReq listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 

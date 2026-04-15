@@ -33,6 +33,7 @@ import { StoryAvatar } from '../../components/ui/StoryAvatar';
 import { StoryViewer } from '../../components/ui/StoryViewer';
 import { Colors } from '../../constants/theme';
 import { auth, db } from '../../utils/firebase';
+import { getGiftById } from '../../constants/gifts';
 
 // Simple in-memory cache for profile details
 const userCache = {};
@@ -143,7 +144,7 @@ export default function NotificationsTab() {
       }
       setMessages(grouped);
       setLoading(false);
-    });
+    }, (err) => console.warn('UnreadMessages listener error:', err));
 
     return () => unsub();
   }, [user?.uid]);
@@ -178,7 +179,7 @@ export default function NotificationsTab() {
         };
       });
       setRequests(reqs);
-    });
+    }, (err) => console.warn('FriendRequests listener error:', err));
 
     return () => unsubReq();
   }, [user?.uid]);
@@ -228,7 +229,7 @@ export default function NotificationsTab() {
       }));
       setLikes(items);
       setLoading(false);
-    });
+    }, (err) => console.warn('Likes listener error:', err));
 
     return () => unsubLikes();
   }, [user?.uid]);
@@ -247,7 +248,7 @@ export default function NotificationsTab() {
     const unsubscribe = onSnapshot(friendsQuery, (snapshot) => {
       const friendIds = snapshot.docs.map(d => d.data().friendId);
       setFriends(friendIds);
-    });
+    }, (err) => console.warn('FriendsList listener error:', err));
 
     return () => unsubscribe();
   }, [user?.uid]);
@@ -306,7 +307,7 @@ export default function NotificationsTab() {
       }
       setStories(friendStories);
       setActiveStoryUserIds(newActiveStoryUserIds);
-    });
+    }, (err) => console.warn('StoriesNotify listener error:', err));
 
     return () => unsubscribe();
   }, [user?.uid, friends]);
@@ -666,10 +667,19 @@ export default function NotificationsTab() {
               </Text>
 
               <Text style={styles.messageSnippet} numberOfLines={1}>
-                {item.lastMessage.type === 'gift' ? '🎁 Gift' :
-                  item.lastMessage.type === 'image' ? '📷 Photo' :
-                    item.lastMessage.type === 'video' ? '🎥 Video' :
-                      (item.lastMessage.text || '...')}
+                {(() => {
+                  if (item.lastMessage.type === 'gift') {
+                    const gift = getGiftById(item.lastMessage.giftId);
+                    if (gift) {
+                      const localizedName = t(gift.nameKey);
+                      return `🎁 «${localizedName}» (+${item.lastMessage.minutes} ${t('gifts.minutes_unit')})`;
+                    }
+                    return '🎁 Gift';
+                  }
+                  if (item.lastMessage.type === 'image') return '📷 Photo';
+                  if (item.lastMessage.type === 'video') return '🎥 Video';
+                  return item.lastMessage.text || '...';
+                })()}
               </Text>
             </View>
 

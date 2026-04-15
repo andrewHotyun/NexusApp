@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ResizeMode, Video } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,7 @@ import Animated, {
 import { Colors } from '../../constants/theme';
 import CompactAudioPlayer from '../ui/CompactAudioPlayer';
 import DisintegrationEffect from './DisintegrationEffect';
+import { getGiftById } from '../../constants/gifts';
 
 const MessageItem = ({
   item,
@@ -146,7 +148,8 @@ const MessageItem = ({
                   isHighlighted && styles.neonBorderHighlight,
                   item.replyTo && { minWidth: 100 },
                   (item.type === 'image' || item.type === 'video') && { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4 },
-                  item.type === 'audio' && { paddingHorizontal: 0, paddingVertical: 0, backgroundColor: 'transparent', maxWidth: '85%', minWidth: 260 }
+                  item.type === 'audio' && { paddingHorizontal: 0, paddingVertical: 0, backgroundColor: 'transparent', maxWidth: '85%', minWidth: 260 },
+                  item.type === 'gift' && { paddingHorizontal: 0, paddingVertical: 0, backgroundColor: 'transparent', width: 220, overflow: 'hidden' }
                 ]}>
                 {item.replyTo && (
                   <TouchableOpacity 
@@ -188,6 +191,34 @@ const MessageItem = ({
                     isMe={isMe}
                     timestamp={time}
                   />
+                ) : item.type === 'gift' ? (
+                  <View style={styles.giftBlock}>
+                    <View style={styles.giftHeader}>
+                      <Text style={styles.giftTitle} numberOfLines={2}>
+                        {(() => {
+                          const gift = getGiftById(item.giftId);
+                          const localizedGift = gift ? t(gift.nameKey) : t('common.unknown');
+                          return isMe
+                            ? t('gifts.sent_a_gift_you', { gift: localizedGift })
+                            : t('gifts.sent_a_gift', {
+                                sender: partner?.name || t('common.unknown_user'),
+                                gift: localizedGift
+                              });
+                        })()}
+                      </Text>
+                    </View>
+                    <LinearGradient
+                      colors={getGiftById(item.giftId)?.gradientColors || ['#333', '#666']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.giftVisual}
+                    >
+                      <Text style={styles.giftEmojiLarge}>{getGiftById(item.giftId)?.emoji}</Text>
+                      <View style={styles.giftMinutesBadge}>
+                        <Text style={styles.giftMinutesText}>+{item.minutes} {t('gifts.minutes_unit')}</Text>
+                      </View>
+                    </LinearGradient>
+                  </View>
                 ) : (
                   <Text style={[styles.messageText, isMe ? styles.myText : styles.partnerText]}>
                     {item.text}
@@ -272,6 +303,13 @@ const styles = StyleSheet.create({
   reactionText: { fontSize: 12 },
   reactionCount: { color: '#fff', fontSize: 10, marginLeft: 2, fontWeight: 'bold' },
   selectionCircle: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
+  giftBlock: { width: 220, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1c263b', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  giftHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  giftTitle: { color: '#fff', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  giftVisual: { height: 150, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  giftEmojiLarge: { fontSize: 60, marginTop: -20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+  giftMinutesBadge: { position: 'absolute', bottom: 10, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  giftMinutesText: { color: '#0ef0ff', fontSize: 12, fontWeight: '800' },
 });
 
 const areEqual = (prevProps, nextProps) => {

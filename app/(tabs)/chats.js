@@ -28,6 +28,7 @@ import { Swipeable, GestureHandlerRootView, RectButton } from 'react-native-gest
 import { ActionModal } from '../../components/ui/ActionModal';
 import { Alert } from 'react-native';
 import { StoryAvatar } from '../../components/ui/StoryAvatar';
+import { getGiftById } from '../../constants/gifts';
 import { StoryViewer } from '../../components/ui/StoryViewer';
 
 // In-memory cache for user profiles to avoid redundant fetches
@@ -106,7 +107,7 @@ export default function ChatsTab() {
     const unsub = onSnapshot(q, (snap) => {
       setSentMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setInitialFetchesDone(prev => ({ ...prev, sent: true }));
-    });
+    }, (err) => console.warn('SentMessages listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 
@@ -122,7 +123,7 @@ export default function ChatsTab() {
     const unsub = onSnapshot(q, (snap) => {
       setReceivedMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setInitialFetchesDone(prev => ({ ...prev, received: true }));
-    });
+    }, (err) => console.warn('ReceivedMessages listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 
@@ -134,13 +135,13 @@ export default function ChatsTab() {
     const unsub1 = onSnapshot(query(collection(db, 'blocks'), where('blockerId', '==', user.uid)), (snap) => {
       setMyBlockedIds(snap.docs.map(d => d.data().blockedId));
       setProfileFetchCount(prev => prev + 1);
-    });
+    }, (err) => console.warn('MyBlockedIds listener error:', err));
 
     // Who blocked me
     const unsub2 = onSnapshot(query(collection(db, 'blocks'), where('blockedId', '==', user.uid)), (snap) => {
       setBlockedMeIds(snap.docs.map(d => d.data().blockerId));
       setProfileFetchCount(prev => prev + 1);
-    });
+    }, (err) => console.warn('BlockedMeIds listener error:', err));
 
     setBlocksLoaded(true);
     return () => {
@@ -166,7 +167,7 @@ export default function ChatsTab() {
         }
       });
       setTypingUsers(typing);
-    });
+    }, (err) => console.warn('TypingUsers listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 
@@ -191,7 +192,7 @@ export default function ChatsTab() {
         }
       });
       setActiveStoryUserIds(ids);
-    });
+    }, (err) => console.warn('Stories listener error:', err));
     return () => unsub();
   }, [user?.uid]);
 
@@ -582,7 +583,18 @@ export default function ChatsTab() {
                   ) : (
                     <>
                       <Text style={[styles.lastMessage, unreadCount > 0 && styles.unreadMessage]} numberOfLines={1}>
-                        {lastMessage.type === 'image' ? '📷 Photo' : lastMessage.type === 'video' ? '🎥 Video' : (lastMessage.text || t('chats.no_text', 'No text message'))}
+                        {(() => {
+                          if (lastMessage.type === 'image') return '📷 Photo';
+                          if (lastMessage.type === 'video') return '🎥 Video';
+                          if (lastMessage.type === 'gift') {
+                            const gift = getGiftById(lastMessage.giftId);
+                            if (gift) {
+                              const localizedName = t(gift.nameKey);
+                              return `🎁 «${localizedName}» (+${lastMessage.minutes} ${t('gifts.minutes_unit')})`;
+                            }
+                          }
+                          return lastMessage.text || t('chats.no_text', 'No text message');
+                        })()}
                       </Text>
                     {lastMessage.senderId === user?.uid && unreadCount === 0 && (
                       <Ionicons 

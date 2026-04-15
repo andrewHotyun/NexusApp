@@ -601,7 +601,11 @@
       "invalid_cardholder": "Name cannot contain digits",
       "paypal_email": "A valid PayPal address is required",
       "wallet_address": "Invalid wallet address",
-      "crypto_type": "Please select a crypto type"
+      "crypto_type": "Please select a crypto type",
+      "must_be_digits": "Must be {{count}} digits",
+      "enter_full_name": "Enter First and Last Name",
+      "latin_only": "Use Latin letters only",
+      "email_invalid_format": "Valid email required"
     }
   },
   "purchase": {
@@ -622,6 +626,11 @@
     "paypal": "PayPal",
     "bank_transfer": "Bank Transfer",
     "crypto": "Cryptocurrency",
+    "method_selector_placeholder": "Choose Payment Method",
+    "select_method_title": "Select Method",
+    "card_desc": "Pay with card",
+    "paypal_desc": "Safe payment",
+    "crypto_instructions": "Pay with crypto",
     "basic_desc": "Perfect for a quick chat",
     "premium_desc": "Best value for long calls",
     "unlimited_desc": "For serious connection",

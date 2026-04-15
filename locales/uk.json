@@ -568,7 +568,11 @@
       "invalid_cardholder": "Ім'я не може містити цифри",
       "paypal_email": "Потрібна правильна адреса PayPal",
       "wallet_address": "Невірна адреса гаманця",
-      "crypto_type": "Будь ласка, оберіть тип криптовалюти"
+      "crypto_type": "Будь ласка, оберіть тип криптовалюти",
+      "must_be_digits": "Має бути {{count}} цифр",
+      "enter_full_name": "Введіть ім'я та прізвище",
+      "latin_only": "Використовуйте лише латинські літери",
+      "email_invalid_format": "Введіть коректний email"
     }
   },
   "purchase": {
@@ -589,10 +593,16 @@
     "paypal": "PayPal",
     "bank_transfer": "Банківський переказ",
     "crypto": "Криптовалюта",
+    "method_selector_placeholder": "Оберіть спосіб оплати",
+    "select_method_title": "Оберіть спосіб",
+    "card_desc": "Оплата карткою",
+    "paypal_desc": "Безпечна оплата",
+    "crypto_instructions": "Оплата криптовалютою",
     "basic_desc": "Ідеально для швидкої розмови",
     "premium_desc": "Найкраща ціна для довгих дзвінків",
     "unlimited_desc": "Для серйозного спілкування",
     "minutes": "{{count}} хвилин",
+    "minutes_unit": "хвилин",
     "order_summary": "Підсумок замовлення",
     "total": "Разом:",
     "instant_payment": "Миттєва оплата",
