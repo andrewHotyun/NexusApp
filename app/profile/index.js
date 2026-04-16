@@ -15,6 +15,7 @@ import {
   StatusBar
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -41,6 +42,7 @@ import { IconSymbol } from '../../components/ui/icon-symbol';
 import { SearchablePicker } from '../../components/ui/SearchablePicker';
 import { ActionModal } from '../../components/ui/ActionModal';
 import { MinutesPurchaseModal } from '../../components/ui/MinutesPurchaseModal';
+import PaymentDetailsModal from '../../components/ui/PaymentDetailsModal';
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -56,6 +58,8 @@ export default function ProfileScreen() {
     visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true 
   });
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [showDeletePaymentConfirm, setShowDeletePaymentConfirm] = useState(false);
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -267,6 +271,45 @@ export default function ProfileScreen() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Get payment display text (same logic as web)
+  const getPaymentDisplayText = (paymentDetails) => {
+    if (!paymentDetails) return '';
+    try {
+      let parsed;
+      if (typeof paymentDetails === 'string') {
+        parsed = JSON.parse(paymentDetails);
+      } else {
+        parsed = paymentDetails;
+      }
+      if (parsed.methods) {
+        const primaryKey = parsed.primaryMethod || Object.keys(parsed.methods)[0];
+        const primary = parsed.methods[primaryKey];
+        return primary?.displayText || '';
+      }
+      return parsed.displayText || (typeof paymentDetails === 'string' ? paymentDetails : '');
+    } catch (e) {
+      return typeof paymentDetails === 'string' ? paymentDetails : '';
+    }
+  };
+
+  const handleDeletePaymentDetails = async () => {
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { paymentDetails: '' });
+      setProfile(prev => ({ ...prev, paymentDetails: '' }));
+      setShowDeletePaymentConfirm(false);
+      setActionModal({
+        visible: true,
+        title: t('common.success'),
+        message: t('profile.success.payment_deleted', 'Payment details deleted'),
+        confirmText: t('common.ok'),
+        showCancel: false
+      });
+    } catch (error) {
+      console.error('Error deleting payment details:', error);
+      setShowDeletePaymentConfirm(false);
     }
   };
 
@@ -508,6 +551,172 @@ export default function ProfileScreen() {
             )}
           </View>
 
+          {/* Payment Details & Verification - Women Only */}
+          {!isEditing && profile?.gender === 'woman' && (
+            <View style={styles.womanSection}>
+              {/* Payment Details Block */}
+              <View style={[
+                styles.paymentBlock,
+                (!profile?.paymentDetails || (typeof profile.paymentDetails === 'string' && profile.paymentDetails.trim() === '')) && styles.paymentBlockEmpty
+              ]}>
+                <Text style={styles.sectionLabel}>{t('profile.payment_details_label', 'Payment Details:')}</Text>
+                {profile?.paymentDetails && (typeof profile.paymentDetails !== 'string' || profile.paymentDetails.trim() !== '') ? (
+                  <View style={styles.paymentDisplay}>
+                    <Text style={styles.paymentText}>{getPaymentDisplayText(profile.paymentDetails)}</Text>
+                    <View style={styles.paymentActions}>
+                      <TouchableOpacity
+                        style={styles.paymentEditBtn}
+                        onPress={() => setShowPaymentDetails(true)}
+                      >
+                        <Ionicons name="pencil-outline" size={14} color={Colors.dark.primary} />
+                        <Text style={styles.paymentEditText}>{t('common.edit')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.paymentDeleteBtn}
+                        onPress={() => setShowDeletePaymentConfirm(true)}
+                      >
+                        <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={styles.noPaymentText}>{t('profile.no_payment_details', 'Not configured')}</Text>
+                    <TouchableOpacity
+                      style={styles.addPaymentBtn}
+                      onPress={() => setShowPaymentDetails(true)}
+                    >
+                      <Ionicons name="add" size={14} color="#fff" />
+                      <Text style={styles.addPaymentBtnText}>{t('profile.add_payment_details', 'Add Payment Details')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* Verification Status Card */}
+              <View style={[
+                styles.verificationCard,
+                (profile.verificationStatus === 'approved' || profile.verificationStatus === 'auto_approved') && styles.verificationApproved,
+                (profile.verificationStatus === 'pending' || profile.verificationStatus === 'pending_ai' || profile.verificationStatus === 'pending_manual_review') && styles.verificationPending,
+                (profile.verificationStatus === 'rejected' || profile.verificationStatus === 'auto_rejected') && styles.verificationRejected,
+                profile.verificationStatus === 'suspended' && styles.verificationSuspended,
+                (!profile.verificationStatus || profile.verificationStatus === 'not_submitted') && styles.verificationRequired,
+              ]}>
+                <Text style={styles.verificationHeader}>{t('profile.verification_status', 'Verification Status')}</Text>
+                {(() => {
+                  const status = profile?.verificationStatus || 'not_submitted';
+
+                  if (status === 'auto_approved' || status === 'approved') {
+                    return (
+                      <>
+                        <View style={styles.verificationStatusLine}>
+                          <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                          <Text style={[styles.verificationStatusText, { color: '#10b981' }]}>
+                            {t('profile.verification_approved_line', "You're all set!")}
+                          </Text>
+                        </View>
+                        <Text style={styles.verificationDesc}>
+                          {t('profile.verification_approved_text')}
+                        </Text>
+                      </>
+                    );
+                  }
+
+                  if (status === 'pending' || status === 'pending_ai' || status === 'pending_manual_review') {
+                    return (
+                      <>
+                        <View style={styles.verificationStatusLine}>
+                          <Ionicons name="time" size={18} color="#f59e0b" />
+                          <Text style={[styles.verificationStatusText, { color: '#f59e0b' }]}>
+                            {t('profile.verification_pending_line', 'Verification in progress')}
+                          </Text>
+                        </View>
+                        <Text style={styles.verificationDesc}>
+                          {t('profile.verification_pending_text')}
+                        </Text>
+                      </>
+                    );
+                  }
+
+                  if (status === 'suspended') {
+                    return (
+                      <>
+                        <View style={styles.verificationStatusLine}>
+                          <Ionicons name="warning" size={18} color="#ef4444" />
+                          <Text style={[styles.verificationStatusText, { color: '#ef4444' }]}>
+                            {t('profile.verification_suspended_line', 'Account Suspended')}
+                          </Text>
+                        </View>
+                        <Text style={[styles.verificationDesc, { color: '#ef4444' }]}>
+                          {profile?.callSuspendReason === 'identity_mismatch'
+                            ? t('profile.verification_suspended_text', 'Identity mismatch detected during video call.')
+                            : (profile?.callSuspendReason || t('profile.verification_suspended_text'))}
+                        </Text>
+                        <Text style={styles.verificationDesc}>
+                          {t('profile.verification_suspended_hint', 'Please verify your identity again to restore access.')}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.verifyBtn}
+                          onPress={() => router.push('/auth/verification')}
+                        >
+                          <Text style={styles.verifyBtnText}>{t('profile.verification_resubmit_btn', 'Resubmit Verification')}</Text>
+                        </TouchableOpacity>
+                      </>
+                    );
+                  }
+
+                  if (status === 'auto_rejected' || status === 'rejected') {
+                    return (
+                      <>
+                        <View style={styles.verificationStatusLine}>
+                          <Ionicons name="close-circle" size={18} color="#ef4444" />
+                          <Text style={[styles.verificationStatusText, { color: '#ef4444' }]}>
+                            {t('profile.verification_rejected_line', 'Verification Rejected')}
+                          </Text>
+                        </View>
+                        {profile?.rejectionReason && (
+                          <Text style={[styles.verificationDesc, { color: '#f87171' }]}>
+                            {t('profile.verification_rejected_reason', { reason: profile.rejectionReason })}
+                          </Text>
+                        )}
+                        <Text style={styles.verificationDesc}>
+                          {t('profile.verification_rejected_text', 'You can resubmit your verification documents.')}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.verifyBtn}
+                          onPress={() => router.push('/auth/verification')}
+                        >
+                          <Text style={styles.verifyBtnText}>{t('profile.verification_resubmit_btn', 'Resubmit Verification')}</Text>
+                        </TouchableOpacity>
+                      </>
+                    );
+                  }
+
+                  // Default: not_submitted / required
+                  return (
+                    <>
+                      <View style={styles.verificationStatusLine}>
+                        <Ionicons name="shield-outline" size={18} color="#f59e0b" />
+                        <Text style={[styles.verificationStatusText, { color: '#f59e0b' }]}>
+                          {t('profile.verification_required_line', 'Verification Required')}
+                        </Text>
+                      </View>
+                      <Text style={styles.verificationDesc}>
+                        {t('profile.verification_required_text')}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.verifyBtn}
+                        onPress={() => router.push('/auth/verification')}
+                      >
+                        <Text style={styles.verifyBtnText}>{t('profile.verification_resubmit_btn', 'Submit Verification')}</Text>
+                      </TouchableOpacity>
+                    </>
+                  );
+                })()}
+              </View>
+            </View>
+          )}
+
           {!isEditing && (
             <View style={styles.footerActions}>
               <TouchableOpacity style={styles.actionBtn} onPress={handleDeleteAccount}>
@@ -570,6 +779,22 @@ export default function ProfileScreen() {
         visible={showPurchaseModal}
         onClose={() => setShowPurchaseModal(false)}
         userProfile={profile}
+      />
+      <PaymentDetailsModal
+        isVisible={showPaymentDetails}
+        onClose={() => setShowPaymentDetails(false)}
+        currentDetails={profile?.paymentDetails || ''}
+      />
+      <ActionModal
+        visible={showDeletePaymentConfirm}
+        title={t('profile.delete_payment_title', 'Delete Payment Details')}
+        message={t('profile.delete_payment_confirm', 'Are you sure you want to delete your payment details?')}
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
+        isDestructive={true}
+        showCancel={true}
+        onConfirm={handleDeletePaymentDetails}
+        onClose={() => setShowDeletePaymentConfirm(false)}
       />
     </SafeAreaView>
   );
@@ -820,6 +1045,155 @@ const styles = StyleSheet.create({
   topUpBtnText: {
     color: '#fff',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  // Woman section: Payment + Verification
+  womanSection: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  paymentBlock: {
+    backgroundColor: 'rgba(13, 139, 209, 0.06)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 139, 209, 0.15)',
+  },
+  paymentBlockEmpty: {
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
+    borderColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  sectionLabel: {
+    color: '#7f8c8d',
+    fontSize: 13,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  paymentDisplay: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  paymentText: {
+    color: '#ecf0f1',
+    fontSize: 15,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 12,
+  },
+  paymentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  paymentEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(13, 139, 209, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  paymentEditText: {
+    color: Colors.dark.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  paymentDeleteBtn: {
+    padding: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderRadius: 8,
+  },
+  noPaymentText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  addPaymentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignSelf: 'center',
+  },
+  addPaymentBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  verificationCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  verificationApproved: {
+    backgroundColor: 'rgba(16, 185, 129, 0.06)',
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  verificationPending: {
+    backgroundColor: 'rgba(245, 158, 11, 0.06)',
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  verificationRejected: {
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  verificationSuspended: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  verificationRequired: {
+    backgroundColor: 'rgba(245, 158, 11, 0.06)',
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  verificationHeader: {
+    color: '#7f8c8d',
+    fontSize: 13,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  verificationStatusLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  verificationStatusText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  verificationDesc: {
+    color: '#94a3b8',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  verifyBtn: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  verifyBtnText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
   },
 });

@@ -496,6 +496,7 @@
     "minutes_unit": "{{count}} minutes",
     "payment_details_label": "Détails de paiement :",
     "no_payment_details": "Aucun détail de paiement ajouté",
+    "add_payment_details": "Ajouter les coordonnées de paiement",
     "verification_status": "Statut de vérification",
     "verification_approved_line": "Vérification approuvée",
     "verification_approved_text": "Votre compte a été vérifié avec succès. Vous pouvez maintenant travailler et gagner de l'argent sur la plateforme.",

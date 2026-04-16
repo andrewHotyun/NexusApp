@@ -523,6 +523,7 @@
     "minutes_unit": "{{count}} хвилин",
     "payment_details_label": "Платіжні реквізити:",
     "no_payment_details": "Платіжні реквізити не додано",
+    "add_payment_details": "Додати реквізити",
     "verification_status": "Статус верифікації",
     "verification_approved_line": "Все готово!",
     "verification_approved_text": "Ваш акаунт верифіковано. Тепер ви можете працювати та заробляти гроші на платформі.",

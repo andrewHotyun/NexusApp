@@ -510,6 +510,7 @@
     "minutes_unit": "{{count}} minutes",
     "payment_details_label": "Payment Details:",
     "no_payment_details": "No payment details added",
+    "add_payment_details": "Add Payment Details",
     "verification_status": "Verification Status",
     "verification_approved_line": "You're all set!",
     "verification_approved_text": "Your account is verified. You can now work and earn money on the platform.",
