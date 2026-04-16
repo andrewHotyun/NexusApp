@@ -7,10 +7,12 @@ import { Colors } from '../../constants/theme';
 import { useTranslation } from 'react-i18next';
 import { IconSymbol } from './icon-symbol';
 import EarningsStatsModal from './EarningsStatsModal';
+import StoryUpload from './StoryUpload';
 
 export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOpenStats, onOpenWithdrawal, onOpenPaymentDetails }) {
   const router = useRouter();
   const { t } = useTranslation();
+  const [showStoryUpload, setShowStoryUpload] = useState(false);
 
   const getInitials = (name) => {
     return name ? name.charAt(0).toUpperCase() : 'U';
@@ -87,6 +89,7 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOp
 
             {userProfile?.gender === 'woman' && (
               <>
+
                 <TouchableOpacity 
                   style={styles.menuItem}
                   onPress={onOpenStats}
@@ -132,6 +135,15 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOp
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
+
+      <StoryUpload
+        isVisible={showStoryUpload}
+        onClose={() => setShowStoryUpload(false)}
+        userId={userProfile?.uid}
+        onUploadComplete={() => {
+          // You could add a toast here if available
+        }}
+      />
     </Modal>
   );
 }

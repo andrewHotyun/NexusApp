@@ -24,7 +24,8 @@
     "admin_panel": "Panel de administración",
     "no_blocked_users": "No hay usuarios bloqueados.",
     "unblock": "Desbloquear",
-    "my_media": "Mi contenido",
+    "my_media": "Mis medios",
+    "add_story": "Añadir historia",
     "logout": "Cerrar sesión"
   },
   "payout": {
@@ -359,16 +360,8 @@
     "camera_error": "Cámara o micrófono no encontrado. Conecte un dispositivo para búsquedas."
   },
   "common": {
-    "you": "Tú",
-    "s": "s",
-    "h": "h",
-    "m": "m",
-    "no_photo": "Sin foto",
-    "save": "Guardar",
-    "restore": "Restaurar",
-    "confirm": "Confirmar",
-    "confirm_title": "Confirmación",
-    "cancel": "Cancelar",
+    "add_folder": "Añadir carpeta",
+    "add_story": "Añadir historia",
     "delete": "Eliminar",
     "select": "Seleccionar",
     "edited": "editado",
@@ -429,7 +422,8 @@
     "add_folder": "Añadir carpeta",
     "publish": "Publicar",
     "clear": "Limpiar",
-    "reset": "Reiniciar"
+    "reset": "Reiniciar",
+    "continue": "Continuar"
   },
   "profile": {
     "successUpdate": "¡Perfil actualizado con éxito!",
@@ -449,12 +443,7 @@
       "story_video_limit": "Archivo demasiado grande (máx. 20 MB) o duración superior a 30 seg",
       "video_only": "Por favor, selecciona un archivo de vídeo."
     },
-    "my_gallery": "Galería",
     "new_folder_placeholder": "Introducir nombre de carpeta",
-    "no_folders": "Aún no se han creado carpetas",
-    "empty_folder": "Esta carpeta está vacía",
-    "delete_folder_title": "Eliminar carpeta",
-    "delete_folder_confirm": "¿Estás seguro? Esta acción es irreversible.",
     "delete_media_title": "Eliminar multimedia",
     "delete_media_confirm": "¿Estás seguro de que quieres eliminar este elemento?",
     "error_creating_folder": "Error al crear la carpeta",
@@ -533,7 +522,14 @@
     "city_placeholder": "Introduce la ciudad",
     "payment_placeholder": "Introduce tus detalles de pago (número de tarjeta, correo de PayPal, billetera cripto, etc.)",
     "years_old": "{{count}} años",
-    "my_media_title": "Mi Multimedia",
+    "my_media": "Mis medios",
+    "my_gallery": "Mi galería",
+    "stories": "Historias",
+    "media_folders": "Carpetas de medios",
+    "your_stories": "Tus historias",
+    "no_folders": "Aún no se han creado carpetas",
+    "no_stories": "Aún no has subido ninguna historia",
+    "my_media_title": "Mis medios",
     "manage_media": "Gestionar medios",
     "manage_media_desc": "Carpetas y fotos",
     "add_story": "Añadir Historia",
@@ -558,7 +554,10 @@
     "start_recording": "Iniciar grabación",
     "stop_recording": "Detener",
     "story_published": "¡Historia publicada!",
-    "expires_in": "Termina en {{time}}"
+    "expires_in": "Termina en {{time}}",
+    "camera_permission_title": "Se requiere acceso a la cámara",
+    "camera_permission_text": "Activa tu cámara para grabar historias en video y ser notado por más personas.",
+    "open_settings": "Ajustes"
   },
   "payment": {
     "title": "Detalles de pago",
@@ -1197,7 +1196,8 @@
     "your_balance": "Tu saldo"
   },
   "stories": {
-    "liked_by": "Le gusta a"
+    "liked_by": "Le gusta a",
+    "watched_by": "Visto por"
   },
   "games": {
     "title": "Mini juegos",

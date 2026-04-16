@@ -8,11 +8,13 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   updateDoc,
   where
 } from 'firebase/firestore';
+import { Video, ResizeMode } from 'expo-av';
 import { getDownloadURL, ref, uploadBytes, uploadBytesResumable } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,9 +38,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ActionModal } from '../../components/ui/ActionModal';
 import { IconSymbol } from '../../components/ui/icon-symbol';
+import StoryUpload from '../../components/ui/StoryUpload';
+import StoryViewer from '../../components/ui/StoryViewer';
 import { Colors } from '../../constants/theme';
 import { earningsManager } from '../../utils/earningsManager';
 import { auth, db, storage } from '../../utils/firebase';
+import { storyManager } from '../../utils/storyManager';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -92,6 +97,63 @@ export default function MediaGalleryScreen() {
   const [likersModalVisible, setLikersModalVisible] = useState(false);
   const [likersData, setLikersData] = useState([]);
   const [likersLoading, setLikersLoading] = useState(false);
+  const [showStoryUpload, setShowStoryUpload] = useState(false);
+  const [selectedStoryIndex, setSelectedStoryIndex] = useState(null);
+  const [activeTab, setActiveTab] = useState('gallery'); // 'gallery' or 'stories'
+  const [stories, setStories] = useState([]);
+  const [storiesLoading, setStoriesLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+  const [ticker, setTicker] = useState(0);
+
+  // Force re-render every minute for timers
+  useEffect(() => {
+    if (activeTab !== 'stories') return;
+    const interval = setInterval(() => setTicker(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) setUserProfile(snap.data());
+    }, (error) => {
+      console.warn("User profile listener error:", error.message);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid || activeTab !== 'stories') return;
+
+    setStoriesLoading(true);
+    const q = query(
+      collection(db, 'stories'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = new Date();
+      const storiesData = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date()
+        }))
+        .filter(story => {
+          const expiresAt = story.expiresAt ? (story.expiresAt.toDate ? story.expiresAt.toDate() : new Date(story.expiresAt)) : null;
+          return !expiresAt || expiresAt > now;
+        });
+
+      setStories(storiesData);
+      setStoriesLoading(false);
+    }, (error) => {
+      console.error("Error fetching my stories:", error);
+      setStoriesLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, activeTab]);
 
   const showLikers = async (item, index) => {
     if (!item) return;
@@ -161,7 +223,16 @@ export default function MediaGalleryScreen() {
 
     const q = query(collection(db, 'galleries'), where('userId', '==', user.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let data = snapshot.docs.map(doc => {
+        const d = doc.data();
+        // Handle potential missing or pending server timestamp
+        const time = d.createdAt?.toDate ? d.createdAt.toDate().getTime() : Date.now();
+        return { id: doc.id, ...d, _sortTime: time };
+      });
+
+      // Sort by creation time (ascending) to put new folders at the end
+      data.sort((a, b) => a._sortTime - b._sortTime);
+
       setFolders(data);
 
       // Keep current folder in sync if viewing one
@@ -314,6 +385,28 @@ export default function MediaGalleryScreen() {
           });
         } catch (error) {
           console.error("Delete media error:", error);
+        } finally {
+          setActionModal(prev => ({ ...prev, visible: false }));
+        }
+      }
+    });
+  };
+
+  const handleConfirmDeleteStory = (storyId) => {
+    setActionModal({
+      visible: true,
+      title: t('profile.delete_story', 'Delete Story'),
+      message: t('profile.confirm_delete_story', 'Are you sure you want to delete this story?'),
+      confirmText: t('common.delete'),
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          const result = await storyManager.deleteStory(storyId);
+          if (result.success) {
+            // Updated by onSnapshot automatically
+          }
+        } catch (error) {
+          console.error("Delete story error:", error);
         } finally {
           setActionModal(prev => ({ ...prev, visible: false }));
         }
@@ -545,19 +638,50 @@ export default function MediaGalleryScreen() {
           <IconSymbol name="chevron.left" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {currentFolder ? currentFolder.folderName : t('profile.my_gallery')}
+          {currentFolder ? currentFolder.folderName : t('profile.my_media', 'My Media')}
         </Text>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => currentFolder ? handlePickMedia() : setIsCreatingFolder(true)}
-          disabled={uploading}>
-          {uploading ? (
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
-          ) : (
-            <IconSymbol name="plus" size={24} color={Colors.dark.primary} />
-          )}
-        </TouchableOpacity>
+        {activeTab === 'gallery' && currentFolder && (
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={handlePickMedia}
+            disabled={uploading}>
+            {uploading ? (
+              <ActivityIndicator size="small" color={Colors.dark.primary} />
+            ) : (
+              <IconSymbol name="plus" size={24} color={Colors.dark.primary} />
+            )}
+          </TouchableOpacity>
+        )}
+        {(!currentFolder || activeTab !== 'gallery') && <View style={styles.headerBtn} />}
       </View>
+
+      {/* Tab Switcher */}
+      {userProfile?.gender === 'woman' && (
+        <View style={styles.tabSwitcher}>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'gallery' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('gallery')}
+          >
+            <View style={styles.tabContent}>
+              <IconSymbol name="photo.on.rectangle" size={20} color={activeTab === 'gallery' ? Colors.dark.primary : '#7f8c8d'} />
+              <Text style={[styles.tabText, activeTab === 'gallery' && styles.tabTextActive]}>
+                {t('profile.my_gallery', 'My Gallery')}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, activeTab === 'stories' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('stories')}
+          >
+            <View style={styles.tabContent}>
+              <IconSymbol name="sparkles" size={20} color={activeTab === 'stories' ? Colors.dark.primary : '#7f8c8d'} />
+              <Text style={[styles.tabText, activeTab === 'stories' && styles.tabTextActive]}>
+                {t('profile.stories', 'Stories')}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {uploading && (
         <View style={styles.progressContainer}>
@@ -566,53 +690,170 @@ export default function MediaGalleryScreen() {
       )}
 
       {!currentFolder ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {isCreatingFolder && (
-            <View style={styles.createFolderForm}>
-              <TextInput
-                style={styles.folderInput}
-                placeholder={t('profile.new_folder_placeholder')}
-                placeholderTextColor="#7f8c8d"
-                value={newFolderName}
-                onChangeText={setNewFolderName}
-                autoFocus
-              />
-              <View style={styles.formActions}>
-                <TouchableOpacity onPress={handleCreateFolder} style={styles.saveBtn}>
-                  <Text style={styles.saveBtnText}>{t('common.save')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setIsCreatingFolder(false)} style={styles.cancelBtn}>
-                  <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          <View style={styles.foldersGrid}>
-            {folders.map(folder => (
-              <TouchableOpacity
-                key={folder.id}
-                style={styles.folderItem}
-                onPress={() => setCurrentFolder(folder)}
-                onLongPress={() => handleDeleteFolder(folder.id)}>
-                <View style={styles.folderIconWrapper}>
-                  <IconSymbol name="folder.fill" size={48} color={Colors.dark.primary} />
-                  <View style={styles.itemBadge}>
-                    <Text style={styles.itemBadgeText}>{folder.items?.length || 0}</Text>
-                  </View>
+        activeTab === 'gallery' ? (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {isCreatingFolder && (
+              <View style={styles.createFolderForm}>
+                <TextInput
+                  style={styles.folderInput}
+                  placeholder={t('profile.new_folder_placeholder')}
+                  placeholderTextColor="#7f8c8d"
+                  value={newFolderName}
+                  onChangeText={setNewFolderName}
+                  autoFocus
+                />
+                <View style={styles.formActions}>
+                  <TouchableOpacity onPress={handleCreateFolder} style={styles.saveBtn}>
+                    <Text style={styles.saveBtnText}>{t('common.save')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsCreatingFolder(false)} style={styles.cancelBtn}>
+                    <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.folderName} numberOfLines={1}>{folder.folderName}</Text>
-              </TouchableOpacity>
-            ))}
-
-            {folders.length === 0 && !isCreatingFolder && (
-              <View style={styles.emptyState}>
-                <IconSymbol name="photo.on.rectangle.angled" size={64} color="rgba(255,255,255,0.1)" />
-                <Text style={styles.emptyText}>{t('profile.no_folders')}</Text>
               </View>
             )}
-          </View>
-        </ScrollView>
+
+            {/* Browser-style Section Header */}
+            {!isCreatingFolder && (
+              <View style={styles.foldersSectionHeader}>
+                <Text style={styles.foldersSectionTitle}>
+                  {t('profile.media_folders', 'Media Folders')}
+                </Text>
+                <TouchableOpacity
+                  style={styles.inlineAddBtn}
+                  onPress={() => setIsCreatingFolder(true)}
+                >
+                  <IconSymbol name="plus" size={16} color={Colors.dark.primary} />
+                  <Text style={styles.inlineAddBtnText}>{t('common.add_folder', 'Add Folder')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.foldersGrid}>
+              {folders.map(folder => (
+                <TouchableOpacity
+                  key={folder.id}
+                  style={styles.folderItem}
+                  onPress={() => setCurrentFolder(folder)}
+                  onLongPress={() => handleDeleteFolder(folder.id)}>
+                  <View style={styles.folderIconWrapper}>
+                    <IconSymbol name="folder.fill" size={48} color={Colors.dark.primary} />
+                    <View style={styles.itemBadge}>
+                      <Text style={styles.itemBadgeText}>{folder.items?.length || 0}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.folderName} numberOfLines={1}>{folder.folderName}</Text>
+                </TouchableOpacity>
+              ))}
+
+              {folders.length === 0 && !isCreatingFolder && (
+                <View style={styles.emptyState}>
+                  <IconSymbol name="photo.on.rectangle.angled" size={64} color="rgba(255,255,255,0.1)" />
+                  <Text style={styles.emptyText}>{t('profile.no_folders')}</Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.storiesContainer}>
+              <View style={styles.storiesHeader}>
+                <Text style={styles.storiesTitle}>{t('profile.your_stories', 'Your Stories')}</Text>
+                <TouchableOpacity
+                  style={styles.addStoryBtnInline}
+                  onPress={() => setShowStoryUpload(true)}
+                >
+                  <IconSymbol name="plus.app" size={20} color={Colors.dark.primary} />
+                  <Text style={styles.addStoryBtnText}>{t('profile.add_story')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.storiesHint}>
+                {t('profile.stories_hint', 'Stories are visible for 24 hours to everyone across the app.')}
+              </Text>
+
+              {storiesLoading ? (
+                <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: 20 }} />
+              ) : stories.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <IconSymbol name="sparkles" size={64} color="rgba(255,255,255,0.1)" />
+                  <Text style={styles.emptyText}>{t('profile.no_stories', "You haven't uploaded any stories yet.")}</Text>
+                </View>
+              ) : (
+                <View style={styles.storiesGrid}>
+                  {stories.map((story, index) => (
+                    <TouchableOpacity
+                      key={story.id}
+                      style={styles.storyCard}
+                      onPress={() => {
+                        setSelectedStoryIndex(index);
+                      }}
+                    >
+                      <View style={styles.storyPreview}>
+                        {story.videoUrl ? (
+                          <Video
+                            source={{ uri: story.videoUrl }}
+                            style={StyleSheet.absoluteFill}
+                            resizeMode={ResizeMode.COVER}
+                            shouldPlay={false}
+                            positionMillis={0}
+                          />
+                        ) : (
+                          <View style={[styles.storyPlaceholder, { backgroundColor: story.status === 'approved' ? '#1e293b' : '#334155' }]}>
+                            <IconSymbol
+                              name={story.status === 'approved' ? 'play.fill' : 'clock.fill'}
+                              size={24}
+                              color="rgba(255,255,255,0.2)"
+                            />
+                          </View>
+                        )}
+
+                        <View style={styles.badgesWrapper}>
+                          <View style={[styles.statusBadge, styles[`statusBadge_${story.status}`]]}>
+                            <Text style={styles.statusText}>
+                              {t(`profile.status_${story.status}`, story.status.charAt(0).toUpperCase() + story.status.slice(1))}
+                            </Text>
+                          </View>
+
+                          {story.status === 'approved' && (
+                            <View style={styles.timerBadge}>
+                              <IconSymbol name="timer" size={12} color="#fff" />
+                              <Text style={styles.timerText}>{formatTimeRemaining(story.expiresAt, t)}</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.deleteStoryBtn}
+                          onPress={() => handleConfirmDeleteStory(story.id)}
+                        >
+                          <IconSymbol name="trash.fill" size={16} color="#fff" />
+                        </TouchableOpacity>
+
+                        {(story.viewedBy?.length > 0 || story.likedBy?.length > 0) && (
+                          <View style={styles.storyStats}>
+                            {story.viewedBy?.length > 0 && (
+                              <View style={styles.storyStatItem}>
+                                <IconSymbol name="eye.fill" size={12} color="#fff" />
+                                <Text style={styles.statValue}>{story.viewedBy.length}</Text>
+                              </View>
+                            )}
+                            {story.likedBy?.length > 0 && (
+                              <View style={styles.storyStatItem}>
+                                <IconSymbol name="heart.fill" size={12} color="#fff" />
+                                <Text style={styles.statValue}>{story.likedBy.length}</Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        )
       ) : (
         <FlatList
           data={currentFolder.items || []}
@@ -893,6 +1134,37 @@ export default function MediaGalleryScreen() {
           </View>
         </View>
       </Modal>
+      <ActionModal
+        visible={actionModal.visible}
+        title={actionModal.title}
+        message={actionModal.message}
+        confirmText={actionModal.confirmText}
+        cancelText={t('common.cancel')}
+        isDestructive={actionModal.isDestructive}
+        onConfirm={actionModal.onConfirm}
+        onClose={() => setActionModal(prev => ({ ...prev, visible: false }))}
+      />
+
+      {showStoryUpload && (
+        <StoryUpload
+          userId={user?.uid}
+          isVisible={showStoryUpload}
+          onClose={() => setShowStoryUpload(false)}
+          onUploadComplete={() => setShowStoryUpload(false)}
+        />
+      )}
+
+      {selectedStoryIndex !== null && (
+        <StoryViewer
+          visible={selectedStoryIndex !== null}
+          onClose={() => setSelectedStoryIndex(null)}
+          stories={stories}
+          initialIndex={selectedStoryIndex}
+          userName={userProfile?.name || t('common.me')}
+          userAvatar={userProfile?.avatar || userProfile?.originalAvatarUrl}
+          viewerGender={userProfile?.gender}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1254,4 +1526,215 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 30,
   },
+  tabSwitcher: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#0b1220',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabBtnActive: {
+    borderBottomColor: Colors.dark.primary,
+  },
+  tabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tabText: {
+    color: '#7f8c8d',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: Colors.dark.primary,
+  },
+  storiesContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 4, // Reduced from 8 to match Gallery
+    paddingBottom: 20,
+  },
+  storiesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20, // Increased from 12
+  },
+  storiesTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  addStoryBtnInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(13, 139, 209, 0.1)',
+    borderRadius: 8,
+  },
+  addStoryBtnText: {
+    color: Colors.dark.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  storiesHint: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginBottom: 24, // Increased from 20
+    lineHeight: 16,
+    letterSpacing: -0.2,
+  },
+  storiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+  },
+  storyCard: {
+    width: '48%', 
+    aspectRatio: 9 / 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1e293b',
+  },
+  storyPreview: {
+    flex: 1,
+    position: 'relative',
+  },
+  storyPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgesWrapper: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    zIndex: 10,
+  },
+  statusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  statusBadge_pending: {
+    backgroundColor: '#f59e0b',
+  },
+  statusBadge_approved: {
+    backgroundColor: '#10b981',
+  },
+  statusBadge_rejected: {
+    backgroundColor: '#ef4444',
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  timerText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  deleteStoryBtn: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storyStats: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  storyStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  statValue: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  foldersSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 4, // Reduced from 12
+    marginBottom: 24,
+  },
+  foldersSectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  inlineAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(13, 139, 209, 0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  inlineAddBtnText: {
+    color: Colors.dark.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });
+
+// Helper for stories
+function formatTimeRemaining(expiresAt, t) {
+  if (!expiresAt) return '';
+  const expiry = expiresAt.toDate ? expiresAt.toDate() : new Date(expiresAt);
+  const now = new Date();
+  const diff = expiry - now;
+  if (diff <= 0) return t('profile.expired', 'Expired');
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  const hStr = t('common.h', 'h');
+  const mStr = t('common.m', 'm');
+
+  if (hours > 0) return `${hours}${hStr} ${minutes}${mStr}`;
+  return `${minutes}${mStr}`;
+}

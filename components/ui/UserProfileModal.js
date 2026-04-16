@@ -103,6 +103,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId, initialMediaUrl =
   const [likedItems, setLikedItems] = useState(new Set());
   const [isLiking, setIsLiking] = useState(false);
   const [hasStories, setHasStories] = useState(false);
+  const [areStoriesAllViewed, setAreStoriesAllViewed] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const likeScale = useRef(new Animated.Value(1)).current;
@@ -374,12 +375,22 @@ export const UserProfileModal = ({ isVisible, onClose, userId, initialMediaUrl =
     );
     const storiesUnsubscribe = onSnapshot(qStories, (snap) => {
       const now = new Date();
-      const hasActive = snap.docs.some(doc => {
+      let active = false;
+      let unviewed = false;
+      
+      snap.docs.forEach(doc => {
         const data = doc.data();
         const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
-        return expiresAt && expiresAt > now;
+        if (expiresAt && expiresAt > now) {
+          active = true;
+          if (!data.viewedBy?.includes(auth.currentUser?.uid)) {
+            unviewed = true;
+          }
+        }
       });
-      setHasStories(hasActive);
+      
+      setHasStories(active);
+      setAreStoriesAllViewed(active && !unviewed);
     }, (err) => console.warn('UserStories sync error:', err));
 
     return () => {
@@ -455,6 +466,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId, initialMediaUrl =
                       name={profile.name}
                       size={130}
                       hasStories={hasStories}
+                      allViewed={areStoriesAllViewed}
                       onPress={() => {
                         setFullScreenMediaUrl(profile.originalAvatarUrl || profile.avatar);
                         setIsVideoPlaying(true);

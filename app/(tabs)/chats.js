@@ -57,6 +57,7 @@ export default function ChatsTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [initialFetchesDone, setInitialFetchesDone] = useState({ sent: false, received: false });
+  const [userProfile, setUserProfile] = useState(null);
   const [deletingChatId, setDeletingChatId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const swipeableRefs = useRef(new Map());
@@ -69,6 +70,7 @@ export default function ChatsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typingUsers, setTypingUsers] = useState({}); // { senderId: boolean }
   const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
+  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
@@ -119,6 +121,17 @@ export default function ChatsTab() {
     }
   }, [user?.uid]);
 
+  // Load current user profile
+  useEffect(() => {
+    if (user?.uid) {
+      getDoc(doc(db, 'users', user.uid)).then(docSnap => {
+        if (docSnap.exists()) {
+          setUserProfile(docSnap.data());
+        }
+      });
+    }
+  }, [user?.uid]);
+
   // 1. Listen for sent messages
   useEffect(() => {
     if (!user) return;
@@ -126,10 +139,10 @@ export default function ChatsTab() {
       collection(db, 'messages'),
       where('senderId', '==', user.uid),
       orderBy('timestamp', 'desc'),
-      limit(300)
+      limit(1000)
     );
     const unsub = onSnapshot(q, (snap) => {
-      console.log('[ChatsTab] Sent messages received:', snap.docs.length);
+      console.log(`[ChatsTab] Sent messages received: ${snap.docs.length} for user ${user.uid}`);
       setSentMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setInitialFetchesDone(prev => ({ ...prev, sent: true }));
     }, (err) => console.warn('SentMessages listener error:', err));
@@ -143,10 +156,10 @@ export default function ChatsTab() {
       collection(db, 'messages'),
       where('receiverId', '==', user.uid),
       orderBy('timestamp', 'desc'),
-      limit(300)
+      limit(1000)
     );
     const unsub = onSnapshot(q, (snap) => {
-      console.log('[ChatsTab] Received messages received:', snap.docs.length);
+      console.log(`[ChatsTab] Received messages received: ${snap.docs.length} for user ${user.uid}`);
       setReceivedMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setInitialFetchesDone(prev => ({ ...prev, received: true }));
     }, (err) => console.warn('ReceivedMessages listener error:', err));
@@ -197,30 +210,82 @@ export default function ChatsTab() {
     return () => unsub();
   }, [user?.uid]);
 
-  // 2.7 Listen for all active stories to show rings
-  // Only filter by status (auto-indexed) — no composite index needed.
-  // Filter by expiresAt locally to match web ChatList.js pattern.
+  // 2.7 Listen for active stories of chat partners to show rings
+  // Only show ring if there's at least one UNVIEWED story.
+  const storiesUnsubsRef = useRef([]);
   useEffect(() => {
-    if (!user) return;
+    if (!user || initialFetchesDone.sent === false || initialFetchesDone.received === false) return;
 
-    const q = query(
-      collection(db, 'stories'),
-      where('status', '==', 'approved')
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const now = new Date();
-      const ids = new Set();
-      snap.docs.forEach(doc => {
-        const data = doc.data();
-        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
-        if (expiresAt && expiresAt > now) {
-          ids.add(data.userId);
-        }
-      });
-      setActiveStoryUserIds(ids);
-    }, (err) => console.warn('Stories listener error:', err));
-    return () => unsub();
-  }, [user?.uid]);
+    // Get unique partner IDs from all messages
+    const partnerUids = [...new Set([
+      ...sentMessages.map(m => m.receiverId),
+      ...receivedMessages.map(m => m.senderId)
+    ])].filter(id => id && id !== user.uid);
+
+    if (partnerUids.length === 0) {
+      setActiveStoryUserIds(new Set());
+      return;
+    }
+
+    // Clean previous
+    storiesUnsubsRef.current.forEach(u => u());
+    storiesUnsubsRef.current = [];
+
+    // Chunk by 10 to fit in 'in' query
+    const chunks = [];
+    for (let i = 0; i < partnerUids.length; i += 10) {
+      chunks.push(partnerUids.slice(i, i + 10));
+    }
+
+    chunks.forEach(chunk => {
+      const q = query(
+        collection(db, 'stories'),
+        where('userId', 'in', chunk),
+        where('status', '==', 'approved')
+      );
+
+      const unsub = onSnapshot(q, (snap) => {
+        const now = new Date();
+        
+        // We update two sets: one for ANY active stories, one for UNVIEWED stories
+        setActiveStoryUserIds(prevActive => {
+          const nextActive = new Set(prevActive);
+          chunk.forEach(id => nextActive.delete(id));
+          
+          setUnviewedStoryUserIds(prevUnviewed => {
+            const nextUnviewed = new Set(prevUnviewed);
+            chunk.forEach(id => nextUnviewed.delete(id));
+            
+            snap.docs.forEach(doc => {
+              const data = doc.data();
+              const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+              const viewedBy = data.viewedBy || [];
+              const isUnviewed = !viewedBy.includes(user.uid);
+
+              if (expiresAt && expiresAt > now) {
+                // Add to active regardless of viewed status
+                nextActive.add(data.userId);
+                
+                if (isUnviewed) {
+                  // Add to unviewed tracking
+                  nextUnviewed.add(data.userId);
+                }
+              }
+            });
+            return nextUnviewed;
+          });
+          
+          return nextActive;
+        });
+      }, (err) => console.warn('Stories listener error:', err));
+      storiesUnsubsRef.current.push(unsub);
+    });
+
+    return () => {
+      storiesUnsubsRef.current.forEach(u => u());
+      storiesUnsubsRef.current = [];
+    };
+  }, [user?.uid, sentMessages.length, receivedMessages.length, initialFetchesDone]);
 
   // Global migration: patch old messages without chatId (runs once on load)
   useEffect(() => {
@@ -257,7 +322,9 @@ export default function ChatsTab() {
   useEffect(() => {
     const aggregate = async () => {
       if (!user) return;
-      if (!initialFetchesDone.sent || !initialFetchesDone.received) return;
+      // Relaxed check: aggregate if at least one is done or if we already have some data
+      const isPartiallyDone = initialFetchesDone.sent || initialFetchesDone.received;
+      console.log(`[ChatsTab] Aggregating... state: sentDone=${initialFetchesDone.sent}, receivedDone=${initialFetchesDone.received}, sentCount=${sentMessages.length}, receivedCount=${receivedMessages.length}`);
       
       const allMessages = [...sentMessages, ...receivedMessages].sort((a, b) => {
         const timeA = a.timestamp?.toMillis?.() || 0;
@@ -353,12 +420,16 @@ export default function ChatsTab() {
         const partnerName = updatedCached?.name || 
                            (chat.lastMessage.senderId === chat.id ? chat.lastMessage.senderName : chat.lastMessage.receiverName) || 
                            'User';
+        const partnerAge = updatedCached?.age || 
+                           (chat.lastMessage.senderId === chat.id ? chat.lastMessage.senderAge : chat.lastMessage.receiverAge) || 
+                           null;
 
         return {
           ...chat,
           partner: { 
             ...(updatedCached?._notFound ? {} : updatedCached), 
             name: partnerName, 
+            age: partnerAge,
             uid: chat.id
           }
         };
@@ -382,14 +453,15 @@ export default function ChatsTab() {
                             chat.lastMessage.type === 'video_call_declined' ||
                             lastMsgText.toLowerCase().includes('video call');
         
-        // Hide technical/video-call chats if profile is unknown (ghost entries from random matches)
+        // Hide if it's a technical record AND we have no profile name yet
         if (!hasKnownProfile && isTechnical) return false;
+        
         if (chat.id === 'system' || chat.id === 'admin') return false;
         if (hiddenChats.has(chat.id)) return false;
 
         return true;
       });
-      console.log('[ChatsTab] Post-filter chat count:', filteredChats.length);
+      console.log(`[ChatsTab] Final filtered chat count: ${filteredChats.length}. Partners:`, filteredChats.map(c => c.id));
 
       // Final sort by latest message
       const sortedChats = filteredChats.sort((a, b) => {
@@ -543,6 +615,7 @@ export default function ChatsTab() {
                 name={partner.name} 
                 size={50}
                 hasStories={activeStoryUserIds.has(partner.uid || item.id)}
+                allViewed={!unviewedStoryUserIds.has(partner.uid || item.id)}
                 onPress={() => router.push({
                   pathname: `/chat/${partner.uid || item.id}`,
                   params: { 
@@ -681,6 +754,7 @@ export default function ChatsTab() {
             </View>
             <View style={styles.headerDivider} />
           </View>
+
 
           {loading && !refreshing ? (
             <View style={styles.loadingContainer}>

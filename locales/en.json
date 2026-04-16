@@ -8,10 +8,6 @@
     "min": "min",
     "next_minute_in": "Remaining in current minute"
   },
-  "common": {
-    "back": "Back",
-    "save": "Save"
-  },
   "greeting": {
     "night": "Good night",
     "morning": "Good morning",
@@ -29,6 +25,7 @@
     "no_blocked_users": "No blocked users.",
     "unblock": "Unblock",
     "my_media": "My Media",
+    "add_story": "Add Story",
     "logout": "Logout"
   },
   "payout": {
@@ -367,6 +364,11 @@
     "camera_error": "Camera or microphone not found. Please connect a device to search."
   },
   "common": {
+    "back": "Back",
+    "add_folder": "Add Folder",
+    "add_story": "Add Story",
+    "processing": "Processing...",
+    "continue": "Continue",
     "reset": "Reset",
     "you": "You",
     "s": "s",
@@ -456,12 +458,7 @@
       "story_video_limit": "File too large (max 20MB) or duration exceeds 30 sec",
       "video_only": "Please select a video file."
     },
-    "my_gallery": "Gallery",
     "new_folder_placeholder": "Enter folder name",
-    "no_folders": "No folders created yet",
-    "empty_folder": "This folder is empty",
-    "delete_folder_title": "Delete Folder",
-    "delete_folder_confirm": "Are you sure? This action cannot be undone.",
     "delete_chat_confirm": "Are you sure you want to delete this chat? This action cannot be undone.",
     "selected_count": "{{count}} selected",
     "delete_media_title": "Delete Media",
@@ -536,6 +533,13 @@
     "delete_modal_title": "Delete Account",
     "delete_modal_confirm": "Are you sure you want to delete your account? You can recover it within 6 months.",
     "delete_modal_permanent": "If not recovered, your account will be permanently deleted.",
+    "my_media": "My Media",
+    "my_gallery": "My Gallery",
+    "stories": "Stories",
+    "media_folders": "Media Folders",
+    "your_stories": "Your Stories",
+    "no_folders": "No folders created yet",
+    "no_stories": "You haven't uploaded any stories yet",
     "my_media_title": "My Media",
     "manage_media": "Manage Media",
     "manage_media_desc": "Folders & photos",
@@ -561,7 +565,10 @@
     "start_recording": "Start Recording",
     "stop_recording": "Stop",
     "story_published": "Story published!",
-    "expires_in": "Ends in {{time}}"
+    "expires_in": "Ends in {{time}}",
+    "camera_permission_title": "Camera Access Needed",
+    "camera_permission_text": "Enable your camera to record video stories and get noticed by more people.",
+    "open_settings": "Open Settings"
   },
   "payment": {
     "title": "Payment Details",
@@ -1206,7 +1213,8 @@
     "your_balance": "Your balance"
   },
   "stories": {
-    "liked_by": "Liked by"
+    "liked_by": "Liked by",
+    "watched_by": "Watched by"
   },
   "games": {
     "title": "Mini Games",

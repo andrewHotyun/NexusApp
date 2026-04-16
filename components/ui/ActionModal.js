@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
     marginBottom: 12,
@@ -141,7 +141,8 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     color: '#030e21', // Dark contrast for primary
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: 'bold',
+    flexShrink: 1,
   },
   cancelBtnText: {
     color: '#94a3b8',

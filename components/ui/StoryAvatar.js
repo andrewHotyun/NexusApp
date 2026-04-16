@@ -26,6 +26,7 @@ export const StoryAvatar = ({
   name, 
   size = 50, 
   hasStories = false, 
+  allViewed = false,
   onPress,
   onStoryPress,
   showStatus = true
@@ -41,7 +42,7 @@ export const StoryAvatar = ({
     ]}>
       {hasStories ? (
         <LinearGradient
-          colors={['#f09433', '#e6683c', '#dc2743', '#cc2366', '#bc1888']}
+          colors={allViewed ? ['#95a5a6', '#7f8c8d'] : ['#f09433', '#e6683c', '#dc2743', '#cc2366', '#bc1888']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[

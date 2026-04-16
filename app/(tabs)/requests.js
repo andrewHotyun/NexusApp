@@ -119,6 +119,7 @@ export default function RequestsTab() {
   
   // Story States
   const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
+  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
@@ -240,15 +241,22 @@ export default function RequestsTab() {
     );
     const unsub = onSnapshot(q, (snap) => {
       const now = new Date();
-      const ids = new Set();
+      const activeIds = new Set();
+      const unviewedIds = new Set();
       snap.docs.forEach(doc => {
         const data = doc.data();
         const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        const viewedBy = data.viewedBy || [];
+        
         if (expiresAt && expiresAt > now) {
-          ids.add(data.userId);
+          activeIds.add(data.userId);
+          if (!viewedBy.includes(user.uid)) {
+            unviewedIds.add(data.userId);
+          }
         }
       });
-      setActiveStoryUserIds(ids);
+      setActiveStoryUserIds(activeIds);
+      setUnviewedStoryUserIds(unviewedIds);
     }, (err) => console.warn('StoriesReq listener error:', err));
     return () => unsub();
   }, [user?.uid]);
@@ -734,6 +742,7 @@ export default function RequestsTab() {
               name={item.name} 
               size={50}
               hasStories={activeStoryUserIds.has(item.uid)}
+              allViewed={!unviewedStoryUserIds.has(item.uid)}
               onPress={() => router.push(`/chat/${item.uid}`)}
               onStoryPress={async () => {
                 try {
@@ -823,6 +832,7 @@ export default function RequestsTab() {
               name={displayName} 
               size={50}
               hasStories={activeStoryUserIds.has(item.fromUserId)}
+              allViewed={!unviewedStoryUserIds.has(item.fromUserId)}
               onPress={() => router.push(`/chat/${item.fromUserId}`)}
               onStoryPress={async () => {
                 try {
@@ -915,6 +925,7 @@ export default function RequestsTab() {
               name={displayName} 
               size={50}
               hasStories={activeStoryUserIds.has(item.toUserId)}
+              allViewed={!unviewedStoryUserIds.has(item.toUserId)}
               onPress={() => router.push(`/chat/${item.toUserId}`)}
               onStoryPress={async () => {
                 try {

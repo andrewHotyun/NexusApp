@@ -61,6 +61,7 @@ export default function FriendsTab() {
   const [isOnlineOnly, setIsOnlineOnly] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
+  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
@@ -234,15 +235,22 @@ export default function FriendsTab() {
     );
     const unsub = onSnapshot(q, (snap) => {
       const now = new Date();
-      const ids = new Set();
+      const activeIds = new Set();
+      const unviewedIds = new Set();
       snap.docs.forEach(doc => {
         const data = doc.data();
         const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+        const viewedBy = data.viewedBy || [];
+        
         if (expiresAt && expiresAt > now) {
-          ids.add(data.userId);
+          activeIds.add(data.userId);
+          if (!viewedBy.includes(user.uid)) {
+            unviewedIds.add(data.userId);
+          }
         }
       });
-      setActiveStoryUserIds(ids);
+      setActiveStoryUserIds(activeIds);
+      setUnviewedStoryUserIds(unviewedIds);
     }, (err) => {
       if (err.code === 'permission-denied') {
         console.warn('[FriendsTab] Stories listener permission denied');
@@ -333,6 +341,7 @@ export default function FriendsTab() {
               name={displayName} 
               size={50}
               hasStories={activeStoryUserIds.has(item.friendId)}
+              allViewed={!unviewedStoryUserIds.has(item.friendId)}
               onPress={() => router.push(`/chat/${item.friendId}`)}
               onStoryPress={async () => {
                 try {

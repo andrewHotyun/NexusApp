@@ -124,6 +124,7 @@ export default function ChatScreen() {
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [hasPartnerStories, setHasPartnerStories] = useState(false);
+  const [areStoriesAllViewed, setAreStoriesAllViewed] = useState(false);
   const [activeGiftAnimation, setActiveGiftAnimation] = useState(null);
   const animatedGiftsRef = useRef(new Set());
 
@@ -397,12 +398,22 @@ export default function ChatScreen() {
     );
     const unsub = onSnapshot(q, (snap) => {
       const now = new Date();
-      const hasActive = snap.docs.some(doc => {
+      let active = false;
+      let unviewed = false;
+      
+      snap.docs.forEach(doc => {
         const data = doc.data();
         const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
-        return expiresAt && expiresAt > now;
+        if (expiresAt && expiresAt > now) {
+          active = true;
+          if (!data.viewedBy?.includes(user?.uid)) {
+            unviewed = true;
+          }
+        }
       });
-      setHasPartnerStories(hasActive);
+      
+      setHasPartnerStories(active);
+      setAreStoriesAllViewed(active && !unviewed);
     }, (err) => console.warn('Stories listener error:', err));
     return () => unsub();
   }, [partnerId]);
@@ -1295,6 +1306,7 @@ export default function ChatScreen() {
             name={partner?.name} 
             size={40}
             hasStories={hasPartnerStories}
+            allViewed={areStoriesAllViewed}
             onPress={() => partner?.avatar ? setFullScreenAvatarVisible(true) : null}
             onStoryPress={async () => {
               try {

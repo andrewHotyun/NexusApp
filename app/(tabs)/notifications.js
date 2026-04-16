@@ -49,6 +49,7 @@ export default function NotificationsTab() {
   const [friends, setFriends] = useState([]);
   const [stories, setStories] = useState([]);
   const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
+  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -270,6 +271,7 @@ export default function NotificationsTab() {
       const friendStories = [];
       const seenUsers = new Set();
       const newActiveStoryUserIds = new Set();
+      const newUnviewedStoryUserIds = new Set();
       const now = new Date();
 
       for (const d of snapshot.docs) {
@@ -279,6 +281,10 @@ export default function NotificationsTab() {
         if (expiresAt && expiresAt > now) {
           // Track everyone who has an active story for the rings
           newActiveStoryUserIds.add(data.userId);
+          
+          if (!data.viewedBy?.includes(user?.uid)) {
+            newUnviewedStoryUserIds.add(data.userId);
+          }
 
           // Add to notification list ONLY if not viewed by current user
           if (friends.includes(data.userId) && !seenUsers.has(data.userId) && !data.viewedBy?.includes(user?.uid)) {
@@ -307,6 +313,7 @@ export default function NotificationsTab() {
       }
       setStories(friendStories);
       setActiveStoryUserIds(newActiveStoryUserIds);
+      setUnviewedStoryUserIds(newUnviewedStoryUserIds);
     }, (err) => console.warn('StoriesNotify listener error:', err));
 
     return () => unsubscribe();
@@ -453,6 +460,7 @@ export default function NotificationsTab() {
                   name={item.sender.name}
                   size={50}
                   hasStories={activeStoryUserIds.has(item.sender.uid)}
+                  allViewed={!unviewedStoryUserIds.has(item.sender.uid)}
                   onPress={() => router.push(`/chat/${item.sender.uid}`)}
                   onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
                 />
@@ -546,6 +554,7 @@ export default function NotificationsTab() {
                   name={item.sender.name}
                   size={50}
                   hasStories={activeStoryUserIds.has(item.sender.uid)}
+                  allViewed={!unviewedStoryUserIds.has(item.sender.uid)}
                   onPress={() => router.push(`/chat/${item.sender.uid}`)}
                   onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
                 />
@@ -604,6 +613,7 @@ export default function NotificationsTab() {
                   name={item.sender.name}
                   size={50}
                   hasStories={true}
+                  allViewed={!unviewedStoryUserIds.has(item.sender.uid)}
                   onPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
                   onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
                 />
@@ -655,6 +665,7 @@ export default function NotificationsTab() {
                 name={item.sender.name}
                 size={50}
                 hasStories={activeStoryUserIds.has(item.sender.uid)}
+                allViewed={!unviewedStoryUserIds.has(item.sender.uid)}
                 onPress={() => router.push(`/chat/${item.sender.uid}`)}
                 onStoryPress={() => handleOpenStories(item.sender.uid, item.sender.name, item.sender.avatar)}
               />

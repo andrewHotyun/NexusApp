@@ -25,6 +25,7 @@
     "no_blocked_users": "Keine blockierten Benutzer.",
     "unblock": "Entblocken",
     "my_media": "Meine Medien",
+    "add_story": "Story hinzufügen",
     "logout": "Abmelden"
   },
   "payout": {
@@ -360,16 +361,8 @@
     "camera_error": "Kamera oder Mikrofon nicht gefunden. Bitte schließen Sie ein Gerät an, um zu suchen."
   },
   "common": {
-    "you": "Du",
-    "s": "sek",
-    "h": "Std",
-    "m": "Min",
-    "no_photo": "Kein Foto",
-    "save": "Speichern",
-    "restore": "Wiederherstellen",
-    "confirm": "Bestatigen",
-    "confirm_title": "Bestatigung",
-    "cancel": "Abbrechen",
+    "add_folder": "Ordner hinzufügen",
+    "add_story": "Story hinzufügen",
     "delete": "Löschen",
     "error": "❌ Fehler",
     "info": "Info",
@@ -430,7 +423,8 @@
     "publish": "Veröffentlichen",
     "ok": "OK",
     "clear": "Löschen",
-    "reset": "Zurücksetzen"
+    "reset": "Zurücksetzen",
+    "continue": "Weiter"
   },
   "profile": {
     "successUpdate": "Profil erfolgreich aktualisiert!",
@@ -450,12 +444,7 @@
       "story_video_limit": "Datei zu groß (max. 20 MB) o. Dauer überschreitet 30 Sek.",
       "video_only": "Bitte wählen Sie eine Videodatei aus."
     },
-    "my_gallery": "Galerie",
     "new_folder_placeholder": "Ordnername eingeben",
-    "no_folders": "Noch keine Ordner erstellt",
-    "empty_folder": "Dieser Ordner ist leer",
-    "delete_folder_title": "Ordner löschen",
-    "delete_folder_confirm": "Sind Sie sicher? Dies kann nicht rückgängig gemacht werden.",
     "delete_media_title": "Medien löschen",
     "delete_media_confirm": "Sind Sie sicher, dass Sie dieses Element löschen möchten?",
     "error_creating_folder": "Fehler beim Erstellen des Ordners",
@@ -536,6 +525,13 @@
     "payment_placeholder": "Geben Sie Ihre Zahlungsdetails ein (Kartennummer, PayPal-E-Mail, Krypto-Wallet usw.)",
     "years_old": "{{count}} Jahre alt",
     "not_specified": "Nicht angegeben",
+    "my_media": "Meine Medien",
+    "my_gallery": "Meine Galerie",
+    "stories": "Stories",
+    "media_folders": "Medienordner",
+    "your_stories": "Deine Stories",
+    "no_folders": "Noch keine Ordner erstellt",
+    "no_stories": "Du hast noch keine Stories hochgeladen",
     "my_media_title": "Meine Medien",
     "manage_media": "Medien verwalten",
     "manage_media_desc": "Ordner & Fotos",
@@ -561,7 +557,10 @@
     "start_recording": "Aufnahme starten",
     "stop_recording": "Stopp",
     "story_published": "Story veröffentlicht!",
-    "expires_in": "Endet in {{time}}"
+    "expires_in": "Endet in {{time}}",
+    "camera_permission_title": "Kamerazugriff erforderlich",
+    "camera_permission_text": "Aktiviere deine Kamera, um Videostorys aufzunehmen und von mehr Menschen wahrgenommen zu werden.",
+    "open_settings": "Einstellungen"
   },
   "payment": {
     "title": "Zahlungsdetails",
@@ -1203,7 +1202,8 @@
     "your_balance": "Ihr Guthaben"
   },
   "stories": {
-    "liked_by": "Gefällt"
+    "liked_by": "Gefällt",
+    "watched_by": "Gesehen von"
   },
   "games": {
     "title": "Minispiele",
