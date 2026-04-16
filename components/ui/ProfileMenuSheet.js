@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, Image } from 'react-native';
 import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,9 +8,20 @@ import { useTranslation } from 'react-i18next';
 import { IconSymbol } from './icon-symbol';
 import EarningsStatsModal from './EarningsStatsModal';
 
-export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOpenStats }) {
+export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOpenStats, onOpenWithdrawal, onOpenPaymentDetails }) {
   const router = useRouter();
   const { t } = useTranslation();
+
+  const getInitials = (name) => {
+    return name ? name.charAt(0).toUpperCase() : 'U';
+  };
+
+  const getAvatarColor = (uid) => {
+    if (!uid) return Colors.dark.primary;
+    const colors = ['#0ef0ff', '#ff00ff', '#7000ff', '#38bdf8', '#525252'];
+    const index = uid.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+    return colors[index];
+  };
 
   const handleLogout = async () => {
     try {
@@ -41,10 +52,22 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOp
             
             {/* User Info Header in Sheet */}
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{userProfile?.name || t('dropdown.profile', { defaultValue: 'Profile' })}</Text>
-              {userProfile?.email && (
-                <Text style={styles.sheetSubtitle}>{userProfile.email}</Text>
-              )}
+              <View style={[
+                  styles.profileAvatar,
+                  !userProfile?.avatar && { backgroundColor: getAvatarColor(userProfile?.uid) }
+                ]}>
+                {userProfile?.originalAvatarUrl || userProfile?.avatar ? (
+                  <Image source={{ uri: userProfile.originalAvatarUrl || userProfile.avatar }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarFallback}>{getInitials(userProfile?.name)}</Text>
+                )}
+              </View>
+              <View style={styles.headerTextCol}>
+                <Text style={styles.sheetTitle} numberOfLines={1}>{userProfile?.name || t('dropdown.profile', { defaultValue: 'Profile' })}</Text>
+                {userProfile?.email && (
+                  <Text style={styles.sheetSubtitle} numberOfLines={1}>{userProfile.email}</Text>
+                )}
+              </View>
             </View>
 
             {/* Menu Items */}
@@ -72,12 +95,20 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOp
                   <Text style={styles.menuText}>{t('dropdown.earnings_stats', { defaultValue: 'Earnings Stats' })}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuText}>💳 {t('dropdown.withdraw_earnings', { defaultValue: 'Withdraw Earnings' })}</Text>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={onOpenWithdrawal}
+                >
+                  <IconSymbol name="creditcard.fill" size={24} color={Colors.dark.text} />
+                  <Text style={styles.menuText}>{t('dropdown.withdraw_earnings', { defaultValue: 'Withdraw Earnings' })}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuText}>📄 {t('dropdown.payment_details', { defaultValue: 'Payment Details' })}</Text>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={onOpenPaymentDetails}
+                >
+                  <IconSymbol name="doc.text.fill" size={24} color={Colors.dark.text} />
+                  <Text style={styles.menuText}>{t('dropdown.payment_details', { defaultValue: 'Payment Details' })}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -85,7 +116,7 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOp
             <TouchableOpacity 
               style={styles.menuItem} 
               onPress={() => { onClose(); router.push('/blocked-users'); }}>
-              <IconSymbol name="person.text.rectangle.fill" size={24} color={Colors.dark.text} />
+              <IconSymbol name="person.slash.fill" size={24} color={Colors.dark.text} />
               <Text style={styles.menuText}>{t('dropdown.blocked_users', { defaultValue: 'Blocked Users' })}</Text>
             </TouchableOpacity>
 
@@ -117,8 +148,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingBottom: 0, // Reset to let SafeArea handle it
     elevation: 0, // Forcefully remove Android elevation highlight
-    borderWidth: 1, // Add very subtle border for definition
+    borderTopWidth: 1, // Add very subtle border for definition
     borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: -100, // Aggressive bleed for Android bottom gaps
+    paddingBottom: 100,
+    minHeight: 300, // Ensure it doesn't collapse
   },
   sheetFooter: {
     paddingBottom: 15, // Minimal extra breathing room
@@ -132,17 +166,45 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#1f2937',
-    marginBottom: 10,
+    marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  sheetTitle: {
+  profileAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    marginRight: 16,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#0ef0ff',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarFallback: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
   },
+  headerTextCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  sheetTitle: {
+    fontSize: 19,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'left',
+  },
   sheetSubtitle: {
-    fontSize: 14,
-    color: '#9ca3af',
-    marginTop: 4,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 2,
+    textAlign: 'left',
   },
   menuItem: {
     flexDirection: 'row',

@@ -51,7 +51,7 @@
     "withdraw_title": "Retirar ganancias",
     "total_earnings": "Ganancias totales:",
     "payment_details": "Detalles de pago:",
-    "not_specified_profile": "No especificado - Por favor, actualiza tu perfil",
+    "not_specified_profile": "No especificado - por favor agregue detalles de pago",
     "withdraw_amount_label": "Monto del retiro",
     "all_btn": "Todo ({{amount}})",
     "withdraw_method_label": "Método de retiro",
@@ -579,13 +579,21 @@
     "cardNumber": "Número de tarjeta",
     "cardholder_name": "Nombre del titular",
     "paypal_email": "Correo electrónico de PayPal",
-    "paypal_info": "💡 Enviaremos los pagos a esta dirección de PayPal",
+    "paypal_info": "💡 Por favor, asegúrese de que el correo electrónico sea correcto para recibir pagos",
     "crypto_type": "Tipo de criptomoneda",
     "wallet_address": "Dirección de billetera",
-    "crypto_info": "💡 Asegúrate de que la dirección sea correcta para {{type}}",
+    "crypto_info": "💡 Por favor, asegúrese de que la dirección sea correcta para recibir pagos",
     "save_btn": "Guardar detalles de pago",
     "save_success": "¡Detalles de pago guardados con éxito!",
     "save_error": "Error al guardar detalles de pago. Inténtalo de nuevo.",
+    "placeholders": {
+      "card_number": "0000 0000 0000 0000",
+      "expiry_date": "MM/AA",
+      "cvv": "***",
+      "cardholder": "Nombre Apellido",
+      "paypal": "email@ejemplo.com",
+      "crypto": "Dirección de billetera"
+    },
     "errors": {
       "card_number": "El número de tarjeta debe tener al menos 16 dígitos",
       "invalid_card": "Número de tarjeta inválido",
@@ -602,8 +610,15 @@
       "must_be_digits": "Debe tener {{count}} dígitos",
       "enter_full_name": "Ingrese nombre y apellido",
       "latin_only": "Use solo letras latinas",
-      "email_invalid_format": "Se requiere un email válido"
-    }
+      "email_invalid_format": "Se requiere un email válido",
+      "fill_first": "Por favor, complete los detalles de este método primero"
+    },
+    "set_primary": "Establecer como método principal",
+    "primary_badge": "Principal",
+    "primary_help": "Este método se utilizará para sus futuros retiros.",
+    "delete_title": "Eliminar detalles",
+    "delete_confirm": "¿Estás seguro de que quieres eliminar estos detalles de pago? Esta acción no se puede deshacer.",
+    "delete_success": "¡Detalles eliminados con éxito!"
   },
   "purchase": {
     "delete_method_title": "Eliminar método",

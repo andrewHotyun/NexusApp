@@ -88,8 +88,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b', // Match ActionModal deep slate
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    borderWidth: 1,
+    borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: -100, // Aggressive bleed for Android bottom gaps
+    paddingBottom: 100,
+    minHeight: 200, // Ensure it doesn't collapse
   },
   sheetContent: {
     width: '100%',

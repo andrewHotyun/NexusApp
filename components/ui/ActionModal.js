@@ -1,14 +1,14 @@
-import React from 'react';
-import { 
-  Modal, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Dimensions, 
-  Platform 
-} from 'react-native';
 import { BlurView } from 'expo-blur';
+import React from 'react';
+import {
+  Dimensions,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { Colors } from '../../constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -17,78 +17,68 @@ const { width } = Dimensions.get('window');
  * ActionModal - A custom alternative to native Alert.alert
  * Supports centered title, message, and customizable pill-shaped buttons.
  */
-export const ActionModal = ({ 
-  visible, 
-  title, 
-  message, 
-  onClose, 
-  onConfirm, 
-  confirmText = 'OK', 
+export const ActionModal = ({
+  visible,
+  title,
+  message,
+  onClose,
+  onConfirm,
+  confirmText = 'OK',
   cancelText = 'Cancel',
   isDestructive = false,
-  showCancel = true 
+  showCancel = true
 }) => {
   if (!visible) return null;
 
   return (
-    <Modal
-      transparent
-      animationType="fade"
-      visible={visible}
-      statusBarTranslucent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        {/* Background Blur */}
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]} />
-        )}
+    <View style={styles.overlay}>
+      {/* Darkened Semi-transparent Background instead of Blur for Max Stability */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]} />
 
-        <View style={styles.modalContainer}>
-          <View style={styles.content}>
-            {title && <Text style={styles.title}>{title}</Text>}
-            {message && <Text style={styles.message}>{message}</Text>}
-          </View>
+      <View style={styles.modalContainer}>
+        <View style={styles.content}>
+          {title && <Text style={styles.title}>{title}</Text>}
+          {message && <Text style={styles.message}>{message}</Text>}
+        </View>
 
-          <View style={styles.actions}>
-            <TouchableOpacity 
-              style={[
-                styles.btn, 
-                isDestructive ? styles.destructiveBtn : styles.confirmBtn
-              ]} 
-              onPress={() => {
-                if (onConfirm) onConfirm();
-                onClose();
-              }}
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[
+              styles.btn,
+              isDestructive ? styles.destructiveBtn : styles.confirmBtn
+            ]}
+            onPress={() => {
+              if (onConfirm) onConfirm();
+              onClose();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.confirmBtnText}>{confirmText}</Text>
+          </TouchableOpacity>
+
+          {showCancel && (
+            <TouchableOpacity
+              style={[styles.btn, styles.cancelBtn]}
+              onPress={onClose}
               activeOpacity={0.7}
             >
-              <Text style={styles.confirmBtnText}>{confirmText}</Text>
+              <Text style={styles.cancelBtnText}>{cancelText}</Text>
             </TouchableOpacity>
-
-            {showCancel && (
-              <TouchableOpacity 
-                style={[styles.btn, styles.cancelBtn]} 
-                onPress={onClose}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelBtnText}>{cancelText}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          )}
         </View>
       </View>
-    </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    backgroundColor: 'transparent',
   },
   modalContainer: {
     width: '100%',

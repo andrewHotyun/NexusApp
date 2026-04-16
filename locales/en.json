@@ -55,7 +55,7 @@
     "withdraw_title": "Withdraw Funds",
     "total_earnings": "Total Earnings:",
     "payment_details": "Payment Details:",
-    "not_specified_profile": "Not specified - please update your profile",
+    "not_specified_profile": "Not specified - please add your payment details in the profile settings",
     "withdraw_amount_label": "Withdrawal Amount",
     "all_btn": "All ({{amount}})",
     "withdraw_method_label": "Withdrawal Method",
@@ -582,13 +582,21 @@
     "cardNumber": "Card Number",
     "cardholder_name": "Cardholder Name",
     "paypal_email": "PayPal Email",
-    "paypal_info": "💡 We will send payouts to this PayPal address",
+    "paypal_info": "💡 Please make sure the email is correct to receive payouts",
     "crypto_type": "Crypto Type",
     "wallet_address": "Wallet Address",
-    "crypto_info": "💡 Make sure the address is correct for {{type}}",
+    "crypto_info": "💡 Please make sure the address is correct to receive payouts",
     "save_btn": "Save Payment Details",
     "save_success": "Payment details saved successfully!",
     "save_error": "Error while saving payment details. Try again.",
+    "placeholders": {
+      "card_number": "0000 0000 0000 0000",
+      "expiry_date": "MM/YY",
+      "cvv": "***",
+      "cardholder": "John Doe",
+      "paypal": "email@example.com",
+      "crypto": "Wallet Address"
+    },
     "errors": {
       "card_number": "Card number must be at least 16 digits",
       "invalid_card": "Invalid card number",
@@ -605,8 +613,15 @@
       "must_be_digits": "Must be {{count}} digits",
       "enter_full_name": "Enter First and Last Name",
       "latin_only": "Use Latin letters only",
-      "email_invalid_format": "Valid email required"
-    }
+      "email_invalid_format": "Valid email required",
+      "fill_first": "Please fill in the details for this method first"
+    },
+    "set_primary": "Set as primary method",
+    "primary_badge": "Primary",
+    "primary_help": "This method will be used for your future withdrawals.",
+    "delete_title": "Delete Details",
+    "delete_confirm": "Are you sure you want to delete these payment details? This action cannot be undone.",
+    "delete_success": "Details deleted successfully!"
   },
   "purchase": {
     "delete_method_title": "Delete Method",

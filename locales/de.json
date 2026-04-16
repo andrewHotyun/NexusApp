@@ -51,7 +51,7 @@
     "withdraw_title": "Verdienst auszahlen",
     "total_earnings": "Gesamtverdienst:",
     "payment_details": "Zahlungsdetails:",
-    "not_specified_profile": "Nicht angegeben - Bitte aktualisieren Sie Ihr Profil",
+    "not_specified_profile": "Nicht angegeben - bitte Zahlungsdetails hinzufügen",
     "withdraw_amount_label": "Auszahlungsbetrag",
     "all_btn": "Alle ({{amount}})",
     "withdraw_method_label": "Auszahlungsmethode",
@@ -582,13 +582,21 @@
     "cardNumber": "Kartennummer",
     "cardholder_name": "Name des Karteninhabers",
     "paypal_email": "PayPal-E-Mail-Adresse",
-    "paypal_info": "💡 Wir senden Zahlungen an diese PayPal-Adresse",
+    "paypal_info": "💡 Bitte stellen Sie sicher, dass die E-Mail-Adresse korrekt ist, um Auszahlungen zu erhalten",
     "crypto_type": "Kryptowährungstyp",
     "wallet_address": "Wallet-Adresse",
-    "crypto_info": "💡 Stellen Sie sicher, dass die Adresse für {{type}} korrekt ist",
+    "crypto_info": "💡 Bitte stellen Sie sicher, dass die Adresse korrekt ist, um Auszahlungen zu erhalten",
     "save_btn": "Zahlungsdetails speichern",
     "save_success": "Zahlungsdetails erfolgreich gespeichert!",
     "save_error": "Fehler beim Speichern der Zahlungsdetails. Erneut versuchen.",
+    "placeholders": {
+      "card_number": "0000 0000 0000 0000",
+      "expiry_date": "MM/JJ",
+      "cvv": "***",
+      "cardholder": "Vorname Nachname",
+      "paypal": "email@beispiel.com",
+      "crypto": "Wallet-Adresse"
+    },
     "errors": {
       "card_number": "Die Kartennummer muss mindestens 16 Stellen haben",
       "invalid_card": "Ungültige Kartennummer",
@@ -605,8 +613,15 @@
       "must_be_digits": "Muss {{count}} Stellen haben",
       "enter_full_name": "Vor- und Nachnamen eingeben",
       "latin_only": "Nur lateinische Buchstaben verwenden",
-      "email_invalid_format": "Gültige E-Mail erforderlich"
-    }
+      "email_invalid_format": "Gültige E-Mail erforderlich",
+      "fill_first": "Bitte füllen Sie zuerst die Details für diese Methode aus"
+    },
+    "set_primary": "Als primäre Methode festlegen",
+    "primary_badge": "Primär",
+    "primary_help": "Diese Methode wird für Ihre zukünftigen Auszahlungen verwendet.",
+    "delete_title": "Zahlungsdaten löschen",
+    "delete_confirm": "Sind Sie sicher, dass Sie diese Zahlungsdaten löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "delete_success": "Zahlungsdaten erfolgreich gelöscht!"
   },
   "purchase": {
     "delete_method_title": "Methode löschen",

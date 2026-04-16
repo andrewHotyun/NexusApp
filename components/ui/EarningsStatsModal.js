@@ -1,34 +1,59 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Platform,
-  Dimensions,
-  Animated
-} from 'react-native';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../../utils/firebase';
-import { earningsManager } from '../../utils/earningsManager';
-import { Colors } from '../../constants/theme';
-import { IconSymbol } from './icon-symbol';
+import {
+  Dimensions,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import GIFTS from '../../constants/gifts';
-import { BlurView } from 'expo-blur';
+import { Colors } from '../../constants/theme';
+import { earningsManager } from '../../utils/earningsManager';
+import { auth, db } from '../../utils/firebase';
+import { ActionModal } from './ActionModal';
+import { IconSymbol } from './icon-symbol';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function EarningsStatsModal({ isVisible, onClose, userProfile }) {
+export default function EarningsStatsModal({ isVisible, onClose, userProfile, onOpenWithdrawal, onOpenPaymentDetails }) {
   const { t, i18n } = useTranslation();
   const [currentWeek, setCurrentWeek] = useState(0); // 0 = current week, -1 = previous, etc.
   const [stats, setStats] = useState([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [expandedDays, setExpandedDays] = useState({});
   const cacheRef = useRef({});
+  const [alertConfig, setAlertConfig] = useState({ 
+    visible: false, 
+    title: '', 
+    message: '', 
+    onConfirm: null, 
+    confirmText: t('common.ok'), 
+    cancelText: t('common.cancel'), 
+    showCancel: false,
+    isDestructive: false 
+  });
+
+  const showAlert = (config) => {
+    setAlertConfig({
+      visible: true,
+      title: config.title || '',
+      message: config.message || '',
+      onConfirm: config.onConfirm || null,
+      confirmText: config.confirmText || t('common.ok'),
+      cancelText: config.cancelText || t('common.cancel'),
+      showCancel: config.showCancel !== undefined ? config.showCancel : true,
+      isDestructive: config.isDestructive || false
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig(prev => ({ ...prev, visible: false }));
+  };
 
   // Day change trigger to reset stats at midnight
   const [currentDateKey, setCurrentDateKey] = useState(() => {
@@ -48,6 +73,22 @@ export default function EarningsStatsModal({ isVisible, onClose, userProfile }) 
     }, 60000);
     return () => clearInterval(interval);
   }, [currentDateKey]);
+
+  const hasRequisites = React.useMemo(() => {
+    const details = userProfile?.paymentDetails;
+    if (!details) return false;
+    if (typeof details === 'string') return details.trim().length > 0;
+    
+    // Check multi-method object
+    return Object.values(details).some(method => {
+      if (!method || typeof method !== 'object') return false;
+      return (
+        (typeof method.card === 'string' && method.card.trim() !== '') ||
+        (typeof method.paypalEmail === 'string' && method.paypalEmail.trim() !== '') ||
+        (typeof method.cryptoWallet === 'string' && method.cryptoWallet.trim() !== '')
+      );
+    });
+  }, [userProfile?.paymentDetails]);
 
   const toggleDayStats = (dateString) => {
     setExpandedDays(prev => ({
@@ -96,14 +137,14 @@ export default function EarningsStatsModal({ isVisible, onClose, userProfile }) 
 
     // Show skeleton/cache first
     if (!cacheRef.current[currentWeek]) {
-        const skeleton = buildWeekSkeleton(currentWeek);
-        cacheRef.current[currentWeek] = skeleton;
-        setStats(skeleton.stats);
-        setTotalEarnings(skeleton.totalEarnings);
+      const skeleton = buildWeekSkeleton(currentWeek);
+      cacheRef.current[currentWeek] = skeleton;
+      setStats(skeleton.stats);
+      setTotalEarnings(skeleton.totalEarnings);
     } else {
-        const cached = cacheRef.current[currentWeek];
-        setStats(cached.stats);
-        setTotalEarnings(cached.totalEarnings);
+      const cached = cacheRef.current[currentWeek];
+      setStats(cached.stats);
+      setTotalEarnings(cached.totalEarnings);
     }
 
     const { start, end } = getWeekDates(currentWeek);
@@ -205,6 +246,13 @@ export default function EarningsStatsModal({ isVisible, onClose, userProfile }) 
     return dayNames[date.getDay()];
   };
 
+  const handleWithdrawPress = () => {
+    onClose();
+    if (onOpenWithdrawal) {
+      setTimeout(() => onOpenWithdrawal(), Platform.OS === 'ios' ? 400 : 0);
+    }
+  };
+
   const { start, end } = getWeekDates(currentWeek);
   const weekLabel = (() => {
     if (currentWeek === 0) return t('earnings.current_week');
@@ -218,11 +266,12 @@ export default function EarningsStatsModal({ isVisible, onClose, userProfile }) 
   return (
     <Modal visible={isVisible} animationType="slide" transparent={true} statusBarTranslucent>
       <View style={styles.overlay}>
-        <BlurView intensity={80} tint="dark" style={styles.container}>
+        <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>📊 {t('earnings.title')}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <View style={styles.headerLeft} />
+            <Text style={styles.headerTitle}>{t('earnings.title')}</Text>
+            <TouchableOpacity onPress={onClose} style={styles.headerRight}>
               <IconSymbol name="xmark" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -247,9 +296,18 @@ export default function EarningsStatsModal({ isVisible, onClose, userProfile }) 
               <View style={styles.totalIconWrapper}>
                 <IconSymbol name="dollarsign.circle.fill" size={32} color={Colors.dark.primary} />
               </View>
-              <View>
+              <View style={styles.totalInfoContainer}>
                 <Text style={styles.totalLabel}>{t('earnings.total_earnings')}</Text>
-                <Text style={styles.totalValue}>${totalEarnings.toFixed(2)}</Text>
+                <View style={styles.totalValueRow}>
+                  <Text style={styles.totalValue} numberOfLines={1} adjustsFontSizeToFit>${totalEarnings.toFixed(2)}</Text>
+
+                  {hasRequisites && (
+                    <TouchableOpacity style={styles.withdrawActionBtn} onPress={handleWithdrawPress}>
+                      <Text style={styles.withdrawActionText}>{t('dropdown.withdraw_earnings')}</Text>
+                      <IconSymbol name="arrow.right" size={10} color="#0ef0ff" />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </View>
 
@@ -285,18 +343,18 @@ export default function EarningsStatsModal({ isVisible, onClose, userProfile }) 
 
                     {/* Gifts Section */}
                     {hasGifts && (
-                      <TouchableOpacity 
-                        style={styles.giftsToggle} 
+                      <TouchableOpacity
+                        style={styles.giftsToggle}
                         onPress={() => toggleDayStats(day.date.toDateString())}
                       >
                         <View style={styles.giftsIconsRow}>
                           <Text style={styles.giftsLabel}>🎁 {t('earnings.gift_minutes').replace('🎁', '').trim()}: {day.giftMinutes} {t('header.min')}</Text>
                           <View style={styles.giftBadges}>
-                             {Object.keys(day.giftsReceived).slice(0, 3).map(gid => {
-                               const gift = GIFTS.find(g => g.id === gid);
-                               return <Text key={gid} style={styles.miniGiftEmoji}>{gift?.emoji || '🎁'}</Text>
-                             })}
-                             {Object.keys(day.giftsReceived).length > 3 && <Text style={styles.moreGifts}>...</Text>}
+                            {Object.keys(day.giftsReceived).slice(0, 3).map(gid => {
+                              const gift = GIFTS.find(g => g.id === gid);
+                              return <Text key={gid} style={styles.miniGiftEmoji}>{gift?.emoji || '🎁'}</Text>
+                            })}
+                            {Object.keys(day.giftsReceived).length > 3 && <Text style={styles.moreGifts}>...</Text>}
                           </View>
                         </View>
                         <IconSymbol name={isExpanded ? "chevron.up" : "chevron.down"} size={16} color="rgba(255,255,255,0.4)" />
@@ -331,15 +389,24 @@ export default function EarningsStatsModal({ isVisible, onClose, userProfile }) 
             </View>
 
             <View style={styles.footerNote}>
-                <Text style={styles.rateInfoText}>
-                   💰 {t('earnings.rate_info_dynamic', { rate: earningsManager.getRatePerMinute().toFixed(2) })}
-                </Text>
-                <Text style={styles.noteText}>{t('earnings.calls_counting')}</Text>
-                <Text style={styles.noteText}>{t('earnings.realtime_stats')}</Text>
+              <Text style={styles.rateInfoText}>
+                💰 {t('earnings.rate_info_dynamic', { rate: earningsManager.getRatePerMinute().toFixed(2) })}
+              </Text>
+              <Text style={styles.noteText}>{t('earnings.calls_counting')}</Text>
+              <Text style={styles.noteText}>{t('earnings.realtime_stats')}</Text>
             </View>
           </ScrollView>
-        </BlurView>
+        </View>
       </View>
+
+      <ActionModal 
+        {...alertConfig} 
+        onClose={closeAlert}
+        onConfirm={() => {
+          if (alertConfig.onConfirm) alertConfig.onConfirm();
+          closeAlert();
+        }}
+      />
     </Modal>
   );
 }
@@ -356,8 +423,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    marginBottom: -100, // Aggressive bleed for Android bottom gaps
+    paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
@@ -370,12 +439,19 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.05)'
   },
   headerTitle: {
+    flex: 1,
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff'
+    color: '#fff',
+    textAlign: 'center',
   },
-  closeBtn: {
-    padding: 4
+  headerLeft: {
+    width: 40,
+  },
+  headerRight: {
+    width: 40,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   scrollContent: {
     padding: 20
@@ -414,31 +490,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(14, 240, 255, 0.05)',
-    padding: 24,
+    padding: 20,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(14, 240, 255, 0.2)',
-    marginBottom: 20
+    marginBottom: 20,
+    gap: 16
+  },
+  totalInfoContainer: {
+    flex: 1,
+    gap: 4
+  },
+  totalValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10
   },
   totalIconWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(14, 240, 255, 0.1)',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 20
+    justifyContent: 'center'
   },
   totalLabel: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500'
   },
   totalValue: {
     color: '#fff',
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '900',
-    marginTop: 4
+    flexShrink: 1
+  },
+  withdrawActionBtn: {
+    backgroundColor: 'rgba(14, 240, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  withdrawActionText: {
+    color: '#0ef0ff',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   rateInfoBox: {
     marginBottom: 24,

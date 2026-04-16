@@ -10,6 +10,9 @@ import { Colors } from '../../constants/theme';
 import { IconSymbol } from './icon-symbol';
 import { MinutesPurchaseModal } from './MinutesPurchaseModal';
 import EarningsStatsModal from './EarningsStatsModal';
+import WithdrawalModal from './WithdrawalModal';
+import PaymentDetailsModal from './PaymentDetailsModal';
+import { ActionModal } from './ActionModal';
 
 export default function MainHeader() {
   const { t, i18n } = useTranslation();
@@ -20,6 +23,9 @@ export default function MainHeader() {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [isStatsVisible, setIsStatsVisible] = useState(false);
+  const [isWithdrawalVisible, setIsWithdrawalVisible] = useState(false);
+  const [isPaymentDetailsVisible, setIsPaymentDetailsVisible] = useState(false);
+
 
   // Day change trigger to reset stats at midnight
   const [currentDateKey, setCurrentDateKey] = useState(() => {
@@ -141,41 +147,41 @@ export default function MainHeader() {
     <>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.container}>
-          
+
           {/* Logo Section */}
           <View style={styles.leftSection}>
             <View style={styles.logoWrapper}>
-              <Image 
-                source={require('../../assets/images/logo.png')} 
-                style={styles.logo} 
-                resizeMode="contain" 
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
               />
             </View>
           </View>
 
           {/* Controls, Stats & Avatar */}
           <View style={styles.rightSection}>
-            
+
             {/* Auto-Translate Toggle */}
-            <TouchableOpacity 
-              style={[styles.controlBadge, autoTranslate && styles.controlBadgeActive]} 
+            <TouchableOpacity
+              style={[styles.controlBadge, autoTranslate && styles.controlBadgeActive]}
               onPress={() => setAutoTranslate(!autoTranslate)}
               activeOpacity={0.7}>
-              <IconSymbol 
-                name="translate" 
-                size={20} 
-                color={autoTranslate ? '#0ef0ff' : 'rgba(255, 255, 255, 0.4)'} 
+              <IconSymbol
+                name="translate"
+                size={20}
+                color={autoTranslate ? '#0ef0ff' : 'rgba(255, 255, 255, 0.4)'}
               />
             </TouchableOpacity>
 
             {/* Language Switcher */}
             <TouchableOpacity style={styles.langToggle} onPress={toggleLanguage} activeOpacity={0.7}>
               <Text style={styles.langIcon}>
-                {['uk', 'ua'].includes(i18n.language) ? '🇺🇦' : 
-                 i18n.language === 'en' ? '🇺🇸' : 
-                 i18n.language === 'es' ? '🇪🇸' : 
-                 i18n.language === 'de' ? '🇩🇪' : 
-                 i18n.language === 'fr' ? '🇫🇷' : '🌐'}
+                {['uk', 'ua'].includes(i18n.language) ? '🇺🇦' :
+                  i18n.language === 'en' ? '🇺🇸' :
+                    i18n.language === 'es' ? '🇪🇸' :
+                      i18n.language === 'de' ? '🇩🇪' :
+                        i18n.language === 'fr' ? '🇫🇷' : '🌐'}
               </Text>
               <Text style={styles.langText}>{
                 ['uk', 'ua'].includes(i18n.language) ? 'UA' : i18n.language.toUpperCase()
@@ -184,8 +190,8 @@ export default function MainHeader() {
 
             {/* Male Stats: Minutes Balance */}
             {userProfile.gender === 'man' && (
-              <TouchableOpacity 
-                style={styles.statsBadge} 
+              <TouchableOpacity
+                style={styles.statsBadge}
                 activeOpacity={0.7}
                 onPress={() => setShowPurchaseModal(true)}>
                 <IconSymbol name="timer" size={13} color="#0ef0ff" style={{ marginRight: 3 }} />
@@ -209,11 +215,11 @@ export default function MainHeader() {
 
             {/* Avatar */}
             <View style={styles.avatarOuterWrapper}>
-              <Pressable 
+              <Pressable
                 style={({ pressed }) => [
-                  styles.avatarContainer, 
+                  styles.avatarContainer,
                   !userProfile.avatar && { backgroundColor: getAvatarColor(userProfile.uid) },
-                  { 
+                  {
                     opacity: pressed ? 0.9 : 1,
                     transform: [{ scale: pressed ? 0.96 : 1 }],
                     backgroundColor: pressed ? 'rgba(14, 240, 255, 0.15)' : (userProfile.avatar ? 'transparent' : getAvatarColor(userProfile.uid))
@@ -232,21 +238,53 @@ export default function MainHeader() {
         </View>
       </SafeAreaView>
 
-      <ProfileMenuSheet 
-        isVisible={isMenuVisible} 
-        onClose={() => setIsMenuVisible(false)} 
-        userProfile={userProfile} 
+      <ProfileMenuSheet
+        isVisible={isMenuVisible}
+        onClose={() => setIsMenuVisible(false)}
+        userProfile={userProfile}
         onOpenStats={() => {
           setIsMenuVisible(false);
           // Small delay for iOS to finish modal closing animation
           setTimeout(() => setIsStatsVisible(true), Platform.OS === 'ios' ? 400 : 0);
+        }}
+        onOpenWithdrawal={() => {
+          setIsMenuVisible(false);
+          setTimeout(() => setIsWithdrawalVisible(true), Platform.OS === 'ios' ? 400 : 0);
+        }}
+        onOpenPaymentDetails={() => {
+          setIsMenuVisible(false);
+          setTimeout(() => setIsPaymentDetailsVisible(true), Platform.OS === 'ios' ? 400 : 0);
         }}
       />
 
       <EarningsStatsModal 
         isVisible={isStatsVisible} 
         onClose={() => setIsStatsVisible(false)} 
-        userProfile={userProfile} 
+        userProfile={userProfile}
+        onOpenWithdrawal={() => {
+          setIsStatsVisible(false);
+          setTimeout(() => setIsWithdrawalVisible(true), Platform.OS === 'ios' ? 400 : 0);
+        }}
+        onOpenPaymentDetails={() => {
+          setIsStatsVisible(false);
+          setTimeout(() => setIsPaymentDetailsVisible(true), Platform.OS === 'ios' ? 400 : 0);
+        }}
+      />
+
+      <WithdrawalModal
+        isVisible={isWithdrawalVisible}
+        onClose={() => setIsWithdrawalVisible(false)}
+        userProfile={userProfile}
+        onOpenPaymentDetails={() => {
+          setIsWithdrawalVisible(false);
+          setTimeout(() => setIsPaymentDetailsVisible(true), Platform.OS === 'ios' ? 400 : 0);
+        }}
+      />
+
+      <PaymentDetailsModal
+        isVisible={isPaymentDetailsVisible}
+        onClose={() => setIsPaymentDetailsVisible(false)}
+        currentDetails={userProfile?.paymentDetails || ''}
       />
 
       <MinutesPurchaseModal
@@ -254,13 +292,14 @@ export default function MainHeader() {
         onClose={() => setShowPurchaseModal(false)}
         userProfile={userProfile}
       />
+
     </>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#030e21', 
+    backgroundColor: '#030e21',
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
   },
@@ -270,7 +309,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingVertical: 8,
-    height: Platform.OS === 'android' ? 52 : 58, 
+    height: Platform.OS === 'android' ? 52 : 58,
   },
   leftSection: {
     flexDirection: 'row',
@@ -364,7 +403,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: '#0ef0ff', 
+    borderColor: '#0ef0ff',
   },
   avatarImage: {
     width: '100%',

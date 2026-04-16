@@ -237,9 +237,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    borderWidth: 1,
+    borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     maxHeight: SCREEN_HEIGHT * 0.85,
+    height: SCREEN_HEIGHT * 0.7, // Definitive height to prevent collapse
+    marginBottom: -100, // Aggressive bleed for Android bottom gaps
+    paddingBottom: 100,
   },
   sheetHeader: {
     alignItems: 'center',

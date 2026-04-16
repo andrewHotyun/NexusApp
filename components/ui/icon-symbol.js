@@ -26,7 +26,7 @@ const MAPPING = {
   'bubble.left.and.bubble.right.fill': 'mat:chat',
   'bubble.left.fill': 'mat:chat',
   'camera.fill': 'mat:photo-camera',
-  'person.text.rectangle.fill': 'mat:person-outline',
+  'person.2.slash.fill': 'mat:group-off',
   'person.2.fill': 'mat:people',
   'person.badge.plus': 'person-add-outline',
   'person.badge.minus': 'custom:person-remove-circle',
@@ -71,7 +71,7 @@ const MAPPING = {
   'line.3.horizontal.decrease.circle': 'mat:filter-list',
   'person.crop.circle.badge.questionmark': 'custom:person-question',
   'ellipsis.circle': 'ellipsis-horizontal-circle',
-  'person.slash.fill': 'person-remove-outline',
+  'person.slash.fill': 'mat:person-off',
   'person.fill.checkmark': 'lock-open',
   'person.crop.circle.badge.checkmark': 'mat:account-circle',
   'slash.circle': 'ban',
@@ -93,6 +93,8 @@ const MAPPING = {
   'dollarsign.circle.fill': 'cash',
   'phone.fill': 'call',
   'chevron.up': 'chevron-up',
+  'doc.text.fill': 'document-text',
+  'arrow.right': 'chevron-forward',
 };
 
 /**

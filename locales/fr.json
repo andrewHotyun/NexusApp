@@ -51,7 +51,7 @@
     "withdraw_title": "Retirer les gains",
     "total_earnings": "Gains totaux :",
     "payment_details": "Détails du paiement :",
-    "not_specified_profile": "Non spécifié - Veuillez mettre à jour votre profil",
+    "not_specified_profile": "Non spécifié - veuillez ajouter vos coordonnées de paiement",
     "withdraw_amount_label": "Montant du retrait",
     "all_btn": "Tout ({{amount}})",
     "withdraw_method_label": "Méthode de retrait",
@@ -213,7 +213,8 @@
     "selected_count": "{{count}} sélectionnés",
     "typing": "écrit...",
     "input_placeholder": "Écrivez un message...",
-    "confirm_block_title": "Bloquer {{name}} ?",    "confirm_block_text": "Le chat sera masqué et vous pourrez le débloquer plus tard dans le Profil.",
+    "confirm_block_title": "Bloquer {{name}} ?",
+    "confirm_block_text": "Le chat sera masqué et vous pourrez le débloquer plus tard dans le Profil.",
     "confirm_clear_title": "Effacer ce chat ?",
     "confirm_clear_text": "Tous les messages seront définitivement supprimés et ce chat sera retiré de votre liste.",
     "translated": "traduit",
@@ -576,13 +577,21 @@
     "cardNumber": "Numéro de carte",
     "cardholder_name": "Nom du titulaire",
     "paypal_email": "E-mail PayPal",
-    "paypal_info": "💡 Nous enverrons les paiements à cette adresse PayPal",
+    "paypal_info": "💡 Veuillez vous assurer que l'e-mail est correct pour recevoir les paiements",
     "crypto_type": "Type de cryptomonnaie",
     "wallet_address": "Adresse du portefeuille",
-    "crypto_info": "💡 Assurez-vous que l'adresse est correcte pour {{type}}",
+    "crypto_info": "💡 Veuillez vous assurer que l'adresse est correcte pour recevoir les paiements",
     "save_btn": "Enregistrer les détails de paiement",
     "save_success": "Détails de paiement enregistrés avec succès !",
     "save_error": "Erreur lors de l'enregistrement des détails de paiement. Réessayez.",
+    "placeholders": {
+      "card_number": "0000 0000 0000 0000",
+      "expiry_date": "MM/AA",
+      "cvv": "***",
+      "cardholder": "Nom Prénom",
+      "paypal": "email@exemple.com",
+      "crypto": "Adresse du portefeuille"
+    },
     "errors": {
       "card_number": "Le numéro de carte doit comporter au moins 16 chiffres",
       "invalid_card": "Numéro de carte invalide",
@@ -599,8 +608,15 @@
       "must_be_digits": "Doit comporter {{count}} chiffres",
       "enter_full_name": "Entrez le prénom et le nom",
       "latin_only": "Utilisez uniquement des lettres latines",
-      "email_invalid_format": "Email valide requis"
-    }
+      "email_invalid_format": "Email valide requis",
+      "fill_first": "Veuillez d'abord remplir les détails de cette méthode"
+    },
+    "set_primary": "Définir comme méthode principale",
+    "primary_badge": "Principale",
+    "primary_help": "Cette méthode sera utilisée pour vos futurs retraits.",
+    "delete_title": "Supprimer les coordonnées",
+    "delete_confirm": "Êtes-vous sûr de vouloir supprimer ces informations de paiement ? Cette action est irréversible.",
+    "delete_success": "Informations supprimées avec succès !"
   },
   "purchase": {
     "delete_method_title": "Supprimer la méthode",
