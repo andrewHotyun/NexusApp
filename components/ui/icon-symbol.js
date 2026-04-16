@@ -89,6 +89,10 @@ const MAPPING = {
   'xmark.circle.fill': 'close-circle',
   'p.square.fill': 'logo-paypal',
   'bitcoinsign.circle.fill': 'logo-bitcoin',
+  'chart.bar.fill': 'stats-chart',
+  'dollarsign.circle.fill': 'cash',
+  'phone.fill': 'call',
+  'chevron.up': 'chevron-up',
 };
 
 /**

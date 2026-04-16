@@ -1,47 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where
+} from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes, uploadBytesResumable } from 'firebase/storage';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  ActivityIndicator,
+  Animated,
+  Dimensions,
   FlatList,
   Image,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Dimensions,
   Modal,
   Platform,
-  StatusBar,
-  Pressable,
-  Animated
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  serverTimestamp,
-  getDoc
-} from 'firebase/firestore';
-import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 
-import { auth, db, storage } from '../../utils/firebase';
-import { Colors } from '../../constants/theme';
-import { IconSymbol } from '../../components/ui/icon-symbol';
-import { ActionModal } from '../../components/ui/ActionModal';
-import { earningsManager } from '../../utils/earningsManager';
 import * as Haptics from 'expo-haptics';
+import { ActionModal } from '../../components/ui/ActionModal';
+import { IconSymbol } from '../../components/ui/icon-symbol';
+import { Colors } from '../../constants/theme';
+import { earningsManager } from '../../utils/earningsManager';
+import { auth, db, storage } from '../../utils/firebase';
 
 const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -53,6 +50,28 @@ export default function MediaGalleryScreen() {
   const router = useRouter();
   const user = auth.currentUser;
 
+  // Financial-grade like tracking (matching web statistics)
+  const [allPaidLikes, setAllPaidLikes] = useState([]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Listen for all earnings for this user (robust index-free query)
+    const q = query(
+      collection(db, 'earnings'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Filter for likes in-memory to avoid missing indices
+      const allEarnings = snapshot.docs.map(doc => doc.data());
+      const likesOnly = allEarnings.filter(e => e.type === 'like');
+      setAllPaidLikes(likesOnly);
+    }, (err) => console.warn('Gallery earnings sync error:', err));
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
   const [loading, setLoading] = useState(true);
   const [folders, setFolders] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
@@ -60,8 +79,8 @@ export default function MediaGalleryScreen() {
   const [newFolderName, setNewFolderName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [actionModal, setActionModal] = useState({ 
-    visible: false, title: '', message: '', confirmText: '', onConfirm: () => {}, isDestructive: false 
+  const [actionModal, setActionModal] = useState({
+    visible: false, title: '', message: '', confirmText: '', onConfirm: () => { }, isDestructive: false
   });
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
@@ -74,16 +93,49 @@ export default function MediaGalleryScreen() {
   const [likersData, setLikersData] = useState([]);
   const [likersLoading, setLikersLoading] = useState(false);
 
-  const showLikers = async (item) => {
-    const likedBy = item.likedBy || [];
-    if (likedBy.length === 0) return;
+  const showLikers = async (item, index) => {
+    if (!item) return;
 
     setLikersModalVisible(true);
     setLikersLoading(true);
-    
+    setLikersData([]);
+
     try {
+      // Find financial likes for THIS item using Super-Sync matching
+      const normalizedItemUrl = normalizeUrl(item.url);
+      const getFileName = (path) => {
+        if (!path) return '';
+        const parts = path.split('/');
+        const lastPart = parts.pop() || '';
+        return lastPart.split('?')[0].split('#')[0].toLowerCase();
+      };
+      const itemFileName = getFileName(item.url);
+
+      const financialLikes = allPaidLikes.filter(l => {
+        const cId = (l.contentId || '').toLowerCase();
+        const normalizedCId = normalizeUrl(cId);
+
+        // 1. Web-style ID match
+        if (currentFolder && cId === `${currentFolder.id}_${index}`.toLowerCase()) return true;
+
+        // 2. Strict URL match
+        if (cId === item.url.toLowerCase() || normalizedCId === normalizedItemUrl) return true;
+
+        // 3. Filename match
+        const cFileName = getFileName(cId);
+        if (cFileName && itemFileName && cFileName === itemFileName) return true;
+
+        return false;
+      });
+
+      const uids = [...new Set(financialLikes.map(l => l.callPartnerId))];
+      if (uids.length === 0) {
+        setLikersData([]);
+        return;
+      }
+
       const profiles = await Promise.all(
-        likedBy.map(async (uid) => {
+        uids.map(async (uid) => {
           try {
             const snap = await getDoc(doc(db, 'users', uid));
             if (snap.exists()) {
@@ -111,13 +163,13 @@ export default function MediaGalleryScreen() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setFolders(data);
-      
+
       // Keep current folder in sync if viewing one
       if (currentFolder) {
         const updated = data.find(f => f.id === currentFolder.id);
         if (updated) setCurrentFolder(updated);
       }
-      
+
       setLoading(false);
     }, (error) => {
       console.error("Gallery listener error:", error);
@@ -194,24 +246,24 @@ export default function MediaGalleryScreen() {
 
   const uploadMedia = async (asset) => {
     if (!currentFolder) return;
-    
+
     setUploading(true);
     try {
       const type = asset.type === 'video' ? 'video' : 'image';
       const filename = `${Date.now()}_media`;
       const storagePath = `galleries/${user.uid}/${currentFolder.id}/${filename}`;
       const storageRef = ref(storage, storagePath);
-      
+
       const response = await fetch(asset.uri);
       const blob = await response.blob();
-      
+
       const uploadTask = uploadBytesResumable(storageRef, blob);
 
-      uploadTask.on('state_changed', 
+      uploadTask.on('state_changed',
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           setUploadProgress(progress);
-        }, 
+        },
         (error) => {
           console.error("Upload error:", error);
           setUploading(false);
@@ -221,7 +273,7 @@ export default function MediaGalleryScreen() {
             message: t('profile.error_upload_failed'),
             showCancel: false
           });
-        }, 
+        },
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           const newItem = {
@@ -236,7 +288,7 @@ export default function MediaGalleryScreen() {
           await updateDoc(doc(db, 'galleries', currentFolder.id), {
             items: updatedItems
           });
-          
+
           setUploading(false);
           setUploadProgress(0);
         }
@@ -276,14 +328,41 @@ export default function MediaGalleryScreen() {
     ]).start();
   };
 
-  const isLiked = (item) => {
+  const isPaidLikedByMe = (item, index, earningsList) => {
     if (!item) return false;
     if (likedItems.has(item.url)) return true;
-    return item.likedBy?.includes(user?.uid);
+
+    // Check if current user has an earnings record for this content
+    const normalizedItemUrl = normalizeUrl(item.url);
+    const getFileName = (path) => {
+      if (!path) return '';
+      const parts = path.split('/');
+      const lastPart = parts.pop() || '';
+      return lastPart.split('?')[0].split('#')[0].toLowerCase();
+    };
+    const itemFileName = getFileName(item.url);
+
+    return earningsList?.some(l => {
+      if (l.callPartnerId !== user?.uid) return false;
+      const cId = (l.contentId || '').toLowerCase();
+      const normalizedCId = normalizeUrl(cId);
+
+      // 1. Web-style ID match
+      if (currentFolder && cId === `${currentFolder.id}_${index}`.toLowerCase()) return true;
+
+      // 2. Strict URL match
+      if (cId === item.url.toLowerCase() || normalizedCId === normalizedItemUrl) return true;
+
+      // 3. Filename match
+      const cFileName = getFileName(cId);
+      if (cFileName && itemFileName && cFileName === itemFileName) return true;
+
+      return false;
+    });
   };
 
   const handleLikePhoto = async (item, index) => {
-    if (!user || !item || isLiking) return;
+    if (!user || !item || isLiking || !currentFolder) return;
     setIsLiking(true);
 
     const alreadyLiked = isLiked(item);
@@ -302,21 +381,52 @@ export default function MediaGalleryScreen() {
     animateLike();
 
     try {
-      if (currentFolder) {
-        const folderRef = doc(db, 'galleries', currentFolder.id);
-        const updatedItems = (currentFolder.items || []).map(i => {
-          if (i.url === item.url) {
-            const currentLikedBy = i.likedBy || [];
-            return {
-              ...i,
-              likedBy: alreadyLiked
-                ? currentLikedBy.filter(uid => uid !== user.uid)
-                : [...currentLikedBy, user.uid]
-            };
-          }
-          return i;
+      const folderRef = doc(db, 'galleries', currentFolder.id);
+      const updatedItems = (currentFolder.items || []).map((i, idx) => {
+        if (idx === index) {
+          const currentLikedBy = i.likedBy || [];
+          return {
+            ...i,
+            likedBy: alreadyLiked
+              ? currentLikedBy.filter(uid => uid !== user.uid)
+              : [...currentLikedBy, user.uid]
+          };
+        }
+        return i;
+      });
+
+      await updateDoc(folderRef, { items: updatedItems });
+
+      // Check if this item is also the current user's avatar to keep sync
+      if (normalizeUrl(item.url) === normalizeUrl(user?.photoURL) ||
+        (userProfile && (normalizeUrl(item.url) === normalizeUrl(userProfile.avatar) ||
+          normalizeUrl(item.url) === normalizeUrl(userProfile.originalAvatarUrl)))) {
+        const userRef = doc(db, 'users', user.uid);
+        const currentLikedBy = userProfile?.likedBy || [];
+        const newLikedBy = alreadyLiked
+          ? currentLikedBy.filter(uid => uid !== user.uid)
+          : [...currentLikedBy, user.uid];
+        await updateDoc(userRef, { likedBy: newLikedBy });
+      }
+
+      if (!alreadyLiked) {
+        // Record like for notifications (new likes only, like on web)
+        await addDoc(collection(db, 'likes'), {
+          senderId: user.uid,
+          targetUserId: user.uid, // When liking your own photo
+          contentUrl: item.url,
+          contentType: item.type || 'image',
+          createdAt: serverTimestamp(),
+          read: true
         });
-        await updateDoc(folderRef, { items: updatedItems });
+
+        // Add earnings sync
+        await earningsManager.addLikeEarnings(
+          user.uid,
+          user.uid,
+          'gallery',
+          item.url
+        );
       }
 
       if (Platform.OS !== 'web') {
@@ -329,9 +439,33 @@ export default function MediaGalleryScreen() {
     }
   };
 
+  // Helper to remove tokens/params from URL for consistent comparison
+  const normalizeUrl = (url) => {
+    if (!url) return '';
+    try {
+      // Deep decode to handle double-encoded characters and remove all params/hashes
+      // Also remove trailing slashes for consistency
+      const decoded = decodeURIComponent(decodeURIComponent(url));
+      return decoded.split('?')[0].split('#')[0].replace(/\/$/, '');
+    } catch {
+      return url.split('?')[0].split('#')[0].replace(/\/$/, '');
+    }
+  };
+
   const handleSetAsAvatar = async (imageUrl) => {
     setSettingAvatar(true);
     try {
+      // 0. Find the source item in folders to get its likedBy data (using normalized URL)
+      const normalizedImageUrl = normalizeUrl(imageUrl);
+      let sourceLikedBy = [];
+      for (const folder of folders) {
+        const item = folder.items?.find(i => normalizeUrl(i.url) === normalizedImageUrl);
+        if (item) {
+          sourceLikedBy = item.likedBy || [];
+          break;
+        }
+      }
+
       // 1. Download the original image
       const response = await fetch(imageUrl);
       const blob = await response.blob();
@@ -351,12 +485,28 @@ export default function MediaGalleryScreen() {
         ? `data:image/jpeg;base64,${thumbnail.base64}`
         : '';
 
-      // 4. Update user document
+      // 4. Update user document AND its likedBy array for denormalized sync
       await updateDoc(doc(db, 'users', user.uid), {
         avatar: compressedBase64,
         originalAvatarUrl: downloadURL,
+        likedBy: sourceLikedBy, // Copy likes from gallery source
         updatedAt: serverTimestamp()
       });
+
+      // 5. Clone 'likes' collection records for the new URL (for source-of-truth accuracy)
+      if (sourceLikedBy.length > 0) {
+        const likesBatch = sourceLikedBy.map(likerUid => {
+          return addDoc(collection(db, 'likes'), {
+            senderId: likerUid,
+            targetUserId: user.uid,
+            contentUrl: downloadURL, // Point to the new avatar URL
+            contentType: 'image',
+            createdAt: serverTimestamp(),
+            read: true // Consider these migrated likes as read
+          });
+        });
+        await Promise.all(likesBatch);
+      }
 
       setIsImageViewerVisible(false);
       setActionModal({
@@ -389,16 +539,16 @@ export default function MediaGalleryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => currentFolder ? setCurrentFolder(null) : router.back()} 
+        <TouchableOpacity
+          onPress={() => currentFolder ? setCurrentFolder(null) : router.back()}
           style={styles.headerBtn}>
           <IconSymbol name="chevron.left" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {currentFolder ? currentFolder.folderName : t('profile.my_gallery')}
         </Text>
-        <TouchableOpacity 
-          style={styles.headerBtn} 
+        <TouchableOpacity
+          style={styles.headerBtn}
           onPress={() => currentFolder ? handlePickMedia() : setIsCreatingFolder(true)}
           disabled={uploading}>
           {uploading ? (
@@ -440,8 +590,8 @@ export default function MediaGalleryScreen() {
 
           <View style={styles.foldersGrid}>
             {folders.map(folder => (
-              <TouchableOpacity 
-                key={folder.id} 
+              <TouchableOpacity
+                key={folder.id}
                 style={styles.folderItem}
                 onPress={() => setCurrentFolder(folder)}
                 onLongPress={() => handleDeleteFolder(folder.id)}>
@@ -454,7 +604,7 @@ export default function MediaGalleryScreen() {
                 <Text style={styles.folderName} numberOfLines={1}>{folder.folderName}</Text>
               </TouchableOpacity>
             ))}
-            
+
             {folders.length === 0 && !isCreatingFolder && (
               <View style={styles.emptyState}>
                 <IconSymbol name="photo.on.rectangle.angled" size={64} color="rgba(255,255,255,0.1)" />
@@ -469,17 +619,58 @@ export default function MediaGalleryScreen() {
           keyExtractor={(_, index) => index.toString()}
           numColumns={COLUMN_COUNT}
           renderItem={({ item, index }) => {
-            const likesCount = item.likedBy?.length || 0;
-            const liked = isLiked(item);
+            const normalizedItemUrl = normalizeUrl(item.url);
+
+            // Calculate financial likes from the earnings collection
+            const financialLikes = allPaidLikes.filter(l => {
+              const cId = (l.contentId || '').toLowerCase();
+              const normalizedCId = normalizeUrl(cId);
+
+              const getFileName = (path) => {
+                if (!path) return '';
+                const parts = path.split('/');
+                const lastPart = parts.pop() || '';
+                return lastPart.split('?')[0].split('#')[0].toLowerCase();
+              };
+
+              const cFileName = getFileName(cId);
+              const itemFileName = getFileName(item.url);
+
+              // 1. Filename match (Priority)
+              if (cFileName && itemFileName && cFileName === itemFileName) return true;
+
+              // 2. Web-style ID match
+              if (cId === `${currentFolder.id}_${index}`.toLowerCase()) return true;
+
+              // 3. Strict URL match
+              if (cId === item.url.toLowerCase() || normalizedCId === normalizedItemUrl) return true;
+
+              // 4. Partial match
+              if (cId.length > 10 && item.url.toLowerCase().includes(cId)) return true;
+
+              return false;
+            });
+
+            const financialLikesCount = financialLikes.length;
+            const isWoman = userProfile?.gender === 'woman';
+
+            // For women, use financial likes. For men, fallback to social likes.
+            const displayCount = isWoman ? financialLikesCount : (item.likedBy?.length || 0);
+            const liked = isWoman ? isPaidLikedByMe(item, index, financialLikes) : (item.likedBy?.includes(user?.uid));
+
             // Adjust count for optimistic UI
-            const isOriginallyLiked = item.likedBy?.includes(user?.uid);
-            const isLocallyLiked = likedItems.has(item.url);
-            let displayCount = likesCount;
-            if (isLocallyLiked && !isOriginallyLiked) displayCount = likesCount + 1;
-            if (!isLocallyLiked && isOriginallyLiked) displayCount = Math.max(0, likesCount - 1);
+            const isSessionLiked = likedItems.has(item.url);
+            const isAlreadyLikedByMe = isWoman
+              ? financialLikes.some(l => l.callPartnerId === user?.uid)
+              : item.likedBy?.includes(user?.uid);
+
+            let finalDisplayCount = displayCount;
+            if (isSessionLiked && !isAlreadyLikedByMe) finalDisplayCount = displayCount + 1;
+            if (!isSessionLiked && isAlreadyLikedByMe) finalDisplayCount = Math.max(0, displayCount - 1);
+
 
             return (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.mediaItem}
                 onLongPress={() => handleDeleteMedia(index)}
                 onPress={() => {
@@ -504,7 +695,7 @@ export default function MediaGalleryScreen() {
                   </View>
                 )}
                 {/* Like button - bottom left */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.mediaLikeBtn, liked && styles.mediaLikeBtnActive]}
                   onPress={(e) => {
                     e.stopPropagation?.();
@@ -512,10 +703,10 @@ export default function MediaGalleryScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <IconSymbol 
-                    name={liked ? "heart.fill" : "heart"} 
-                    size={14} 
-                    color="#fff" 
+                  <IconSymbol
+                    name={liked ? "heart.fill" : "heart"}
+                    size={14}
+                    color="#fff"
                   />
                   {displayCount > 0 && (
                     <Text style={styles.mediaLikeCount}>{displayCount}</Text>
@@ -523,7 +714,7 @@ export default function MediaGalleryScreen() {
                 </TouchableOpacity>
                 {/* Eye button - bottom right */}
                 {displayCount > 0 && (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.mediaEyeBtn}
                     onPress={(e) => {
                       e.stopPropagation?.();
@@ -564,37 +755,93 @@ export default function MediaGalleryScreen() {
         statusBarTranslucent={true}
         onRequestClose={() => setIsImageViewerVisible(false)}>
         <View style={styles.fullScreenContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.closeButtonAbsolute}
             onPress={() => setIsImageViewerVisible(false)}>
             <IconSymbol name="xmark" size={24} color="#fff" />
           </TouchableOpacity>
-          
+
           <View style={styles.imageWrapper}>
-            <Image 
-              source={{ uri: selectedImage }} 
-              style={styles.fullScreenImage} 
-              resizeMode="contain" 
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
             />
           </View>
 
-          <View style={styles.viewerBottomBar}>
+          {/* Viewer Bottom Bar - Aggressive Financial Sync */}
+          {(() => {
+            const currentItem = (currentFolder?.items || [])[selectedImageIndex];
+            if (!currentItem) return null;
 
-            {/* Set as Avatar Button */}
-            <TouchableOpacity
-              style={styles.setAvatarBtn}
-              onPress={() => handleSetAsAvatar(selectedImage)}
-              disabled={settingAvatar}>
-              {settingAvatar ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <IconSymbol name="person.crop.circle.badge.checkmark" size={20} color="#fff" />
-                  <Text style={styles.setAvatarBtnText}>{t('profile.set_as_avatar')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+            const normalizedItemUrl = normalizeUrl(currentItem.url);
+            const getFileName = (path) => {
+              if (!path) return '';
+              const parts = path.split('/');
+              const lastPart = parts.pop() || '';
+              return lastPart.split('?')[0].split('#')[0].toLowerCase();
+            };
+            const itemFileName = getFileName(currentItem.url);
+
+            const financialLikes = allPaidLikes.filter(l => {
+              const cId = (l.contentId || '').toLowerCase();
+              const normalizedCId = normalizeUrl(cId);
+
+              if (currentFolder && cId === `${currentFolder.id}_${selectedImageIndex}`.toLowerCase()) return true;
+              if (cId === currentItem.url.toLowerCase() || normalizedCId === normalizedItemUrl) return true;
+              const cFileName = getFileName(cId);
+              if (cFileName && itemFileName && cFileName === itemFileName) return true;
+              return false;
+            });
+
+            const isWoman = userProfile?.gender === 'woman';
+            const finalLikesCount = isWoman ? financialLikes.length : (currentItem.likedBy?.length || 0);
+            const liked = isWoman ? isPaidLikedByMe(currentItem, selectedImageIndex, financialLikes) : (currentItem.likedBy?.includes(user?.uid));
+
+            // Dynamic sync debug info
+            const debugStr = `Gender: ${userProfile?.gender} | Financial: ${financialLikes.length} | Social: ${currentItem.likedBy?.length || 0}`;
+
+            return (
+              <View style={styles.viewerBottomBar}>
+                <TouchableOpacity
+                  style={styles.viewerAction}
+                  onPress={() => handleLikePhoto(currentItem, selectedImageIndex)}
+                >
+                  <IconSymbol
+                    name={liked ? "heart.fill" : "heart"}
+                    size={28}
+                    color={liked ? "#e74c3c" : "#fff"}
+                  />
+                  <Text style={styles.viewerActionText}>
+                    {finalLikesCount > 0 ? finalLikesCount : ''}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.viewerAction}
+                  onPress={() => showLikers(currentItem, selectedImageIndex)}
+                >
+                  <IconSymbol name="person.2.fill" size={24} color="#fff" />
+                  <Text style={styles.viewerActionText}>{t('profile.likers')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.viewerAction}
+                  onPress={() => handleSetAsAvatar(currentItem.url)}
+                  disabled={settingAvatar}
+                >
+                  <IconSymbol name="person.crop.circle.badge.checkmark" size={24} color="#fff" />
+                  <Text style={styles.viewerActionText}>
+                    {settingAvatar ? t('common.loading') : t('profile.set_as_avatar')}
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={{ position: 'absolute', bottom: -15, left: 10, color: 'rgba(255,255,255,0.2)', fontSize: 9 }}>
+                  {debugStr}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
       </Modal>
 
@@ -844,29 +1091,27 @@ const styles = StyleSheet.create({
   },
   viewerBottomBar: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 50 : 30,
+    bottom: Platform.OS === 'ios' ? 40 : 20,
     left: 0,
     right: 0,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  setAvatarBtn: {
     flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingBottom: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  viewerAction: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 25,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    minWidth: 200,
+    minWidth: 70,
+    gap: 4,
   },
-  setAvatarBtnText: {
+  viewerActionText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
   mediaLikeBtn: {
     position: 'absolute',

@@ -9,6 +9,7 @@ import ProfileMenuSheet from './ProfileMenuSheet';
 import { Colors } from '../../constants/theme';
 import { IconSymbol } from './icon-symbol';
 import { MinutesPurchaseModal } from './MinutesPurchaseModal';
+import EarningsStatsModal from './EarningsStatsModal';
 
 export default function MainHeader() {
   const { t, i18n } = useTranslation();
@@ -18,6 +19,26 @@ export default function MainHeader() {
   const [dailyStats, setDailyStats] = useState({ minutes: 0, earnings: 0 });
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [isStatsVisible, setIsStatsVisible] = useState(false);
+
+  // Day change trigger to reset stats at midnight
+  const [currentDateKey, setCurrentDateKey] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const nowMs = now.getTime();
+      if (nowMs !== currentDateKey) {
+        setCurrentDateKey(nowMs);
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [currentDateKey]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -48,8 +69,7 @@ export default function MainHeader() {
 
     // Exact replica of web Header.js (lines 226-255):
     // Query by userId only to avoid composite index; filter by date in memory
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date(currentDateKey);
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
@@ -83,7 +103,7 @@ export default function MainHeader() {
     });
 
     return () => unsubscribeEarnings();
-  }, [userProfile?.gender, userProfile === null]); // Added userProfile === null to re-run when profile loads
+  }, [userProfile?.gender, userProfile === null, currentDateKey]); // Added currentDateKey to re-run listener at midnight
 
   const toggleLanguage = () => {
     const langs = ['en', 'uk', 'es', 'de', 'fr'];
@@ -216,6 +236,17 @@ export default function MainHeader() {
         isVisible={isMenuVisible} 
         onClose={() => setIsMenuVisible(false)} 
         userProfile={userProfile} 
+        onOpenStats={() => {
+          setIsMenuVisible(false);
+          // Small delay for iOS to finish modal closing animation
+          setTimeout(() => setIsStatsVisible(true), Platform.OS === 'ios' ? 400 : 0);
+        }}
+      />
+
+      <EarningsStatsModal 
+        isVisible={isStatsVisible} 
+        onClose={() => setIsStatsVisible(false)} 
+        userProfile={userProfile} 
       />
 
       <MinutesPurchaseModal
@@ -323,6 +354,7 @@ const styles = StyleSheet.create({
   },
   avatarOuterWrapper: {
     borderRadius: 20,
+    marginLeft: 10,
   },
   avatarContainer: {
     width: 36,

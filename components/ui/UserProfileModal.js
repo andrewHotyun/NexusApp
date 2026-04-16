@@ -1,31 +1,27 @@
 import { ResizeMode, Video } from 'expo-av';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, doc, onSnapshot, query, where, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Animated } from 'react-native';
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
-  Dimensions,
+  ActivityIndicator, Animated, Dimensions,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Alert
+  View
 } from 'react-native';
 import { Colors } from '../../constants/theme';
-import { db, auth } from '../../utils/firebase';
-import { IconSymbol } from './icon-symbol';
 import { earningsManager } from '../../utils/earningsManager';
-import * as Haptics from 'expo-haptics';
+import { auth, db } from '../../utils/firebase';
+import { IconSymbol } from './icon-symbol';
 import { StoryAvatar } from './StoryAvatar';
 import { StoryViewer } from './StoryViewer';
-import { getAvatarColor } from '../../utils/avatarUtils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -49,9 +45,9 @@ const CustomVideoPlayer = ({ url, isPlaying, onTogglePlay }) => {
   const progress = status.duration > 0 ? (status.position / status.duration) * 100 : 0;
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       activeOpacity={1}
-      style={styles.fullScreenImage} 
+      style={styles.fullScreenImage}
       onPress={onTogglePlay}
     >
       <Video
@@ -75,7 +71,7 @@ const CustomVideoPlayer = ({ url, isPlaying, onTogglePlay }) => {
           </BlurView>
         </View>
       )}
-      
+
       {status.isLoaded && (
         <View style={styles.videoControlsContainer}>
           <Text style={styles.timeText}>{formatTime(status.position)}</Text>
@@ -89,14 +85,21 @@ const CustomVideoPlayer = ({ url, isPlaying, onTogglePlay }) => {
   );
 };
 
-export const UserProfileModal = ({ isVisible, onClose, userId }) => {
+export const UserProfileModal = ({ isVisible, onClose, userId, initialMediaUrl = null }) => {
   const { t } = useTranslation();
   const [profile, setProfile] = useState(null);
   const [folders, setFolders] = useState([]);
   const [selectedFolderId, setSelectedFolderId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [fullScreenMediaUrl, setFullScreenMediaUrl] = useState(null);
+  const [fullScreenMediaUrl, setFullScreenMediaUrl] = useState(initialMediaUrl);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+
+  // Sync initialMediaUrl if provided
+  useEffect(() => {
+    if (initialMediaUrl && isVisible) {
+      setFullScreenMediaUrl(initialMediaUrl);
+    }
+  }, [initialMediaUrl, isVisible]);
   const [likedItems, setLikedItems] = useState(new Set());
   const [isLiking, setIsLiking] = useState(false);
   const [hasStories, setHasStories] = useState(false);
@@ -121,38 +124,138 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
     ]).start();
   };
 
+  // Helper to remove tokens/params from URL for consistent comparison
+  const normalizeUrl = (url) => {
+    if (!url) return '';
+    try {
+      // Deep decode to handle double-encoded characters and remove all params/hashes
+      // Also remove trailing slashes for consistency
+      const decoded = decodeURIComponent(decodeURIComponent(url));
+      return decoded.split('?')[0].split('#')[0].replace(/\/$/, '');
+    } catch {
+      return url.split('?')[0].split('#')[0].replace(/\/$/, '');
+    }
+  };
+
   // Find current item dynamically from folders to avoid stale data
   const getCurrentItem = () => {
     if (!fullScreenMediaUrl) return null;
 
-    // Check if it's the avatar
-    if (fullScreenMediaUrl === profile?.originalAvatarUrl || fullScreenMediaUrl === profile?.avatar) {
+    const normalizedFullUrl = normalizeUrl(fullScreenMediaUrl);
+
+    // 1. First, search through all gallery folders to find the actual item with likes
+    for (const folder of folders) {
+      const item = folder.items?.find(i => normalizeUrl(i.url) === normalizedFullUrl);
+      if (item) return item;
+    }
+
+    // 2. Fallback to avatar check if not found in any folder
+    if (normalizedFullUrl === normalizeUrl(profile?.originalAvatarUrl) ||
+      normalizedFullUrl === normalizeUrl(profile?.avatar)) {
       return {
         url: fullScreenMediaUrl,
         type: 'image',
-        likedBy: [], // Avatar doesn't have likes in this implementation
+        likedBy: profile?.likedBy || [], // Fallback/initial value
         id: 'avatar'
       };
     }
 
-    for (const folder of folders) {
-      const item = folder.items?.find(i => i.url === fullScreenMediaUrl);
-      if (item) return item;
-    }
     return null;
   };
 
   const currentItem = getCurrentItem();
 
-  // Check if item was already liked in the session OR in the Firestore data
+  // Financial-grade like tracking (matching web statistics)
+  const [paidLikes, setPaidLikes] = useState([]);
+  const paidLikesCount = paidLikes.length;
+  const isPaidLikedByMe = paidLikes.some(l => l.callPartnerId === auth.currentUser?.uid);
+
+  useEffect(() => {
+    if (!fullScreenMediaUrl) {
+      setPaidLikes([]);
+      return;
+    }
+
+    const normalizedUrl = normalizeUrl(fullScreenMediaUrl);
+
+    // Query earnings (robust index-free query)
+    const earningsQuery = query(
+      collection(db, 'earnings'),
+      where('userId', '==', userId)
+    );
+
+    const unsubscribe = onSnapshot(earningsQuery, (snapshot) => {
+      const normalizedUrl = normalizeUrl(fullScreenMediaUrl);
+      const getFileName = (path) => {
+        if (!path) return '';
+        const parts = path.split('/');
+        const lastPart = parts.pop() || '';
+        return lastPart.split('?')[0].split('#')[0].toLowerCase();
+      };
+      const currentFileName = getFileName(fullScreenMediaUrl);
+
+      // Find the Web ID fallback
+      let webId = null;
+      for (const folder of folders) {
+        const idx = folder.items?.findIndex(i => normalizeUrl(i.url) === normalizedUrl);
+        if (idx !== -1) {
+          webId = `${folder.id}_${idx}`.toLowerCase();
+          break;
+        }
+      }
+
+      // Filter for likes in-memory
+      const likesData = snapshot.docs
+        .map(doc => doc.data())
+        .filter(l => {
+          if (l.type !== 'like') return false;
+
+          const cId = (l.contentId || '').toLowerCase();
+          const normalizedCId = normalizeUrl(cId);
+
+          // 1. Web-style ID match (folderId_index)
+          if (webId && cId === webId) return true;
+
+          // 2. Strict URL match
+          if (cId === fullScreenMediaUrl.toLowerCase() || normalizedCId === normalizedUrl) return true;
+
+          // 3. Filename match (The most robust way)
+          const cFileName = getFileName(cId);
+          if (cFileName && currentFileName && cFileName === currentFileName) return true;
+
+          // 4. Partial URL match
+          if (cId.length > 10 && fullScreenMediaUrl.toLowerCase().includes(cId)) return true;
+          if (fullScreenMediaUrl.length > 10 && cId.includes(currentFileName)) return true;
+
+          return false;
+        });
+
+      setPaidLikes(likesData);
+    }, (err) => console.warn('Earnings likes sync error:', err));
+
+    return () => unsubscribe();
+  }, [fullScreenMediaUrl, userId, folders]);
+
+
+  // Check if item was already liked (optimistic OR confirmed in earnings)
   const isLiked = (item) => {
     if (!item) return false;
     if (likedItems.has(item.url)) return true;
+
+    // If the user is a woman, she cares about financial-grade likes (parity with web earnings)
+    // If the user is a man, he cares about the social likedBy array
+    const isWoman = profile?.gender === 'woman';
+
+    if (isWoman && fullScreenMediaUrl && normalizeUrl(item.url) === normalizeUrl(fullScreenMediaUrl)) {
+      return isPaidLikedByMe;
+    }
+
+    // Fallback: Check if current user is in the likedBy array (denormalized source)
     return item.likedBy?.includes(auth.currentUser?.uid);
   };
 
   const handleLikePhoto = async (item) => {
-    if (!auth.currentUser || !userId || isLiking || !item || item.id === 'avatar') return;
+    if (!auth.currentUser || !userId || isLiking || !item) return;
 
     const alreadyLiked = isLiked(item);
     // Optimistic UI update: toggle local state immediately
@@ -167,8 +270,9 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
     animateLike();
 
     try {
-      // Find the folder document to update the 'likedBy' array (for web compatibility)
+      // 1. Try to find the item in gallery folders
       const folder = folders.find(f => f.items?.some(i => i.url === item.url));
+
       if (folder) {
         const folderRef = doc(db, 'galleries', folder.id);
         const updatedItems = folder.items.map(i => {
@@ -176,7 +280,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
             const currentLikedBy = i.likedBy || [];
             return {
               ...i,
-              likedBy: alreadyLiked 
+              likedBy: alreadyLiked
                 ? currentLikedBy.filter(uid => uid !== auth.currentUser.uid)
                 : [...currentLikedBy, auth.currentUser.uid]
             };
@@ -185,6 +289,15 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
         });
 
         await updateDoc(folderRef, { items: updatedItems });
+      } else if (item.id === 'avatar') {
+        // 2. If it's the avatar and not in any folder, update the 'users' document
+        const userRef = doc(db, 'users', userId);
+        const currentLikedBy = profile?.likedBy || [];
+        const newLikedBy = alreadyLiked
+          ? currentLikedBy.filter(uid => uid !== auth.currentUser.uid)
+          : [...currentLikedBy, auth.currentUser.uid];
+
+        await updateDoc(userRef, { likedBy: newLikedBy });
       }
 
       if (!alreadyLiked) {
@@ -200,12 +313,12 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
 
         // Add earnings if recipient is a woman
         await earningsManager.addLikeEarnings(
-          userId, 
-          auth.currentUser.uid, 
-          'gallery', 
+          userId,
+          auth.currentUser.uid,
+          'gallery',
           item.url
         );
-        
+
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
@@ -238,7 +351,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
     const galleryQuery = query(collection(db, 'galleries'), where('userId', '==', userId));
     const galleryUnsubscribe = onSnapshot(galleryQuery, (snapshot) => {
       const foldersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
+
       // Сортуємо папки так, щоб нові з'являлися в кінці (далі), а не спочатку
       foldersData.sort((a, b) => {
         const timeA = a.createdAt?.seconds || 0;
@@ -336,10 +449,10 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
                 {/* Header Section */}
                 <View style={styles.header}>
                   <View style={styles.avatarContainer}>
-                    <StoryAvatar 
-                      userId={userId} 
-                      avatarUrl={profile.avatar} 
-                      name={profile.name} 
+                    <StoryAvatar
+                      userId={userId}
+                      avatarUrl={profile.avatar}
+                      name={profile.name}
                       size={130}
                       hasStories={hasStories}
                       onPress={() => {
@@ -438,7 +551,7 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
                               size={14}
                               color={selectedFolderId === folder.id ? '#fff' : 'rgba(255,255,255,0.4)'}
                             />
-                            <Text 
+                            <Text
                               style={[
                                 styles.folderTabText,
                                 selectedFolderId === folder.id && styles.activeFolderTabText
@@ -537,10 +650,10 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
             <IconSymbol name="xmark" size={24} color="#fff" />
           </TouchableOpacity>
           {currentItem?.type === 'video' ? (
-            <CustomVideoPlayer 
-              url={currentItem.url} 
-              isPlaying={isVideoPlaying} 
-              onTogglePlay={() => setIsVideoPlaying(!isVideoPlaying)} 
+            <CustomVideoPlayer
+              url={currentItem.url}
+              isPlaying={isVideoPlaying}
+              onTogglePlay={() => setIsVideoPlaying(!isVideoPlaying)}
             />
           ) : (
             <ExpoImage
@@ -551,40 +664,40 @@ export const UserProfileModal = ({ isVisible, onClose, userId }) => {
             />
           )}
 
-          {/* Like Button Overlay */}
-          <Animated.View style={[
-            styles.likeButtonWrapper,
-            { transform: [{ scale: likeScale }] }
-          ]}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleLikePhoto(currentItem)}
-              style={styles.likeButtonTouchable}
-            >
-              <BlurView
-                intensity={30}
-                tint="dark"
-                style={styles.likeButtonBlur}
+          {/* Like Button Overlay - Hidden for avatars to focus on gallery content */}
+          {currentItem?.id !== 'avatar' && (
+            <Animated.View style={[
+              styles.likeButtonWrapper,
+              { transform: [{ scale: likeScale }] }
+            ]}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => handleLikePhoto(currentItem)}
+                style={styles.likeButtonTouchable}
               >
-                <IconSymbol 
-                  name={isLiked(currentItem) ? "heart.fill" : "heart"} 
-                  size={24} 
-                  color={isLiked(currentItem) ? "#ff4757" : "#fff"} 
-                />
-                <Text style={styles.likesCountText}>
-                  {(() => {
-                    const baseCount = currentItem?.likedBy?.length || 0;
-                    const isOriginallyLiked = currentItem?.likedBy?.includes(auth.currentUser?.uid);
-                    const isLocallyLiked = likedItems.has(currentItem?.url);
-                    
-                    if (isLocallyLiked && !isOriginallyLiked) return baseCount + 1;
-                    if (!isLocallyLiked && isOriginallyLiked) return Math.max(0, baseCount - 1);
-                    return baseCount;
-                  })()}
-                </Text>
-              </BlurView>
-            </TouchableOpacity>
-          </Animated.View>
+                <BlurView
+                  intensity={30}
+                  tint="dark"
+                  style={styles.likeButtonBlur}
+                >
+                  <IconSymbol
+                    name={isLiked(currentItem) ? "heart.fill" : "heart"}
+                    size={24}
+                    color={isLiked(currentItem) ? "#ff4757" : "#fff"}
+                  />
+                  <Text style={styles.likesCountText}>
+                    {(() => {
+                      const isWoman = profile?.gender === 'woman';
+                      if (isWoman && fullScreenMediaUrl) {
+                        return paidLikesCount;
+                      }
+                      return currentItem?.likedBy?.length || 0;
+                    })()}
+                  </Text>
+                </BlurView>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
         </View>
       </Modal>
 
@@ -965,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.dark.primary || '#e5566f', 
+    backgroundColor: Colors.dark.primary || '#e5566f',
     borderRadius: 2,
   },
   errorContainer: {

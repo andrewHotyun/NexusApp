@@ -278,7 +278,7 @@
     "no_data": "No data for this week",
     "rate_info": "💰 Rate: $0.50 per minute of conversation",
     "rate_info_dynamic": "Rate: ${{rate}} per minute of conversation",
-    "calls_counting": "📞 Only completed video calls are counted",
+    "calls_counting": "📞 All video call minutes are counted in real-time",
     "realtime_stats": "📊 Stats are updated in real time"
   },
   "footer": {

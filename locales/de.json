@@ -266,12 +266,12 @@
     "calls": "Anrufe",
     "minutes": "Minuten",
     "earnings": "Verdienst",
-    "call_minutes": "Anrufminuten",
-    "gift_minutes": "Geschenkminuten",
+    "call_minutes": "📞 Minuten",
+    "gift_minutes": "🎁 Geschenke",
     "no_data": "Keine Daten für diese Woche",
     "rate_info": "💰 Rate: 0,50 $ pro Minute Gespräch",
     "rate_info_dynamic": "Rate: ${{rate}} pro Minute Gespräch",
-    "calls_counting": "📞 Nur abgeschlossene Videoanrufe werden gezählt",
+    "calls_counting": "📞 Alle Videoanrufminuten werden in Echtzeit gezählt",
     "realtime_stats": "📊 Statistiken werden in Echtzeit aktualisiert"
   },
   "footer": {

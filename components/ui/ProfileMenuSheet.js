@@ -1,12 +1,14 @@
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform } from 'react-native';
+import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { auth } from '../../utils/firebase';
 import { Colors } from '../../constants/theme';
 import { useTranslation } from 'react-i18next';
 import { IconSymbol } from './icon-symbol';
+import EarningsStatsModal from './EarningsStatsModal';
 
-export default function ProfileMenuSheet({ isVisible, onClose, userProfile }) {
+export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOpenStats }) {
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -62,8 +64,11 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile }) {
 
             {userProfile?.gender === 'woman' && (
               <>
-                <TouchableOpacity style={styles.menuItem}>
-                  <IconSymbol name="gift.fill" size={24} color={Colors.dark.text} />
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={onOpenStats}
+                >
+                  <IconSymbol name="chart.bar.fill" size={24} color={Colors.dark.text} />
                   <Text style={styles.menuText}>{t('dropdown.earnings_stats', { defaultValue: 'Earnings Stats' })}</Text>
                 </TouchableOpacity>
 

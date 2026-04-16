@@ -264,13 +264,13 @@
     "calls": "Appels",
     "minutes": "Minutes",
     "earnings": "Gains",
-    "call_minutes": "Minutes d'appel",
-    "gift_minutes": "Minutes de cadeau",
+    "call_minutes": "📞 Minutes",
+    "gift_minutes": "🎁 Cadeaux",
     "no_data": "Pas de données pour cette semaine",
-    "rate_info": "💰 Tarif : 0,50 $ par minute de conversation",
-    "rate_info_dynamic": "Tarif : ${{rate}} par minute de conversation",
-    "calls_counting": "📞 Seuls les appels vidéo terminés sont comptés",
-    "realtime_stats": "📊 Statistiques mises à jour en temps réel"
+    "rate_info": "💰 Tarif: 0,50 $ par minute de conversation",
+    "rate_info_dynamic": "Tarif: ${{rate}} par minute de conversation",
+    "calls_counting": "📞 Toutes les minutes des appels vidéo sont comptées en temps réel",
+    "realtime_stats": "📊 Les statistiques sont mises à jour en temps réel"
   },
   "footer": {
     "developed_by": "Développé par Andrew Hotyun",
