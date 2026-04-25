@@ -66,15 +66,19 @@ import { Colors } from '../../constants/theme';
 import { getAvatarColor } from '../../utils/avatarUtils';
 import { auth, db, storage } from '../../utils/firebase';
 import { formatLastSeen, getUserOnlineStatus } from '../../utils/onlineStatus';
+import { useAppData } from '../../utils/AppDataProvider';
 import { StoryAvatar } from '../../components/ui/StoryAvatar';
 import { StoryViewer } from '../../components/ui/StoryViewer';
 import GiftModal from '../../components/chat/GiftModal';
 import GiftAnimationOverlay from '../../components/chat/GiftAnimationOverlay';
 import { getEarningsRate } from '../../utils/earningsHelper';
 import { GIFTS, getGiftById } from '../../constants/gifts';
+import VideoCallModal from '../../components/chat/VideoCallModal';
+import { mediaDevices } from 'react-native-webrtc';
+import { updateConversation } from '../../utils/conversationHelper';
 
 export default function ChatScreen() {
-  const { id, name, avatar, gender } = useLocalSearchParams();
+  const { id, name, gender, autoAcceptCallId } = useLocalSearchParams();
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const [deleteMsgConfirmVisible, setDeleteMsgConfirmVisible] = useState(false);
@@ -84,6 +88,7 @@ export default function ChatScreen() {
 
   const insets = useSafeAreaInsets();
   const user = auth.currentUser;
+  const { startGlobalCall } = useAppData();
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -93,7 +98,7 @@ export default function ChatScreen() {
   const [partner, setPartner] = useState({
     uid: id,
     name: name || 'User',
-    avatar: avatar || null,
+    avatar: null,
     gender: gender || null
   });
   const [messages, setMessages] = useState([]);
@@ -127,6 +132,18 @@ export default function ChatScreen() {
   const [areStoriesAllViewed, setAreStoriesAllViewed] = useState(false);
   const [activeGiftAnimation, setActiveGiftAnimation] = useState(null);
   const animatedGiftsRef = useRef(new Set());
+
+  // 1.2 Video call state moved to AppDataProvider (Global Persistence)
+
+  const handledAutoAcceptIds = useRef(new Set());
+  // Handle global call acceptance redirect
+  useEffect(() => {
+    if (autoAcceptCallId && autoAcceptCallId !== 'null' && autoAcceptCallId !== 'undefined'
+        && partner && !handledAutoAcceptIds.current.has(autoAcceptCallId)) {
+      handledAutoAcceptIds.current.add(autoAcceptCallId);
+      startGlobalCall(autoAcceptCallId, false, partner);
+    }
+  }, [autoAcceptCallId, partner]);
 
   // --- Typing indicator Animation ---
   const typingDot1 = useSharedValue(0.4);
@@ -218,23 +235,19 @@ export default function ChatScreen() {
   const [isOnline, setIsOnline] = useState(false);
   const [lastSeenText, setLastSeenText] = useState('');
 
-  // 1. Fetch partner info (only if not passed via navigation params OR missing age)
+  // 1. Fetch partner info in realtime (to get live minutes balance, online status, etc.)
   useEffect(() => {
     if (!partnerId) return;
-    // Only skip if we have name AND age. If age is missing, we need the doc.
-    if (name && name !== 'User' && partner.age) return;
 
-    const fetchPartner = async () => {
-      try {
-        const docSnap = await getDoc(doc(db, 'users', partnerId));
-        if (docSnap.exists()) {
-          setPartner({ uid: partnerId, ...docSnap.data() });
-        }
-      } catch (e) {
-        console.error("Error fetching partner:", e);
+    const unsub = onSnapshot(doc(db, 'users', partnerId), (docSnap) => {
+      if (docSnap.exists()) {
+        setPartner(prev => ({ ...prev, uid: partnerId, ...docSnap.data() }));
       }
-    };
-    fetchPartner();
+    }, (e) => {
+      console.error("Error fetching partner:", e);
+    });
+
+    return () => unsub();
   }, [partnerId]);
 
   // 1a. Fetch current user data for gender checks
@@ -435,6 +448,80 @@ export default function ChatScreen() {
     return () => unsubBlock();
   }, [user?.uid, partnerId]);
 
+  // --- Video Call Handlers (Browser-like) ---
+  const performStartCall = async () => {
+    if (!user?.uid || !partnerId || !partner) return;
+
+    try {
+      // 1. Fetch latest data for both participants (Balance & Status checks)
+      const [callerSnap, calleeSnap] = await Promise.all([
+        getDoc(doc(db, 'users', user.uid)),
+        getDoc(doc(db, 'users', partnerId))
+      ]);
+
+      const callerData = callerSnap.exists() ? callerSnap.data() : null;
+      const calleeData = calleeSnap.exists() ? calleeSnap.data() : null;
+
+      // 2. Block calls if suspended or rejected
+      if (callerData?.callSuspended === true || callerData?.verificationStatus === 'rejected') {
+        setToastMessage(t('call_verification.suspended_hint', 'Your calls are suspended due to identity verification issues.'));
+        setToastVisible(true);
+        return;
+      }
+
+      // 3. Balance checks (Identical to Web/Browser logic)
+      const callerGender = normalizeGender(callerData?.gender || callerData?.sex);
+      const calleeGender = normalizeGender(calleeData?.gender || calleeData?.sex);
+
+      if (callerGender === 'male' && calleeGender === 'female') {
+        const bal = parseInt(callerData?.minutesBalance || 0, 10);
+        if (isNaN(bal) || bal <= 0) {
+          setToastMessage(t('chat.no_minutes_male', 'You don\'t have enough minutes for a video call.'));
+          setToastVisible(true);
+          return;
+        }
+      } else if (callerGender === 'female' && calleeGender === 'male') {
+        const bal = parseInt(calleeData?.minutesBalance || 0, 10);
+        if (isNaN(bal) || bal <= 0) {
+          setToastMessage(t('chat.no_minutes_female', 'This user has no minutes to receive a video call.'));
+          setToastVisible(true);
+          return;
+        }
+      }
+
+      // 4. Create call document
+      const callsRef = collection(db, 'calls');
+      const callDoc = await addDoc(callsRef, {
+        callerId: user.uid,
+        callerName: callerData?.name || t('common.user'),
+        callerAvatar: callerData?.avatar || null,
+        calleeId: partnerId,
+        calleeName: calleeData?.name || partner?.name || t('common.user'),
+        calleeAvatar: calleeData?.avatar || partner?.avatar || null,
+        callerGender: callerGender,
+        calleeGender: calleeGender,
+        type: 'video',
+        status: 'ringing',
+        participants: [user.uid, partnerId],
+        createdAt: serverTimestamp()
+      });
+
+      // Removed camera warmup as it causes rapid acquire/release cycles on Android
+
+      // 6. Update global state to show modal
+      startGlobalCall(callDoc.id, true, partner);
+
+    } catch (e) {
+      console.error("Error starting call:", e);
+      setToastMessage(t('chat.call_init_failed', 'Call initialization failed'));
+      setToastVisible(true);
+    }
+  };
+
+  // ------------------------------------------
+
+  // 1.3 Removed Local Incoming Call Listener (Now Global in AppDataProvider)
+
   // 2. Listen for messages — fast chatId query + self-healing legacy migration
   useEffect(() => {
     if (!user || !partnerId) return;
@@ -551,6 +638,13 @@ export default function ChatScreen() {
       unread.forEach((m) => {
         batch.update(doc(db, 'messages', m.id), { read: true });
       });
+
+      // Also mark the conversation's lastMessage as read
+      const chatId = [user.uid, partnerId].sort().join('_');
+      batch.set(doc(db, 'conversations', chatId), {
+        lastMessage: { read: true }
+      }, { merge: true });
+
       await batch.commit();
     } catch (e) {
       console.error("Error marking messages read:", e);
@@ -619,6 +713,7 @@ export default function ChatScreen() {
       }
 
       await addDoc(collection(db, 'messages'), messageData);
+      updateConversation(chatId, messageData.participants, messageData);
       setInputText('');
       setReplyingToMessage(null);
     } catch (e) {
@@ -685,6 +780,21 @@ export default function ChatScreen() {
         const messagesRef = collection(db, 'messages');
         const newMessageRef = doc(messagesRef);
         transaction.set(newMessageRef, messageData);
+        
+        // Add conversation update via transaction
+        const conversationRef = doc(db, 'conversations', chatId);
+        transaction.set(conversationRef, {
+          id: chatId,
+          participants: messageData.participants,
+          lastMessage: {
+            text: messageData.text,
+            senderId: messageData.senderId,
+            type: messageData.type,
+            timestamp: serverTimestamp(),
+            read: false
+          },
+          updatedAt: serverTimestamp()
+        }, { merge: true });
 
         // 4. Create actual earnings record
         const earningsRef = doc(collection(db, 'earnings'));
@@ -1300,47 +1410,59 @@ export default function ChatScreen() {
           <IconSymbol name="chevron.left" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.partnerInfo}>
-          <StoryAvatar 
-            userId={partnerId} 
-            avatarUrl={partner?.avatar} 
-            name={partner?.name} 
-            size={40}
-            hasStories={hasPartnerStories}
-            allViewed={areStoriesAllViewed}
-            onPress={() => partner?.avatar ? setFullScreenAvatarVisible(true) : null}
-            onStoryPress={async () => {
-              try {
-                const q = query(
-                  collection(db, 'stories'),
-                  where('userId', '==', partnerId),
-                  where('status', '==', 'approved')
-                );
-                const storiesSnap = await getDocs(q);
-                const now = new Date();
-                const userStories = storiesSnap.docs
-                  .map(d => ({ id: d.id, ...d.data() }))
-                  .filter(s => {
-                    const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
-                    return expiresAt && expiresAt > now;
-                  })
-                  .sort((a, b) => {
-                    const timeA = a.createdAt?.toMillis?.() || 0;
-                    const timeB = b.createdAt?.toMillis?.() || 0;
-                    return timeA - timeB;
-                  });
+          <View style={styles.avatarBadgeWrapper}>
+            <StoryAvatar 
+              userId={partnerId} 
+              avatarUrl={partner?.avatar} 
+              name={partner?.name} 
+              size={40}
+              hasStories={hasPartnerStories}
+              allViewed={areStoriesAllViewed}
+              onPress={() => partner?.avatar ? setFullScreenAvatarVisible(true) : null}
+              onStoryPress={async () => {
+                try {
+                  const q = query(
+                    collection(db, 'stories'),
+                    where('userId', '==', partnerId),
+                    where('status', '==', 'approved')
+                  );
+                  const storiesSnap = await getDocs(q);
+                  const now = new Date();
+                  const userStories = storiesSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(s => {
+                      const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                      return expiresAt && expiresAt > now;
+                    })
+                    .sort((a, b) => {
+                      const timeA = a.createdAt?.toMillis?.() || 0;
+                      const timeB = b.createdAt?.toMillis?.() || 0;
+                      return timeA - timeB;
+                    });
 
-                if (userStories.length > 0) {
-                  setViewerStories(userStories);
-                  setViewerVisible(true);
+                  if (userStories.length > 0) {
+                    setViewerStories(userStories);
+                    setViewerVisible(true);
+                  }
+                } catch (e) {
+                  console.error("Error loading stories for viewer:", e);
                 }
-              } catch (e) {
-                console.error("Error loading stories for viewer:", e);
-              }
-            }}
-          />
-          <View style={{ flex: 1, justifyContent: 'center', marginLeft: 10 }}>
-            <Text style={styles.headerName}>{partner?.name || 'Loading...'}{partner?.age ? `, ${partner.age}` : ''}</Text>
-            <Text style={[styles.onlineStatus, { color: isOnline ? Colors.dark.primary : 'rgba(255,255,255,0.5)' }]}>
+              }}
+            />
+            {partner?.minutesBalance !== undefined && currentUserData && normalizeGender(currentUserData.gender || currentUserData.sex) === 'female' && normalizeGender(partner.gender || partner.sex) === 'male' && (
+              <View style={styles.avatarBalanceBadge}>
+                <Text style={styles.avatarBalanceText}>{partner.minutesBalance}</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', marginLeft: 10, marginRight: 85 }}>
+            <Text style={styles.headerName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{partner?.name || 'Loading...'}{partner?.age ? `, ${partner.age}` : ''}</Text>
+            <Text 
+              style={[styles.onlineStatus, { color: isOnline ? Colors.dark.primary : 'rgba(255,255,255,0.5)' }]} 
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               {isOnline
                 ? t('profile.online', 'В мережі')
                 : (lastSeenText || t('profile.offline', 'Був(ла) нещодавно'))}
@@ -1348,11 +1470,14 @@ export default function ChatScreen() {
           </View>
         </View>
 
-        {normalizeGender(currentUserData?.gender || currentUserData?.sex) === 'male' && normalizeGender(partner?.gender || partner?.sex) === 'female' && (
-          <TouchableOpacity onPress={() => setGiftModalVisible(true)} style={styles.giftHeaderBtn}>
-            <IconSymbol name="gift" size={24} color="#f1c40f" />
-          </TouchableOpacity>
-        )}
+
+        <TouchableOpacity 
+          onPress={performStartCall} 
+          style={[styles.callHeaderBtn, !isOnline && { opacity: 0.5 }]} 
+          disabled={!isOnline}
+        >
+          <Ionicons name="videocam" size={24} color="#fff" />
+        </TouchableOpacity>
 
         <TouchableOpacity onPress={() => setIsSearchVisible(prev => !prev)} style={styles.headerSearchBtn}>
           <Ionicons
@@ -1567,6 +1692,12 @@ export default function ChatScreen() {
               </>
             ) : (
               <>
+                {normalizeGender(currentUserData?.gender || currentUserData?.sex) === 'male' && normalizeGender(partner?.gender || partner?.sex) === 'female' && (
+                  <TouchableOpacity style={styles.giftIconBtn} onPress={() => setGiftModalVisible(true)}>
+                    <IconSymbol name="gift" size={24} color="#f1c40f" />
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity style={styles.leftIconBtn} onPress={handleAttachment}>
                   <Ionicons name="attach-outline" size={28} color={Colors.dark.primary} style={{ transform: [{ rotate: '45deg' }] }} />
                 </TouchableOpacity>
@@ -1836,6 +1967,7 @@ export default function ChatScreen() {
         />
       </KeyboardAvoidingView>
 
+
       {activeGiftAnimation && (
         <GiftAnimationOverlay
           gift={activeGiftAnimation.gift}
@@ -1918,10 +2050,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 44,
   },
-  giftHeaderBtn: {
+  callHeaderBtn: {
     padding: 8,
     position: 'absolute',
     right: 80,
+  },
+  giftHeaderBtn: {
+    padding: 8,
+    position: 'absolute',
+    right: 116,
   },
   partnerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerAvatar: {
@@ -1943,8 +2080,34 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary
   },
   headerAvatarInitial: { color: Colors.dark.primary, fontSize: 16, fontWeight: '700' },
+  avatarBadgeWrapper: {
+    position: 'relative',
+    marginBottom: 4,
+  },
+  avatarBalanceBadge: {
+    position: 'absolute',
+    bottom: -4,
+    alignSelf: 'center',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  avatarBalanceText: {
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    color: '#f1c40f',
+    fontSize: 8,
+    fontWeight: '800',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
+    textAlign: 'center',
+  },
   headerName: { color: '#fff', fontSize: 16, fontWeight: '700', marginLeft: 0 },
-  onlineStatus: { fontSize: 12, marginLeft: 0, marginTop: 2 },
+  onlineStatus: { fontSize: 11, marginLeft: 0, marginTop: 2 },
   messagesList: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 0 },
   messageWrapper: { flexDirection: 'row', maxWidth: '80%' },
   myWrapper: { alignSelf: 'flex-end', justifyContent: 'flex-end' },
@@ -1996,10 +2159,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     marginHorizontal: 1.5,
   },
+  giftIconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   leftIconBtn: {
     width: 40,
     height: 40,
-    marginRight: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },

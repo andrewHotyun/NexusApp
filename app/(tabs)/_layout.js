@@ -2,140 +2,22 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { View, Text, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../../utils/firebase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { HapticTab } from '../../components/haptic-tab';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { Colors } from '../../constants/theme';
 import MainHeader from '../../components/ui/MainHeader';
+import { useAppData } from '../../utils/AppDataProvider';
 
 export default function TabLayout() {
   const { t } = useTranslation();
-  const [requestsCount, setRequestsCount] = useState(0);
-  const [friendsCount, setFriendsCount] = useState(0);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
-  const [likesCount, setLikesCount] = useState(0);
-  const [storiesCount, setStoriesCount] = useState(0);
-  const [friendIds, setFriendIds] = useState([]);
-  const user = auth.currentUser;
-
-  useEffect(() => {
-    if (!user) return;
-
-    // Load cached counts for instant UI
-    let currentCache = {};
-    const loadCache = async () => {
-      try {
-        if (!user) return;
-        const cached = await AsyncStorage.getItem(`badge_counts_${user.uid}`);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          currentCache = { ...parsed };
-          if (parsed.req !== undefined) setRequestsCount(parsed.req);
-          if (parsed.fri !== undefined) setFriendsCount(parsed.fri);
-          if (parsed.unread !== undefined) setUnreadMessagesCount(parsed.unread);
-          if (parsed.likes !== undefined) setLikesCount(parsed.likes);
-          if (parsed.stories !== undefined) setStoriesCount(parsed.stories);
-        }
-      } catch (e) {}
-    };
-    loadCache();
-
-    let saveTimeout = null;
-    const saveCount = (key, val) => {
-      currentCache[key] = val;
-      if (saveTimeout) clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(() => {
-        if (user) {
-           AsyncStorage.setItem(`badge_counts_${user.uid}`, JSON.stringify(currentCache)).catch(()=>{});
-        }
-      }, 1000);
-    };
-
-    // Listen to friend requests count
-    const qRequests = query(
-      collection(db, 'friendRequests'),
-      where('toUserId', '==', user.uid),
-      where('status', '==', 'pending')
-    );
-    const unsubRequests = onSnapshot(qRequests, (snap) => {
-      const count = snap.docs.length;
-      setRequestsCount(count);
-      saveCount('req', count);
-    }, (err) => console.warn('BadgeRequests listener error:', err));
-
-    // Listen to friends count and IDs
-    const qFriends = query(
-      collection(db, 'friends'),
-      where('userId', '==', user.uid)
-    );
-    const unsubFriends = onSnapshot(qFriends, (snap) => {
-      const ids = snap.docs.map(d => d.data().friendId);
-      const count = ids.length;
-      setFriendIds(ids);
-      setFriendsCount(count);
-      saveCount('fri', count);
-    }, (err) => console.warn('BadgeFriends listener error:', err));
-
-    // Listen to unread messages count
-    const qUnread = query(
-      collection(db, 'messages'),
-      where('receiverId', '==', user.uid),
-      where('read', '==', false)
-    );
-    const unsubUnread = onSnapshot(qUnread, (snap) => {
-      const uniqueSenders = new Set(snap.docs.map(d => d.data().senderId));
-      const count = uniqueSenders.size;
-      setUnreadMessagesCount(count);
-      saveCount('unread', count);
-    }, (err) => console.warn('BadgeUnread listener error:', err));
-    
-    // Listen to likes count (unread)
-    const qLikes = query(
-      collection(db, 'likes'),
-      where('targetUserId', '==', user.uid),
-      where('read', '==', false)
-    );
-    const unsubLikes = onSnapshot(qLikes, (snap) => {
-      const count = snap.docs.length;
-      setLikesCount(count);
-      saveCount('likes', count);
-    }, (err) => console.warn('BadgeLikes listener error:', err));
-
-    // Listen to stories from friends (active only)
-    // Only filter by status (auto-indexed single field) to avoid composite index requirement.
-    // Filter by expiresAt and friendIds locally — matches web ChatList.js pattern.
-    const qStories = query(
-      collection(db, 'stories'),
-      where('status', '==', 'approved')
-    );
-    const unsubStories = onSnapshot(qStories, (snap) => {
-      const now = new Date();
-      const uniquePosters = new Set();
-      snap.docs.forEach(doc => {
-        const data = doc.data();
-        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
-        
-        if (friendIds.includes(data.userId) && expiresAt && expiresAt > now && !data.viewedBy?.includes(user?.uid)) {
-          uniquePosters.add(data.userId);
-        }
-      });
-      const count = uniquePosters.size;
-      setStoriesCount(count);
-      saveCount('stories', count);
-    }, (err) => console.warn('BadgeStories listener error:', err));
-
-    return () => {
-      unsubRequests();
-      unsubFriends();
-      unsubUnread();
-      unsubLikes();
-      unsubStories();
-    };
-  }, [user?.uid, friendIds.join(',')]);
+  const {
+    requestsCount,
+    friendsCount,
+    unreadMessagesCount,
+    likesCount,
+    storiesCount,
+  } = useAppData();
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.dark.background }}>

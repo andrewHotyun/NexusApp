@@ -14,7 +14,6 @@ import {
   Modal,
   StatusBar
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import { signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../utils/firebase';
@@ -24,7 +23,6 @@ import { IconSymbol } from '../../components/ui/icon-symbol';
 import { ActionModal } from '../../components/ui/ActionModal';
 
 export default function LoginScreen() {
-  const { t } = useTranslation();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -42,29 +40,29 @@ export default function LoginScreen() {
   const getErrorMessage = (errorCode) => {
     switch (errorCode) {
       case 'auth/invalid-email':
-        return t('auth.invalidEmail', 'Invalid email format');
+        return 'Invalid email format';
       case 'auth/user-disabled':
-        return t('auth.userDisabled', 'This account has been disabled');
+        return 'This account has been disabled';
       case 'auth/user-not-found':
-        return t('auth.userNotFound', 'User with this email not found');
+        return 'User with this email not found';
       case 'auth/wrong-password':
-        return t('auth.wrongPassword', 'Incorrect password');
+        return 'Incorrect password';
       case 'auth/invalid-credential':
-        return t('auth.invalidCredential', 'Incorrect email or password');
+        return 'Incorrect email or password';
       case 'auth/too-many-requests':
-        return t('auth.tooManyRequests', 'Too many login attempts. Please try again later');
+        return 'Too many login attempts. Please try again later';
       case 'auth/network-request-failed':
-        return t('auth.networkError', 'Network connection error');
+        return 'Network connection error';
       case 'auth/weak-password':
-        return t('auth.weakPassword', 'Password is too weak');
+        return 'Password is too weak';
       default:
-        return t('auth.loginError', 'Sign In error. Please check your email and password');
+        return 'Sign In error. Please check your email and password';
     }
   };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setError(t('auth.fillAllFields', 'Please fill in all fields'));
+      setError('Please fill in all fields');
       return;
     }
 
@@ -91,25 +89,25 @@ export default function LoginScreen() {
       if (userDoc.exists() && userDoc.data().deletionInfo?.status === 'pending_deletion') {
         setActionModal({
           visible: true,
-          title: t('auth.accountRecovery', 'Account Recovery'),
-          message: t('auth.accountRecoveryDesc', 'Your account is scheduled for deletion. Do you want to recover it?'),
-          confirmText: t('auth.recoverAccount', 'Recover Account'),
-          showCancel: true,
-          onConfirm: async () => {
-            try {
-              const userDocRef = doc(db, 'users', user.uid);
-              await updateDoc(userDocRef, { deletionInfo: null });
-              // Success automatically navigates via _layout
-            } catch (error) {
-              console.log("Recovery error:", error);
-              setActionModal({
-                visible: true,
-                title: t('common.error'),
-                message: t('auth.recoverFailed', 'Failed to recover account. Please try again'),
-                showCancel: false
-              });
-            }
+        title: 'Account Recovery',
+        message: 'Your account is scheduled for deletion. Do you want to recover it?',
+        confirmText: 'Recover Account',
+        showCancel: true,
+        onConfirm: async () => {
+          try {
+            const userDocRef = doc(db, 'users', user.uid);
+            await updateDoc(userDocRef, { deletionInfo: null });
+            // Success automatically navigates via _layout
+          } catch (error) {
+            console.log("Recovery error:", error);
+            setActionModal({
+              visible: true,
+              title: 'Error',
+              message: 'Failed to recover account. Please try again',
+              showCancel: false
+            });
           }
+        }
         });
         setLoading(false);
         return;
@@ -118,7 +116,7 @@ export default function LoginScreen() {
       // Check for blocked account
       if (userDoc.exists() && userDoc.data().status === 'blocked') {
         await auth.signOut();
-        setError(t('auth.accountBlocked', 'This account has been blocked'));
+        setError('This account has been blocked');
         setLoading(false);
         return;
       }
@@ -126,7 +124,7 @@ export default function LoginScreen() {
       // Check for deleted account
       if (userDoc.exists() && userDoc.data().status === 'deleted') {
         await auth.signOut();
-        setError(t('auth.accountDeleted', 'This account has been deleted'));
+        setError('This account has been deleted');
         setLoading(false);
         return;
       }
@@ -149,7 +147,7 @@ export default function LoginScreen() {
       setShowRecoveryModal(false);
       // _layout.js will handle redirect
     } catch (error) {
-      setError(t('auth.recoverFailed', 'Failed to recover account. Please try again'));
+      setError('Failed to recover account. Please try again');
       setShowRecoveryModal(false);
     }
   };
@@ -164,8 +162,8 @@ export default function LoginScreen() {
     if (!email.trim()) {
       setActionModal({
         visible: true,
-        title: t('auth.forgotPassword', 'Forgot Password'),
-        message: t('auth.enterEmailFirst', 'Please enter your email address first'),
+        title: 'Forgot Password',
+        message: 'Please enter your email address first',
         showCancel: false
       });
       return;
@@ -173,23 +171,23 @@ export default function LoginScreen() {
 
     setActionModal({
       visible: true,
-      title: t('auth.forgotPassword', 'Forgot Password'),
-      message: t('auth.resetConfirm', 'Send password reset link to {{email}}?', { email: email.trim() }),
-      confirmText: t('common.send', 'Send'),
+      title: 'Forgot Password',
+      message: `Send password reset link to ${email.trim()}?`,
+      confirmText: 'Send',
       showCancel: true,
       onConfirm: async () => {
         try {
           await sendPasswordResetEmail(auth, email.trim());
           setActionModal({
             visible: true,
-            title: t('common.success', 'Success'),
-            message: t('auth.resetSent', 'Password reset link sent to your email'),
+            title: 'Success',
+            message: 'Password reset link sent to your email',
             showCancel: false
           });
         } catch (err) {
           setActionModal({
             visible: true,
-            title: t('common.error', 'Error'),
+            title: 'Error',
             message: getErrorMessage(err.code),
             showCancel: false
           });
@@ -218,17 +216,17 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.formContainer}>
-          <Text style={styles.subtitle}>{t('auth.subtitle', 'Communication without boundaries')}</Text>
+          <Text style={styles.subtitle}>Communication without boundaries</Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.email', 'Email')}</Text>
+            <Text style={styles.label}>Email</Text>
             <View style={styles.inputContainer}>
               <IconSymbol name="envelope.fill" size={20} color="#7f8c8d" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder={t('auth.emailPlaceholder', 'Enter your email...')}
+                placeholder="Enter your email..."
                 placeholderTextColor="#7f8c8d"
                 value={email}
                 onChangeText={setEmail}
@@ -240,9 +238,9 @@ export default function LoginScreen() {
 
           <View style={styles.inputGroup}>
             <View style={styles.passwordLabelRow}>
-              <Text style={styles.label}>{t('auth.password', 'Password')}</Text>
+              <Text style={styles.label}>Password</Text>
               <TouchableOpacity onPress={handleForgotPassword}>
-                <Text style={styles.forgotText}>{t('auth.forgotPassword', 'Forgot password?')}</Text>
+                <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.inputContainer}>
@@ -272,14 +270,14 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.loginButtonText}>{t('auth.login', 'Sign In')}</Text>
+              <Text style={styles.loginButtonText}>Sign In</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>{t('auth.noAccount', "Don't have an account?")}</Text>
+            <Text style={styles.footerText}>Don't have an account?</Text>
             <TouchableOpacity onPress={() => router.push('/auth/register')}>
-              <Text style={[styles.signUpText, { color: '#e5566f' }]}>{t('auth.signUp', 'Sign Up')}</Text>
+              <Text style={[styles.signUpText, { color: '#e5566f' }]}>Sign Up</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -290,7 +288,7 @@ export default function LoginScreen() {
         title={actionModal.title}
         message={actionModal.message}
         confirmText={actionModal.confirmText}
-        cancelText={t('common.cancel')}
+        cancelText="Cancel"
         isDestructive={actionModal.isDestructive}
         showCancel={actionModal.showCancel}
         onConfirm={actionModal.onConfirm}
@@ -363,6 +361,7 @@ const styles = StyleSheet.create({
     color: '#ecf0f1',
     fontSize: 14,
     fontWeight: '500',
+    marginBottom: 8,
   },
   forgotText: {
     color: '#0ef0ff',

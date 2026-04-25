@@ -185,6 +185,8 @@
     "restoring_connection": "Restoring connection...",
     "partner_balance": "Partner Balance",
     "next_minute_in": "Next Minute In",
+    "waiting_accept": "Waiting for user to accept the call...",
+    "cancel_call": "Cancel Call",
     "minutes_unit": "MIN",
     "seconds_unit": "s",
     "cleared": "Chat cleared",
@@ -209,6 +211,7 @@
     "message_placeholder": "Message to {{name}}...",
     "placeholder": "Type a message...",
     "input_placeholder": "Type a message...",
+    "type_message": "Type a message...",
     "start_conversation": "Start a conversation with {{name}}",
     "start_hint": "Send a message, an emoji, or share a file!",
     "reply": "Reply",
@@ -236,6 +239,9 @@
     "user_blocked_you_error": "You cannot access this chat because the user has blocked you.",
     "no_minutes_male": "❌ You don't have enough minutes for a video call. Please top up your balance.",
     "no_minutes_female": "❌ The user doesn't have enough minutes for a video call.",
+    "connecting": "Connecting...",
+    "waiting_video": "Waiting for video...",
+    "is_calling": "is calling...",
     "original": "Original",
     "active_call": "Active Call",
     "is_typing": "{{name}} is typing...",
@@ -255,7 +261,9 @@
       "hate": "Hate speech",
       "underage": "Underage user",
       "other": "Other"
-    }
+    },
+    "call_error": "Call Error",
+    "closing_call": "Closing call"
   },
   "earnings": {
     "title": "Earnings Stats",
@@ -438,7 +446,10 @@
     "add_folder": "Add Folder",
     "publish": "Publish",
     "ok": "OK",
-    "clear": "Clear"
+    "clear": "Clear",
+    "user": "User",
+    "alert": "Alert",
+    "me": "Me"
   },
   "profile": {
     "successUpdate": "Profile updated successfully!",

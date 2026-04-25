@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Image } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { OnlineStatusIndicator } from './OnlineStatusIndicator';
@@ -29,7 +29,8 @@ export const StoryAvatar = ({
   allViewed = false,
   onPress,
   onStoryPress,
-  showStatus = true
+  showStatus = true,
+  isOnline,
 }) => {
   const ringWidth = size > 60 ? 3 : 2;
   const padding = size > 60 ? 4 : 3;
@@ -63,7 +64,8 @@ export const StoryAvatar = ({
       
       {showStatus && (
         <OnlineStatusIndicator 
-          userId={userId} 
+          userId={userId}
+          isOnline={isOnline}
           style={[
             styles.statusDot,
             {
@@ -84,12 +86,12 @@ export const StoryAvatar = ({
   const renderAvatar = (avatarSize) => {
     if (avatarUrl) {
       return (
-        <ExpoImage
-          source={avatarUrl}
-          style={{ width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }}
-          contentFit="cover"
-          transition={200}
-        />
+        <View style={{ width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2, overflow: 'hidden' }}>
+          <Image
+            source={typeof avatarUrl === 'string' ? { uri: avatarUrl } : avatarUrl}
+            style={{ width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }}
+          />
+        </View>
       );
     }
 

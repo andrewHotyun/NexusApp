@@ -86,15 +86,8 @@ export const GiftAnimationOverlay = ({ gift, partnerName, isSender, onComplete }
   }));
 
   return (
-    <Modal
-      visible={visible && !!gift}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      hardwareAccelerated={true}
-      onRequestClose={handleComplete}
-    >
-      <View style={styles.modalOverlay} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]} pointerEvents="none">
+      <View style={styles.modalOverlay}>
         {/* Background Blur */}
         {Platform.OS === 'ios' ? (
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
@@ -120,7 +113,7 @@ export const GiftAnimationOverlay = ({ gift, partnerName, isSender, onComplete }
           </Text>
         </Animated.View>
       </View>
-    </Modal>
+    </View>
   );
 };
 

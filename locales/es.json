@@ -187,6 +187,10 @@
     "cleared": "Chat borrado",
     "already_empty": "El chat ya está vacío",
     "clear_error": "Error al borrar el chat",
+    "connecting": "Conectando...",
+    "waiting_accept": "Esperando a que el usuario acepte la llamada...",
+    "waiting_video": "Esperando vídeo...",
+    "is_calling": "está llamando...",
     "removed_friend": "Eliminado de amigos: {{name}}",
     "remove_friend_error": "Error al eliminar amigo",
     "blocked_user": "Usuario bloqueado: {{name}}",
@@ -214,6 +218,7 @@
     "selected_count": "{{count}} seleccionados",
     "typing": "escribiendo...",
     "input_placeholder": "Escribe un mensaje...",
+    "type_message": "Escribe un mensaje...",
     "confirm_block_title": "¿Bloquear a {{name}}?",
     "confirm_block_text": "El chat se ocultará y podrás desbloquearlo más tarde en el Perfil.",
     "confirm_clear_title": "¿Limpiar este chat?",
@@ -251,7 +256,9 @@
       "hate": "Discurso de odio",
       "underage": "Usuario menor de edad",
       "other": "Otro"
-    }
+    },
+    "call_error": "Error de llamada",
+    "closing_call": "Cerrando llamada"
   },
   "earnings": {
     "title": "Estadísticas de ganancias",
@@ -388,6 +395,7 @@
     "processing": "Procesando...",
     "unknown": "Desconocido",
     "close": "Cerrar",
+    "cancel": "Cancelar",
     "apply": "Aplicar",
     "edit": "Editar",
     "loading": "Cargando...",
@@ -423,7 +431,10 @@
     "publish": "Publicar",
     "clear": "Limpiar",
     "reset": "Reiniciar",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "user": "Usuario",
+    "alert": "Aviso",
+    "me": "Yo"
   },
   "profile": {
     "successUpdate": "¡Perfil actualizado con éxito!",

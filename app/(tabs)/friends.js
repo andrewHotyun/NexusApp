@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -36,32 +36,35 @@ import { ActionModal } from '../../components/ui/ActionModal';
 import { Toast } from '../../components/ui/Toast';
 import { useRouter } from 'expo-router';
 import { getAvatarColor } from '../../utils/avatarUtils';
-import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator';
-import { getUserOnlineStatus } from '../../utils/onlineStatus';
 import { StoryAvatar } from '../../components/ui/StoryAvatar';
 import { StoryViewer } from '../../components/ui/StoryViewer';
+import { useAppData } from '../../utils/AppDataProvider';
 
 export default function FriendsTab() {
   const { t } = useTranslation();
   const router = useRouter();
   const user = auth.currentUser;
 
-  const [friends, setFriends] = useState([]);
-  const [onlineUsers, setOnlineUsers] = useState({}); // Track who is online in real-time
+  // Use centralized data from AppDataProvider
+  const {
+    friendsRaw: friends,
+    activeStoryUserIds,
+    unviewedStoryUserIds,
+    onlineUsers,
+    trackOnlineStatusForUsers,
+  } = useAppData();
+
   const [userProfiles, setUserProfiles] = useState({});
-  const [visibleFriendIds, setVisibleFriendIds] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('friends_profiles_cache').then(cached => {
       if (cached) setUserProfiles(JSON.parse(cached));
     }).catch(()=>{});
   }, []); // Cache for friend profiles
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOnlineOnly, setIsOnlineOnly] = useState(false);
   const [processingId, setProcessingId] = useState(null);
-  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
-  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
@@ -71,72 +74,46 @@ export default function FriendsTab() {
     visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true
   });
 
-  // 1. Listen to friends collection
-  useEffect(() => {
-    if (!user) return;
-    setLoading(true);
+  // Friends data now comes from AppDataProvider (friendsRaw)
+  // Sort in memory: UA / Cyrillic -> Latin -> Digits -> Others
+  const sortedFriends = useMemo(() => {
+    const sorted = [...friends];
+    sorted.sort((a, b) => {
+      const nameA = a.friendName || '';
+      const nameB = b.friendName || '';
+      
+      const getPriority = (str) => {
+        if (!str) return 99;
+        const char = str.charAt(0).toLowerCase();
+        if (/[\u0400-\u04FF]/.test(char)) return 0;
+        if (/[a-z]/.test(char)) return 1;
+        if (/[0-9]/.test(char)) return 2;
+        return 3;
+      };
 
-    const friendsQuery = query(
-      collection(db, 'friends'),
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(friendsQuery, (snapshot) => {
-      const friendsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Sort in memory: UA / Cyrillic -> Latin -> Digits -> Others
-      friendsData.sort((a, b) => {
-        const nameA = a.friendName || '';
-        const nameB = b.friendName || '';
-        
-        const getPriority = (str) => {
-          if (!str) return 99;
-          const char = str.charAt(0).toLowerCase();
-          // Ukrainian / Cyrillic range (approximate)
-          if (/[\u0400-\u04FF]/.test(char)) return 0;
-          // English / Latin
-          if (/[a-z]/.test(char)) return 1;
-          // Digits
-          if (/[0-9]/.test(char)) return 2;
-          return 3;
-        };
-
-        const pA = getPriority(nameA);
-        const pB = getPriority(nameB);
-
-        if (pA !== pB) return pA - pB;
-        
-        // Within same category, use locale-aware comparison
-        return nameA.localeCompare(nameB, 'uk-UA', { sensitivity: 'base' });
-      });
-
-      setFriends(friendsData);
-      setLoading(false);
-    }, (error) => {
-      console.error('[FriendsTab] Error in friends listener:', error);
-      if (error.code === 'permission-denied') {
-        console.warn('[FriendsTab] Friends listener permission denied');
-      }
-      setLoading(false);
+      const pA = getPriority(nameA);
+      const pB = getPriority(nameB);
+      if (pA !== pB) return pA - pB;
+      return nameA.localeCompare(nameB, 'uk-UA', { sensitivity: 'base' });
     });
+    return sorted;
+  }, [friends]);
 
-    return () => unsubscribe();
-  }, [user?.uid]);
-
-  // 2. Fetch missing ages for friends
   // 2. Fetch and synchronize latest friend profile data (avatar, name, age)
+  // Fixed: removed userProfiles from deps to prevent infinite loop
+  const profilesFetchedRef = useRef(false);
   useEffect(() => {
-    if (friends.length === 0) return;
+    if (friends.length === 0 || profilesFetchedRef.current) return;
 
     const fetchProfiles = async () => {
       const uidsToFetch = friends
         .map(f => f.friendId)
         .filter(uid => uid && (!userProfiles[uid] || !userProfiles[uid]._fresh));
 
-      if (uidsToFetch.length === 0) return;
+      if (uidsToFetch.length === 0) {
+        profilesFetchedRef.current = true;
+        return;
+      }
 
       const newProfiles = { ...userProfiles };
       let updated = false;
@@ -171,32 +148,23 @@ export default function FriendsTab() {
         setUserProfiles(newProfiles);
         AsyncStorage.setItem('friends_profiles_cache', JSON.stringify(newProfiles)).catch(()=>{});
       }
+      profilesFetchedRef.current = true;
     };
 
     fetchProfiles();
-  }, [friends, userProfiles]);
+  }, [friends]);
 
-  // 3. Track online status ONLY for visible friends
+  // Reset fetch flag when friends list changes significantly
   useEffect(() => {
-    if (visibleFriendIds.length === 0) return;
+    profilesFetchedRef.current = false;
+  }, [friends.length]);
 
-    const unsubscribers = visibleFriendIds.map(friendId => {
-      return getUserOnlineStatus(friendId, (status) => {
-        setOnlineUsers(prev => ({
-          ...prev,
-          [friendId]: status.isOnline
-        }));
-      });
-    });
-
-    return () => {
-      unsubscribers.forEach(unsub => unsub && unsub());
-    };
-  }, [visibleFriendIds]);
-
+  // 3. Track online status for visible friends via AppDataProvider
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     const ids = viewableItems.map(item => item.item.friendId).filter(Boolean);
-    setVisibleFriendIds(ids);
+    if (ids.length > 0) {
+      trackOnlineStatusForUsers(ids);
+    }
   }).current;
 
   const viewabilityConfig = useRef({
@@ -204,67 +172,11 @@ export default function FriendsTab() {
     minimumViewTime: 300,
   }).current;
 
-  // TEMPORARY: Auto-cleanup testing mock friends
-  useEffect(() => {
-    if (!user || friends.length === 0) return;
-    const testFriends = friends.filter(f => f.friendId?.includes('mock_user_'));
-    if (testFriends.length > 0) {
-      const friendsRef = collection(db, 'friends');
-      testFriends.forEach(async (tf) => {
-        try {
-          const q1 = query(friendsRef, where('userId', '==', user.uid), where('friendId', '==', tf.friendId));
-          const snap1 = await getDocs(q1);
-          snap1.forEach(d => deleteDoc(doc(db, 'friends', d.id)));
-
-          const q2 = query(friendsRef, where('userId', '==', tf.friendId), where('friendId', '==', user.uid));
-          const snap2 = await getDocs(q2);
-          snap2.forEach(d => deleteDoc(doc(db, 'friends', d.id)));
-        } catch (error) {}
-      });
-    }
-  }, [friends, user?.uid]);
-
-  // 4. Listen for all active stories to show rings
-  // Only filter by status (auto-indexed) — no composite index needed.
-  useEffect(() => {
-    if (!user) return;
-
-    const q = query(
-      collection(db, 'stories'),
-      where('status', '==', 'approved')
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const now = new Date();
-      const activeIds = new Set();
-      const unviewedIds = new Set();
-      snap.docs.forEach(doc => {
-        const data = doc.data();
-        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
-        const viewedBy = data.viewedBy || [];
-        
-        if (expiresAt && expiresAt > now) {
-          activeIds.add(data.userId);
-          if (!viewedBy.includes(user.uid)) {
-            unviewedIds.add(data.userId);
-          }
-        }
-      });
-      setActiveStoryUserIds(activeIds);
-      setUnviewedStoryUserIds(unviewedIds);
-    }, (err) => {
-      if (err.code === 'permission-denied') {
-        console.warn('[FriendsTab] Stories listener permission denied');
-      } else {
-        console.error('[FriendsTab] FriendsStories listener error:', err);
-      }
-    });
-    return () => unsub();
-  }, [user?.uid]);
-
+  // Stories and online status now come from AppDataProvider
 
   // 5. Filter friends based on search query and "online only" toggle
   const filteredFriends = useMemo(() => {
-    return friends.filter(friend => {
+    return sortedFriends.filter(friend => {
       const matchesSearch = 
         friend.friendName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (searchQuery.length >= 6 && friend.friendId?.toLowerCase().startsWith(searchQuery.toLowerCase()));
@@ -274,7 +186,7 @@ export default function FriendsTab() {
 
       return matchesSearch && matchesOnlineFilter;
     });
-  }, [friends, searchQuery, isOnlineOnly, onlineUsers]);
+  }, [sortedFriends, searchQuery, isOnlineOnly, onlineUsers]);
 
   const handleRemoveFriend = async (friendId, friendName) => {
     setActionModal({
@@ -432,11 +344,11 @@ export default function FriendsTab() {
           </View>
 
           <View style={styles.filterRow}>
-            {!loading && friends.length > 0 && (
+            {!loading && sortedFriends.length > 0 && (
               <Text style={styles.sectionTitleOnLine}>
                 {searchQuery 
                   ? t('friends.search_results', 'Search Results') 
-                  : t('friends.my_friends', { count: friends.length })}
+                  : t('friends.my_friends', { count: sortedFriends.length })}
               </Text>
             )}
             <View style={styles.toggleContainer}>
@@ -477,6 +389,10 @@ export default function FriendsTab() {
             }
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
+            initialNumToRender={12}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
           />
         )}
 

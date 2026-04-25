@@ -19,14 +19,12 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc, addDoc, collection, serverTimestamp, getDoc } from 'firebase/firestore';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { Colors } from '../../constants/theme';
-import { useTranslation } from 'react-i18next';
 import { ActionModal } from '../../components/ui/ActionModal';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export default function VerificationScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
   const { userId } = useLocalSearchParams();
   
   const [selfie, setSelfie] = useState(null);
@@ -42,8 +40,8 @@ export default function VerificationScreen() {
     if (status !== 'granted') {
       setActionModal({
         visible: true,
-        title: t('verification.permissionDenied', 'Permission Denied'),
-        message: t('verification.permissionDeniedDesc', 'We need access to your gallery to upload photos.'),
+        title: 'Permission Denied',
+        message: 'We need access to your gallery to upload photos.',
         showCancel: false
       });
       return;
@@ -60,7 +58,7 @@ export default function VerificationScreen() {
 
       // File size validation (matching web: 10MB max)
       if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE) {
-        setError(t('verification.fileTooLarge', 'File is too large. Maximum size is 10MB.'));
+        setError('File is too large. Maximum size is 10MB.');
         return;
       }
 
@@ -72,7 +70,7 @@ export default function VerificationScreen() {
 
   const handleSubmit = async () => {
     if (!selfie || !idPhoto) {
-      setError(t('verification.bothRequired', 'Please upload both your selfie and ID photo.'));
+      setError('Please upload both your selfie and ID photo.');
       return;
     }
 
@@ -127,14 +125,14 @@ export default function VerificationScreen() {
 
       setActionModal({
         visible: true,
-        title: t('common.success', 'Success'),
-        message: t('verification.submitted', 'Your verification has been submitted. You can now use the app while we review it.'),
+        title: 'Success',
+        message: 'Your verification has been submitted. You can now use the app while we review it.',
         showCancel: false,
         onConfirm: () => router.replace('/(tabs)')
       });
     } catch (err) {
       console.error(err);
-      setError(t('verification.uploadFailed', 'Something went wrong. Please try again.'));
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -144,31 +142,31 @@ export default function VerificationScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>🔐 {t('verification.title', 'Identity Verification')}</Text>
+          <Text style={styles.title}>🔐 Identity Verification</Text>
           <Text style={styles.subtitle}>
-            {t('verification.description', 'To keep our community safe, please provide the following photos')}
+            To keep our community safe, please provide the following photos
           </Text>
         </View>
 
         {/* Selfie Rules */}
         <View style={styles.rulesCard}>
-          <Text style={styles.rulesTitle}>{t('verification.selfieRulesTitle', '📸 Selfie Requirements')}</Text>
-          <Text style={styles.ruleItem}>• {t('verification.selfieRule1', 'Face must be clearly visible')}</Text>
-          <Text style={styles.ruleItem}>• {t('verification.selfieRule2', 'Good lighting, no filters')}</Text>
-          <Text style={styles.ruleItem}>• {t('verification.selfieRule3', 'Only you in the photo')}</Text>
+          <Text style={styles.rulesTitle}>📸 Selfie Requirements</Text>
+          <Text style={styles.ruleItem}>• Face must be clearly visible</Text>
+          <Text style={styles.ruleItem}>• Good lighting, no filters</Text>
+          <Text style={styles.ruleItem}>• Only you in the photo</Text>
         </View>
 
         <View style={styles.rulesCard}>
-          <Text style={styles.rulesTitle}>{t('verification.idRulesTitle', '🆔 ID Requirements')}</Text>
-          <Text style={styles.ruleItem}>• {t('verification.idRule1', 'All text on your ID must be readable')}</Text>
-          <Text style={styles.ruleItem}>• {t('verification.idRule2', 'Passport, driver license, or national ID')}</Text>
+          <Text style={styles.rulesTitle}>🆔 ID Requirements</Text>
+          <Text style={styles.ruleItem}>• All text on your ID must be readable</Text>
+          <Text style={styles.ruleItem}>• Passport, driver license, or national ID</Text>
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <View style={styles.card}>
-          <Text style={styles.label}>1. {t('verification.selfieLabel', 'Your Selfie')}</Text>
-          <Text style={styles.hint}>{t('verification.selfieHint', 'Make sure your face is clearly visible')}</Text>
+          <Text style={styles.label}>1. Your Selfie</Text>
+          <Text style={styles.hint}>Make sure your face is clearly visible</Text>
           <TouchableOpacity 
             style={[styles.uploadBox, selfie && styles.uploadBoxActive]} 
             onPress={() => pickImage('selfie')}>
@@ -177,15 +175,15 @@ export default function VerificationScreen() {
             ) : (
               <View style={styles.placeholder}>
                 <IconSymbol name="camera.fill" size={32} color="#7f8c8d" />
-                <Text style={styles.uploadText}>{t('verification.takeSelfie', 'Take Selfie')}</Text>
+                <Text style={styles.uploadText}>Take Selfie</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>2. {t('verification.idLabel', 'ID Photo (Passport/ID)')}</Text>
-          <Text style={styles.hint}>{t('verification.idHint', 'Ensure all text on your ID is readable')}</Text>
+          <Text style={styles.label}>2. ID Photo (Passport/ID)</Text>
+          <Text style={styles.hint}>Ensure all text on your ID is readable</Text>
           <TouchableOpacity 
             style={[styles.uploadBox, idPhoto && styles.uploadBoxActive]} 
             onPress={() => pickImage('id')}>
@@ -194,7 +192,7 @@ export default function VerificationScreen() {
             ) : (
               <View style={styles.placeholder}>
                 <IconSymbol name="person.text.rectangle.fill" size={32} color="#7f8c8d" />
-                <Text style={styles.uploadText}>{t('verification.uploadId', 'Upload ID Photo')}</Text>
+                <Text style={styles.uploadText}>Upload ID Photo</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -207,16 +205,16 @@ export default function VerificationScreen() {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitButtonText}>{t('verification.submitBtn', 'Submit Verification')}</Text>
+            <Text style={styles.submitButtonText}>Submit Verification</Text>
           )}
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.skipButton} onPress={() => router.replace('/(tabs)')}>
-          <Text style={styles.skipText}>{t('verification.completeLater', 'Complete Later')}</Text>
+          <Text style={styles.skipText}>Complete Later</Text>
         </TouchableOpacity>
 
         <Text style={styles.footerNote}>
-          {t('verification.footerNote', 'Your data is secure and will only be used for verification purposes.')}
+          Your data is secure and will only be used for verification purposes.
         </Text>
       </ScrollView>
       <ActionModal
@@ -224,7 +222,7 @@ export default function VerificationScreen() {
         title={actionModal.title}
         message={actionModal.message}
         confirmText={actionModal.confirmText}
-        cancelText={t('common.cancel')}
+        cancelText="Cancel"
         isDestructive={actionModal.isDestructive}
         showCancel={actionModal.showCancel}
         onConfirm={actionModal.onConfirm}

@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Pressable, TouchableHighlight, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { auth, db } from '../../utils/firebase';
-import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileMenuSheet from './ProfileMenuSheet';
 import { Colors } from '../../constants/theme';
@@ -13,103 +11,17 @@ import EarningsStatsModal from './EarningsStatsModal';
 import WithdrawalModal from './WithdrawalModal';
 import PaymentDetailsModal from './PaymentDetailsModal';
 import { ActionModal } from './ActionModal';
+import { useAppData } from '../../utils/AppDataProvider';
 
 export default function MainHeader() {
   const { t, i18n } = useTranslation();
-  const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { userProfile, profileLoading, dailyStats } = useAppData();
   const [autoTranslate, setAutoTranslate] = useState(false);
-  const [dailyStats, setDailyStats] = useState({ minutes: 0, earnings: 0 });
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [isStatsVisible, setIsStatsVisible] = useState(false);
   const [isWithdrawalVisible, setIsWithdrawalVisible] = useState(false);
   const [isPaymentDetailsVisible, setIsPaymentDetailsVisible] = useState(false);
-
-
-  // Day change trigger to reset stats at midnight
-  const [currentDateKey, setCurrentDateKey] = useState(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  });
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const nowMs = now.getTime();
-      if (nowMs !== currentDateKey) {
-        setCurrentDateKey(nowMs);
-      }
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [currentDateKey]);
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        setUserProfile(data);
-      }
-      setLoading(false);
-    }, (err) => {
-      console.log('Profile sync error:', err);
-      setLoading(false);
-    });
-
-    return () => unsubscribeProfile();
-  }, []);
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    // CRITICAL: Ensure userProfile is loaded AND gender is 'woman' before querying earnings.
-    // Otherwise, it may attempt to query without permission during initial render.
-    if (!user || !userProfile || userProfile.gender !== 'woman') return;
-
-    // Exact replica of web Header.js (lines 226-255):
-    // Query by userId only to avoid composite index; filter by date in memory
-    const today = new Date(currentDateKey);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    const qE = query(
-      collection(db, 'earnings'),
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribeEarnings = onSnapshot(qE, {
-      next: (snap) => {
-        let totalMinutes = 0;
-        let totalEarnings = 0;
-        snap.forEach((d) => {
-          const data = d.data();
-          const createdAt = data.createdAt?.toDate?.() || new Date(0);
-          if (createdAt >= today && createdAt < tomorrow && data.status !== 'annulled') {
-            totalMinutes += data.minutes || 0;
-            totalEarnings += data.earnings || 0;
-          }
-        });
-        setDailyStats({ minutes: totalMinutes, earnings: totalEarnings });
-      },
-      error: (err) => {
-        // Suppress permission-denied errors if gender check somehow races
-        if (err.code === 'permission-denied') {
-          console.warn('[MainHeader] Earnings listener permission denied (expected for non-woman users)');
-        } else {
-          console.error('[MainHeader] Daily stats sync error:', err);
-        }
-      }
-    });
-
-    return () => unsubscribeEarnings();
-  }, [userProfile?.gender, userProfile === null, currentDateKey]); // Added currentDateKey to re-run listener at midnight
 
   const toggleLanguage = () => {
     const langs = ['en', 'uk', 'es', 'de', 'fr'];
@@ -133,7 +45,7 @@ export default function MainHeader() {
     return colors[index];
   };
 
-  if (loading || !userProfile) {
+  if (profileLoading || !userProfile) {
     return (
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.container}>

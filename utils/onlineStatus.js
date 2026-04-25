@@ -45,7 +45,7 @@ export const trackUserOnlineStatus = (userId) => {
     setOnline();
     heartbeatInterval = setInterval(() => {
       setOnline();
-    }, 60000); // 1 minute interval (mobile-friendly)
+    }, 120000); // 2 minute interval (battery-optimized)
   };
 
   // Stop heartbeat
@@ -111,7 +111,7 @@ export const getUserOnlineStatus = (userId, callback) => {
             const diffMs = now - lastSeen;
             const diffMins = Math.floor(diffMs / 60000);
 
-            if (diffMins < 1) {
+            if (diffMins < 3) {
               isOnline = true;
             }
           }

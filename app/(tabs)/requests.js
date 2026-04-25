@@ -48,10 +48,10 @@ import { Country, City } from 'country-state-city';
 import { deduplicateCities } from '../../utils/locationUtils';
 import { getAvatarColor } from '../../utils/avatarUtils';
 import { useRouter } from 'expo-router';
-import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator';
 import { StoryAvatar } from '../../components/ui/StoryAvatar';
 import { StoryViewer } from '../../components/ui/StoryViewer';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppData } from '../../utils/AppDataProvider';
 
 // In-memory cache for search — force reset on app reload
 let globalUsersCache = null;
@@ -66,15 +66,22 @@ export default function RequestsTab() {
   const router = useRouter();
   const user = auth.currentUser;
 
-  const [activeTab, setActiveTab] = useState('incoming'); // Default to incoming as requested
-  const [incomingRequests, setIncomingRequests] = useState([]);
-  const [sentRequests, setSentRequests] = useState([]);
-  const [userProfiles, setUserProfiles] = useState({}); // Stores { name, avatar, age } by UID
-  const [friendsList, setFriendsList] = useState([]);
-  const [myBlockedIds, setMyBlockedIds] = useState([]);
-  const [blockedMeIds, setBlockedMeIds] = useState([]);
+  // Use centralized data from AppDataProvider
+  const {
+    incomingRequests,
+    sentRequests,
+    friendIds: friendsList,
+    myBlockedIds,
+    blockedMeIds,
+    activeStoryUserIds,
+    unviewedStoryUserIds,
+    userProfile: currentUserData,
+  } = useAppData();
+
+  const [activeTab, setActiveTab] = useState('incoming');
+  const [userProfiles, setUserProfiles] = useState({});
   
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState(null);
 
   // Search States
@@ -117,14 +124,10 @@ export default function RequestsTab() {
     visible: false, title: '', message: '', confirmText: 'OK', onConfirm: () => {}, isDestructive: false, showCancel: true
   });
   
-  // Story States
-  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
-  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
+  // Story States (now from AppDataProvider)
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
-
-  const [currentUserData, setCurrentUserData] = useState(null);
   
   // Reset tab to 'incoming' when screen is focused
   useFocusEffect(
@@ -158,108 +161,11 @@ export default function RequestsTab() {
     { label: t('search.chat_type_18', 'Communication 18+'), value: '18+' }
   ], [t]);
 
-  // 1. Incoming Requests
+  // 1-5. All listeners (requests, friends, blocks, stories) now from AppDataProvider
+  // Invalidate search cache when blocks change
   useEffect(() => {
-    if (!user) return;
-    const incomingQuery = query(
-      collection(db, 'friendRequests'),
-      where('toUserId', '==', user.uid),
-      where('status', '==', 'pending')
-    );
-    const unsub = onSnapshot(incomingQuery, (snap) => {
-      setIncomingRequests(snap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
-      );
-      setLoading(false);
-    }, (err) => console.warn('IncomingReq listener error:', err));
-    return () => unsub();
-  }, [user?.uid]);
-
-  // 2. Sent Requests
-  useEffect(() => {
-    if (!user) return;
-    const sentQuery = query(
-      collection(db, 'friendRequests'),
-      where('fromUserId', '==', user.uid),
-      where('status', '==', 'pending')
-    );
-    const unsub = onSnapshot(sentQuery, (snap) => {
-      setSentRequests(snap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
-      );
-    }, (err) => console.warn('SentReq listener error:', err));
-    return () => unsub();
-  }, [user?.uid]);
-
-  // 3. Friends List
-  useEffect(() => {
-    if (!user) return;
-    const friendsQuery = query(
-      collection(db, 'friends'),
-      where('userId', '==', user.uid)
-    );
-    const unsub = onSnapshot(friendsQuery, (snap) => {
-      setFriendsList(snap.docs.map(doc => doc.data().friendId));
-    }, (err) => console.warn('FriendsList listener error:', err));
-    return () => unsub();
-  }, [user?.uid]);
-
-  // 4. Blocks (Bidirectional)
-  useEffect(() => {
-    if (!user) return;
-    
-    const unsubMyBlocks = onSnapshot(query(collection(db, 'blocks'), where('blockerId', '==', user.uid)), (snap) => {
-      setMyBlockedIds(snap.docs.map(doc => doc.data().blockedId).filter(Boolean));
-      globalUsersCacheTimestamp = 0; // Invalidate cache
-    }, (err) => console.warn('MyBlockedIds listener error:', err));
-
-    const unsubBlockedMe = onSnapshot(query(collection(db, 'blocks'), where('blockedId', '==', user.uid)), (snap) => {
-      setBlockedMeIds(snap.docs.map(doc => doc.data().blockerId).filter(Boolean));
-      globalUsersCacheTimestamp = 0; // Invalidate cache
-    }, (err) => console.warn('BlockedMeIds listener error:', err));
-
-    const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (snap.exists()) setCurrentUserData(snap.data());
-    }, (err) => console.warn('Profile listener error:', err));
-
-    return () => {
-      unsubMyBlocks();
-      unsubBlockedMe();
-      unsubProfile();
-    };
-  }, [user?.uid]);
-
-  // 5. Listen for all active stories to show rings
-  useEffect(() => {
-    if (!user) return;
-
-    const q = query(
-      collection(db, 'stories'),
-      where('status', '==', 'approved')
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const now = new Date();
-      const activeIds = new Set();
-      const unviewedIds = new Set();
-      snap.docs.forEach(doc => {
-        const data = doc.data();
-        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
-        const viewedBy = data.viewedBy || [];
-        
-        if (expiresAt && expiresAt > now) {
-          activeIds.add(data.userId);
-          if (!viewedBy.includes(user.uid)) {
-            unviewedIds.add(data.userId);
-          }
-        }
-      });
-      setActiveStoryUserIds(activeIds);
-      setUnviewedStoryUserIds(unviewedIds);
-    }, (err) => console.warn('StoriesReq listener error:', err));
-    return () => unsub();
-  }, [user?.uid]);
+    globalUsersCacheTimestamp = 0;
+  }, [myBlockedIds, blockedMeIds]);
 
   const isUserSoftDeleted = (u) => {
     if (!u) return true;

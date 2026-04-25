@@ -2,7 +2,6 @@ import { IconSymbol } from '../components/ui/icon-symbol';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Dimensions,
@@ -145,7 +144,6 @@ const ReanimFlight = React.memo(({ msg, onComplete }) => {
 });
 
 export default function LandingScreen() {
-  const { t } = useTranslation();
   const router = useRouter();
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -256,7 +254,7 @@ export default function LandingScreen() {
 
         <Animated.View style={[styles.textSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>Step into the <Text style={styles.brandText}>NEXUS</Text></Text>
-          <Text style={styles.subtitle}>{t('landing.tagline', 'Connect with people around the world')}</Text>
+          <Text style={styles.subtitle}>{"Connect with people around the world"}</Text>
         </Animated.View>
 
         <View style={styles.featuresContainer}>
@@ -275,12 +273,12 @@ export default function LandingScreen() {
 
         <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
           <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/auth/register')} activeOpacity={0.8}>
-            <Text style={styles.primaryButtonText}>{t('landing.getStarted', 'Get Started')}</Text>
+            <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/auth/login')}>
             <Text style={styles.secondaryButtonText}>
-              {t('landing.haveAccount', 'Already have an account?')} <Text style={styles.loginLink}>{t('auth.signIn', 'Sign In')}</Text>
+              Already have an account? <Text style={styles.loginLink}>Sign In</Text>
             </Text>
           </TouchableOpacity>
         </Animated.View>

@@ -4,25 +4,31 @@ import { getUserOnlineStatus } from '../../utils/onlineStatus';
 
 /**
  * Reusable Online Status Indicator (Green Dot)
- * Subscribes to a user's real-time online status.
+ * 
+ * Accepts `isOnline` prop from parent (preferred, avoids individual listeners).
+ * Falls back to subscribing to Firestore only when `isOnline` prop is not provided.
  */
-export const OnlineStatusIndicator = ({ userId, style }) => {
-  const [isOnline, setIsOnline] = useState(false);
+export const OnlineStatusIndicator = ({ userId, isOnline: isOnlineProp, style }) => {
+  const [isOnlineLocal, setIsOnlineLocal] = useState(false);
+
+  // Only create a Firestore listener if isOnline prop is NOT provided
+  const needsListener = isOnlineProp === undefined || isOnlineProp === null;
 
   useEffect(() => {
-    if (!userId) return;
+    if (!needsListener || !userId) return;
 
-    // Use the existing utility to listen to the user's online status
     const unsubscribe = getUserOnlineStatus(userId, (status) => {
-      setIsOnline(status.isOnline);
+      setIsOnlineLocal(status.isOnline);
     });
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [userId]);
+  }, [userId, needsListener]);
 
-  if (!isOnline) return null;
+  const online = needsListener ? isOnlineLocal : isOnlineProp;
+
+  if (!online) return null;
 
   return (
     <View style={[styles.dot, style]} />

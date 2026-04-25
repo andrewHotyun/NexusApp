@@ -187,6 +187,10 @@
     "cleared": "Chat effacé",
     "already_empty": "Le chat est déjà vide",
     "clear_error": "Échec de l'effacement du chat",
+    "connecting": "Connexion...",
+    "waiting_accept": "En attente de l'acceptation de l'utilisateur...",
+    "waiting_video": "En attente de la vidéo...",
+    "is_calling": "appelle...",
     "removed_friend": "Supprimé des amis : {{name}}",
     "remove_friend_error": "Échec de la suppression de l'ami",
     "blocked_user": "Utilisateur bloqué : {{name}}",
@@ -214,6 +218,7 @@
     "selected_count": "{{count}} sélectionnés",
     "typing": "écrit...",
     "input_placeholder": "Écrivez un message...",
+    "type_message": "Tapez un message...",
     "confirm_block_title": "Bloquer {{name}} ?",
     "confirm_block_text": "Le chat sera masqué et vous pourrez le débloquer plus tard dans le Profil.",
     "confirm_clear_title": "Effacer ce chat ?",
@@ -251,7 +256,9 @@
       "hate": "Discours de haine",
       "underage": "Utilisateur mineur",
       "other": "Autre"
-    }
+    },
+    "call_error": "Erreur d'appel",
+    "closing_call": "Appel en cours de fermeture"
   },
   "earnings": {
     "title": "Statistiques des gains",
@@ -388,6 +395,7 @@
     "processing": "Traitement...",
     "unknown": "Inconnu",
     "close": "Fermer",
+    "cancel": "Annuler",
     "apply": "Appliquer",
     "edit": "Modifier",
     "edited": "modifié",
@@ -426,7 +434,10 @@
     "ok": "OK",
     "clear": "Effacer",
     "reset": "Réinitialiser",
-    "continue": "Continuer"
+    "continue": "Continuer",
+    "user": "Utilisateur",
+    "alert": "Alerte",
+    "me": "Moi"
   },
   "profile": {
     "successUpdate": "Profil mis à jour avec succès !",

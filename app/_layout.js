@@ -7,6 +7,7 @@ if (Platform.OS === 'android') {
     'FIRESTORE',
     'INTERNAL ASSERTION FAILED',
     'Unexpected state',
+    'Unable to activate keep awake',
   ]);
 }
 import { ThemeProvider } from '@react-navigation/native';
@@ -25,6 +26,8 @@ import { useColorScheme } from '../hooks/use-color-scheme';
 import '../i18n'; // Initialize i18n
 import LoadingScreen from '../components/ui/LoadingScreen';
 import { trackUserOnlineStatus } from '../utils/onlineStatus';
+import { AppDataProvider } from '../utils/AppDataProvider';
+import GlobalIncomingCall from '../components/chat/GlobalIncomingCall';
 
 // Custom theme defined safely to avoid "Property doesn't exist" errors
 const NexusDarkTheme = {
@@ -219,22 +222,25 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? NexusDarkTheme : NexusDefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: '#030e21' }
-          }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/verification" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <AppDataProvider userId={user?.uid || null}>
+        <ThemeProvider value={colorScheme === 'dark' ? NexusDarkTheme : NexusDefaultTheme}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#030e21' }
+            }}>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/verification" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+          <GlobalIncomingCall />
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </AppDataProvider>
     </SafeAreaProvider>
   );
 }

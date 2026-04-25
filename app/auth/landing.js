@@ -1,7 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Dimensions,
@@ -30,7 +29,6 @@ try {
 const { width } = Dimensions.get('window');
 
 export default function LandingScreen() {
-  const { t } = useTranslation();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -65,7 +63,7 @@ export default function LandingScreen() {
         <View style={styles.globeContainer}>{renderGlobe()}</View>
         <Animated.View style={[styles.textSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
           <Text style={styles.title}>Step into the <Text style={styles.brandText}>NEXUS</Text></Text>
-          <Text style={styles.subtitle}>{t('landing.tagline', 'Connect with people around the world')}</Text>
+          <Text style={styles.subtitle}>Connect with people around the world</Text>
         </Animated.View>
         <View style={styles.featuresContainer}>
            {[1,2,3].map((_, i) => (

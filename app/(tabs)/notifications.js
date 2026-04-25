@@ -34,6 +34,7 @@ import { StoryViewer } from '../../components/ui/StoryViewer';
 import { Colors } from '../../constants/theme';
 import { auth, db } from '../../utils/firebase';
 import { getGiftById } from '../../constants/gifts';
+import { useAppData } from '../../utils/AppDataProvider';
 
 // Simple in-memory cache for profile details
 const userCache = {};
@@ -43,13 +44,17 @@ export default function NotificationsTab() {
   const router = useRouter();
   const user = auth.currentUser;
 
+  // Use centralized data from AppDataProvider
+  const {
+    friendIds: friends,
+    activeStoryUserIds,
+    unviewedStoryUserIds,
+  } = useAppData();
+
   const [messages, setMessages] = useState([]);
   const [requests, setRequests] = useState([]);
   const [likes, setLikes] = useState([]);
-  const [friends, setFriends] = useState([]);
   const [stories, setStories] = useState([]);
-  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
-  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -237,86 +242,73 @@ export default function NotificationsTab() {
 
 
 
-  // 4. Listen for friends to track their stories
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const friendsQuery = query(
-      collection(db, 'friends'),
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(friendsQuery, (snapshot) => {
-      const friendIds = snapshot.docs.map(d => d.data().friendId);
-      setFriends(friendIds);
-    }, (err) => console.warn('FriendsList listener error:', err));
-
-    return () => unsubscribe();
-  }, [user?.uid]);
-
-  // 5. Listen for stories from friends
+  // 4-5. Friends and stories now come from AppDataProvider
+  // Build story notifications from shared story data
   useEffect(() => {
     if (!user?.uid || friends.length === 0) {
       setStories([]);
       return;
     }
 
-    // Only filter by status (auto-indexed) — no composite index needed.
-    const storiesQuery = query(
-      collection(db, 'stories'),
-      where('status', '==', 'approved')
-    );
-
-    const unsubscribe = onSnapshot(storiesQuery, async (snapshot) => {
+    // Build story notifications from unviewed stories for friends
+    const buildStoryNotifications = async () => {
       const friendStories = [];
       const seenUsers = new Set();
-      const newActiveStoryUserIds = new Set();
-      const newUnviewedStoryUserIds = new Set();
-      const now = new Date();
 
-      for (const d of snapshot.docs) {
-        const data = d.data();
-        const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
+      // We need to query stories to get the actual story data for notifications
+      const storiesQuery = query(
+        collection(db, 'stories'),
+        where('status', '==', 'approved')
+      );
 
-        if (expiresAt && expiresAt > now) {
-          // Track everyone who has an active story for the rings
-          newActiveStoryUserIds.add(data.userId);
-          
-          if (!data.viewedBy?.includes(user?.uid)) {
-            newUnviewedStoryUserIds.add(data.userId);
-          }
+      const unsub = onSnapshot(storiesQuery, async (snapshot) => {
+        const newFriendStories = [];
+        const newSeenUsers = new Set();
+        const now = new Date();
 
-          // Add to notification list ONLY if not viewed by current user
-          if (friends.includes(data.userId) && !seenUsers.has(data.userId) && !data.viewedBy?.includes(user?.uid)) {
-            seenUsers.add(data.userId);
+        for (const d of snapshot.docs) {
+          const data = d.data();
+          const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
 
-            let userData = userCache[data.userId];
-            if (!userData) {
-              try {
-                const uSnap = await getDoc(doc(db, 'users', data.userId));
-                if (uSnap.exists()) {
-                  userData = { uid: data.userId, ...uSnap.data() };
-                  userCache[data.userId] = userData;
-                }
-              } catch (e) { }
+          if (expiresAt && expiresAt > now) {
+            if (friends.includes(data.userId) && !newSeenUsers.has(data.userId) && !data.viewedBy?.includes(user?.uid)) {
+              newSeenUsers.add(data.userId);
+
+              let userData = userCache[data.userId];
+              if (!userData) {
+                try {
+                  const uSnap = await getDoc(doc(db, 'users', data.userId));
+                  if (uSnap.exists()) {
+                    userData = { uid: data.userId, ...uSnap.data() };
+                    userCache[data.userId] = userData;
+                  }
+                } catch (e) { }
+              }
+
+              newFriendStories.push({
+                id: `story-${data.userId}`,
+                type: 'story',
+                sender: userData || { uid: data.userId, name: 'User' },
+                timestamp: data.createdAt,
+                sortTime: data.createdAt?.toMillis?.() || (data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now())
+              });
             }
-
-            friendStories.push({
-              id: `story-${data.userId}`,
-              type: 'story',
-              sender: userData || { uid: data.userId, name: 'User' },
-              timestamp: data.createdAt,
-              sortTime: data.createdAt?.toMillis?.() || (data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now())
-            });
           }
         }
-      }
-      setStories(friendStories);
-      setActiveStoryUserIds(newActiveStoryUserIds);
-      setUnviewedStoryUserIds(newUnviewedStoryUserIds);
-    }, (err) => console.warn('StoriesNotify listener error:', err));
+        setStories(newFriendStories);
+      }, (err) => console.warn('StoriesNotify listener error:', err));
 
-    return () => unsubscribe();
+      return unsub;
+    };
+
+    let unsubStories;
+    buildStoryNotifications().then(unsub => {
+      unsubStories = unsub;
+    });
+
+    return () => {
+      if (unsubStories) unsubStories();
+    };
   }, [user?.uid, friends]);
 
   // 6. Filter categories
@@ -772,6 +764,10 @@ export default function NotificationsTab() {
               <Text style={styles.emptySubtitle}>{t('notifications.no_missed', { defaultValue: 'No missed messages' })}</Text>
             </View>
           }
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       )}
 

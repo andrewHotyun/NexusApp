@@ -188,6 +188,10 @@
     "cleared": "Chat gelöscht",
     "already_empty": "Chat ist bereits leer",
     "clear_error": "Fehler beim Löschen des Chats",
+    "connecting": "Verbindung wird hergestellt...",
+    "waiting_accept": "Warten auf Annahme durch den Benutzer...",
+    "waiting_video": "Warten auf Video...",
+    "is_calling": "ruft an...",
     "removed_friend": "Aus Freunden entfernt: {{name}}",
     "remove_friend_error": "Fehler beim Entfernen des Freundes",
     "blocked_user": "Benutzer blockiert: {{name}}",
@@ -215,6 +219,7 @@
     "selected_count": "{{count}} ausgewählt",
     "typing": "schreibt...",
     "input_placeholder": "Schreibe eine Nachricht...",
+    "type_message": "Schreibe eine Nachricht...",
     "confirm_block_title": "{{name}} blockieren?",
     "confirm_block_text": "Der Chat wird ausgeblendet und Sie können den Benutzer später im Profil wieder freigeben.",
     "confirm_clear_title": "Diesen Chat leeren?",
@@ -252,7 +257,9 @@
       "hate": "Hassrede",
       "underage": "Minderjähriger Benutzer",
       "other": "Andere"
-    }
+    },
+    "call_error": "Anruffehler",
+    "closing_call": "Anruf wird beendet"
   },
   "earnings": {
     "title": "Verdienststatistiken",
@@ -387,6 +394,7 @@
     "processing": "Verarbeitung...",
     "unknown": "Unbekannt",
     "close": "Schließen",
+    "cancel": "Abbrechen",
     "apply": "Anwenden",
     "edit": "Bearbeiten",
     "edited": "bearbeitet",
@@ -424,7 +432,10 @@
     "ok": "OK",
     "clear": "Löschen",
     "reset": "Zurücksetzen",
-    "continue": "Weiter"
+    "continue": "Weiter",
+    "user": "Benutzer",
+    "alert": "Hinweis",
+    "me": "Ich"
   },
   "profile": {
     "successUpdate": "Profil erfolgreich aktualisiert!",

@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import React, { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Country, City, State } from 'country-state-city';
 import { deduplicateCities } from '../../utils/locationUtils';
 import { SearchablePicker } from '../../components/ui/SearchablePicker';
@@ -29,7 +28,6 @@ import { auth, db } from '../../utils/firebase';
 import { ActionModal } from '../../components/ui/ActionModal';
 
 export default function RegisterScreen() {
-  const { t } = useTranslation();
   const router = useRouter();
 
   // Basic fields
@@ -80,17 +78,17 @@ export default function RegisterScreen() {
   const getErrorMessage = (errorCode) => {
     switch (errorCode) {
       case 'auth/email-already-in-use':
-        return t('auth.emailInUse', 'This email is already registered. Try logging in.');
+        return 'This email is already registered. Try logging in.';
       case 'auth/invalid-email':
-        return t('auth.invalidEmail', 'Please enter a valid email address.');
+        return 'Please enter a valid email address.';
       case 'auth/operation-not-allowed':
-        return t('auth.operationNotAllowed', 'Email registration is currently disabled.');
+        return 'Email registration is currently disabled.';
       case 'auth/weak-password':
-        return t('auth.weakPassword', 'Password is too weak. Use at least 6 characters.');
+        return 'Password is too weak. Use at least 6 characters.';
       case 'auth/network-request-failed':
-        return t('auth.networkError', 'Network error. Please check your internet connection.');
+        return 'Network error. Please check your internet connection.';
       default:
-        return t('auth.registerError', 'Something went wrong. Please check the fields and try again.');
+        return 'Something went wrong. Please check the fields and try again.';
     }
   };
 
@@ -99,9 +97,9 @@ export default function RegisterScreen() {
     if (status !== 'granted') {
       setActionModal({
         visible: true,
-        title: t('auth.permissionDenied'),
-        message: t('auth.permissionDenied', 'Sorry, we need camera roll permissions to make this work!'),
-        confirmText: t('common.ok'),
+        title: 'Permission Denied',
+        message: 'Sorry, we need camera roll permissions to make this work!',
+        confirmText: 'OK',
         showCancel: false
       });
       return;
@@ -127,42 +125,42 @@ export default function RegisterScreen() {
     
     // Name: minimum 4 characters
     if (!nameTrimmed || nameTrimmed.length < 4) {
-      errors.name = t('auth.errorNameLong', 'Name must be at least 4 characters');
+      errors.name = 'Name must be at least 4 characters';
     } else {
       // Name must contain at least one letter (any language) — matching web
       const nameHasLetters = /\p{L}/u.test(nameTrimmed);
       if (!nameHasLetters) {
-        errors.name = t('auth.errorNameLetters', 'Name must contain letters');
+        errors.name = 'Name must contain letters';
       }
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email.trim())) {
-      errors.email = t('auth.errorEmailInvalid', 'Please enter a valid email address');
+      errors.email = 'Please enter a valid email address';
     }
 
     // Password validation
     if (!password || password.length < 6) {
-      errors.password = t('auth.errorPasswordShort', 'Min 6 characters required');
+      errors.password = 'Min 6 characters required';
     }
 
     // Age validation
     if (!age || parseInt(age) < 18) {
-      errors.age = t('auth.errorAge', 'You must be 18+ years old');
+      errors.age = 'You must be 18+ years old';
     }
 
     // Location validation
     if (!country.trim()) {
-      errors.country = t('auth.errorCountry', 'Please specify your country');
+      errors.country = 'Please specify your country';
     }
     if (!city.trim()) {
-      errors.city = t('auth.errorCity', 'Please specify your city');
+      errors.city = 'Please specify your city';
     }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      setError(t('auth.correctFields', 'Please correct the highlighted fields'));
+      setError('Please correct the highlighted fields');
       return;
     }
 
@@ -279,7 +277,7 @@ export default function RegisterScreen() {
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.subtitle}>{t('auth.register', 'Create Account')}</Text>
+          <Text style={styles.subtitle}>Create Account</Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -289,18 +287,18 @@ export default function RegisterScreen() {
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <IconSymbol name="person.fill" size={40} color="#11a0f1" />
-                <Text style={styles.avatarText}>{t('auth.uploadPhoto', 'Photo')}</Text>
+                <Text style={styles.avatarText}>Photo</Text>
               </View>
             )}
           </TouchableOpacity>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.name', 'Your Name')}</Text>
+            <Text style={styles.label}>Your Name</Text>
             <View style={[styles.inputContainer, fieldErrors.name && styles.inputError]}>
               <IconSymbol name="person.fill" size={20} color="#7f8c8d" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder={t('auth.namePlaceholder', 'Full Name')}
+                placeholder="Full Name"
                 placeholderTextColor="#7f8c8d"
                 value={name}
                 onChangeText={(v) => { setName(v); clearFieldError('name'); }}
@@ -310,7 +308,7 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.email', 'Email')}</Text>
+            <Text style={styles.label}>Email</Text>
             <View style={[styles.inputContainer, fieldErrors.email && styles.inputError]}>
               <IconSymbol name="envelope.fill" size={20} color="#7f8c8d" style={styles.inputIcon} />
               <TextInput
@@ -327,7 +325,7 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.password', 'Password')}</Text>
+            <Text style={styles.label}>Password</Text>
             <View style={[styles.inputContainer, fieldErrors.password && styles.inputError]}>
               <IconSymbol name="lock.fill" size={20} color="#7f8c8d" style={styles.inputIcon} />
               <TextInput
@@ -350,7 +348,7 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.age', 'Age')}</Text>
+            <Text style={styles.label}>Age</Text>
             <View style={[styles.inputContainer, fieldErrors.age && styles.inputError]}>
               <IconSymbol name="gift.fill" size={18} color="#7f8c8d" style={styles.inputIcon} />
               <TextInput
@@ -367,20 +365,20 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.gender', 'Gender')}</Text>
+            <Text style={styles.label}>Gender</Text>
             <View style={styles.genderButtons}>
               <TouchableOpacity
                 style={[styles.genderButton, gender === 'man' && styles.genderButtonActive]}
                 onPress={() => setGender('man')}>
                 <Text style={[styles.genderButtonText, gender === 'man' && styles.genderButtonTextActive]}>
-                  {t('auth.male', 'Man')}
+                  Man
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.genderButton, gender === 'woman' && styles.genderButtonActive]}
                 onPress={() => setGender('woman')}>
                 <Text style={[styles.genderButtonText, gender === 'woman' && styles.genderButtonTextActive]}>
-                  {t('auth.female', 'Woman')}
+                  Woman
                 </Text>
               </TouchableOpacity>
             </View>
@@ -389,13 +387,13 @@ export default function RegisterScreen() {
           {/* Row for Country & City */}
           <View style={styles.row}>
             <View style={styles.rowItem}>
-              <Text style={styles.label}>{t('auth.country', 'Country')}</Text>
+              <Text style={styles.label}>Country</Text>
               <TouchableOpacity 
                 style={[styles.inputContainer, fieldErrors.country && styles.inputError]}
                 onPress={() => setShowCountryPicker(true)}>
                 <IconSymbol name="flag.fill" size={18} color="#7f8c8d" style={styles.inputIcon} />
                 <Text style={[styles.pickerValueText, !country && styles.pickerPlaceholderText]}>
-                  {country || t('auth.countryPlaceholder', 'Select...')}
+                  {country || 'Select...'}
                 </Text>
                 <IconSymbol name="chevron.down" size={14} color="#7f8c8d" />
               </TouchableOpacity>
@@ -403,16 +401,16 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.rowItem}>
-              <Text style={styles.label}>{t('auth.city', 'City')}</Text>
+              <Text style={styles.label}>City</Text>
               <TouchableOpacity 
                 style={[styles.inputContainer, fieldErrors.city && styles.inputError]}
                 onPress={() => {
                   if (!countryIso) {
                     setActionModal({
                       visible: true,
-                      title: t('common.attention'),
-                      message: t('auth.errorSelectCountryFirst', 'Please select a country first'),
-                      confirmText: t('common.ok'),
+                      title: 'Attention',
+                      message: 'Please select a country first',
+                      confirmText: 'OK',
                       showCancel: false
                     });
                     return;
@@ -421,7 +419,7 @@ export default function RegisterScreen() {
                 }}>
                 <IconSymbol name="flag.fill" size={18} color="#7f8c8d" style={styles.inputIcon} />
                 <Text style={[styles.pickerValueText, !city && styles.pickerPlaceholderText, !countryIso && styles.pickerDisabledText]}>
-                  {city || t('auth.cityPlaceholder', 'Select...')}
+                  {city || 'Select...'}
                 </Text>
                 <IconSymbol name="chevron.down" size={14} color="#7f8c8d" />
               </TouchableOpacity>
@@ -433,7 +431,7 @@ export default function RegisterScreen() {
           <SearchablePicker
             visible={showCountryPicker}
             onClose={() => setShowCountryPicker(false)}
-            title={t('auth.selectCountry', 'Select Country')}
+            title="Select Country"
             data={allCountries}
             selectedValue={country}
             onSelect={(item) => {
@@ -447,7 +445,7 @@ export default function RegisterScreen() {
           <SearchablePicker
             visible={showCityPicker}
             onClose={() => setShowCityPicker(false)}
-            title={t('auth.selectCity', 'Select City')}
+            title="Select City"
             data={allCities}
             selectedValue={city}
             onSelect={(item) => {
@@ -458,14 +456,14 @@ export default function RegisterScreen() {
 
           {/* Chat Type Selection */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('auth.chatType', 'Communication Type')}</Text>
+            <Text style={styles.label}>Communication Type</Text>
             <View style={styles.typeButtons}>
               <TouchableOpacity
                 style={[styles.typeButton, chatType === 'normal' && styles.typeButtonActive]}
                 onPress={() => setChatType('normal')}>
                 <IconSymbol name="message.fill" size={18} color={chatType === 'normal' ? '#fff' : '#7f8c8d'} style={{ marginRight: 8 }} />
                 <Text style={[styles.typeButtonText, chatType === 'normal' && styles.typeButtonTextActive]}>
-                  {t('auth.normal', 'Normal')}
+                  Normal
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -473,7 +471,7 @@ export default function RegisterScreen() {
                 onPress={() => setChatType('18+')}>
                 <IconSymbol name="message.fill" size={18} color={chatType === '18+' ? '#fff' : '#7f8c8d'} style={{ marginRight: 8 }} />
                 <Text style={[styles.typeButtonText, chatType === '18+' && styles.typeButtonTextActive]}>
-                  {t('auth.erotic', '18+')}
+                  18+
                 </Text>
               </TouchableOpacity>
             </View>
@@ -486,14 +484,14 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.registerButtonText}>{t('auth.signUp', 'Create Account')}</Text>
+              <Text style={styles.registerButtonText}>Create Account</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>{t('auth.haveAccount', 'Already have an account?')}</Text>
+            <Text style={styles.footerText}>Already have an account?</Text>
             <TouchableOpacity onPress={() => router.push('/auth/login')}>
-              <Text style={styles.loginText}>{t('auth.login', 'Sign In')}</Text>
+              <Text style={styles.loginText}>Sign In</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -503,7 +501,7 @@ export default function RegisterScreen() {
         title={actionModal.title}
         message={actionModal.message}
         confirmText={actionModal.confirmText}
-        cancelText={t('common.cancel')}
+        cancelText="Cancel"
         isDestructive={actionModal.isDestructive}
         showCancel={actionModal.showCancel}
         onConfirm={actionModal.onConfirm}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -23,13 +23,13 @@ import { IconSymbol } from '../../components/ui/icon-symbol';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { getAvatarColor } from '../../utils/avatarUtils';
-import { OnlineStatusIndicator } from '../../components/ui/OnlineStatusIndicator';
-import { Swipeable, GestureHandlerRootView, RectButton } from 'react-native-gesture-handler';
+import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ActionModal } from '../../components/ui/ActionModal';
 import { Alert } from 'react-native';
 import { StoryAvatar } from '../../components/ui/StoryAvatar';
 import { getGiftById } from '../../constants/gifts';
 import { StoryViewer } from '../../components/ui/StoryViewer';
+import { useAppData } from '../../utils/AppDataProvider';
 
 // In-memory cache for user profiles to avoid redundant fetches
 const userProfileCache = {};
@@ -37,20 +37,17 @@ const userProfileCache = {};
 export default function ChatsTab() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState(auth.currentUser);
-
-  // 0. Listen for auth state changes to make 'user' reactive within this component
-  useEffect(() => {
-    const unsubAuth = auth.onAuthStateChanged((u) => {
-      if (u?.uid !== currentUser?.uid) {
-        setCurrentUser(u);
-      }
-    });
-    return () => unsubAuth();
-  }, [currentUser?.uid]);
-
-  const user = currentUser;
+  const user = auth.currentUser;
   
+  // Use centralized data from AppDataProvider
+  const {
+    myBlockedIds,
+    blockedMeIds,
+    activeStoryUserIds,
+    unviewedStoryUserIds,
+    onlineUsers,
+  } = useAppData();
+
   const [sentMessages, setSentMessages] = useState([]);
   const [receivedMessages, setReceivedMessages] = useState([]);
   const [chats, setChats] = useState([]);
@@ -63,14 +60,9 @@ export default function ChatsTab() {
   const swipeableRefs = useRef(new Map());
   const migrationDone = useRef(false);
   const [hiddenChats, setHiddenChats] = useState(new Set());
-  const [myBlockedIds, setMyBlockedIds] = useState([]);
-  const [blockedMeIds, setBlockedMeIds] = useState([]);
-  const [blocksLoaded, setBlocksLoaded] = useState(false);
   const [profileFetchCount, setProfileFetchCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [typingUsers, setTypingUsers] = useState({}); // { senderId: boolean }
-  const [activeStoryUserIds, setActiveStoryUserIds] = useState(new Set());
-  const [unviewedStoryUserIds, setUnviewedStoryUserIds] = useState(new Set());
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerStories, setViewerStories] = useState([]);
   const [viewerUser, setViewerUser] = useState({ name: '', avatar: '' });
@@ -83,11 +75,7 @@ export default function ChatsTab() {
     setChats([]);
     setInitialFetchesDone({ sent: false, received: false });
     setLoading(true);
-    setBlocksLoaded(false);
-    setMyBlockedIds([]);
-    setBlockedMeIds([]);
     setTypingUsers({});
-    setActiveStoryUserIds(new Set());
     migrationDone.current = false;
 
     // Clear in-memory profile cache on logout
@@ -104,14 +92,25 @@ export default function ChatsTab() {
           try {
             const parsed = JSON.parse(cached);
             if (parsed && parsed.length > 0) {
-              parsed.forEach(chat => {
+              // Filter out ghost entries from stale cache: a ghost has fallback name 'User'
+              // combined with no real profile data (no gender). Real users always have gender
+              // from registration, so a legitimate user named "User" won't be filtered out.
+              const validChats = parsed.filter(chat => {
+                const p = chat.partner;
+                if (!p || !p.name) return false;
+                if (p.name === 'User' && !p.gender) return false;
+                return true;
+              });
+              validChats.forEach(chat => {
                 if (chat.partner?.uid && !userProfileCache[chat.partner.uid]) {
                   // Pre-hydrate cache with old known valid data so UI does not flicker
                   userProfileCache[chat.partner.uid] = { ...chat.partner, _fresh: false };
                 }
               });
-              setChats(parsed);
-              setLoading(false);
+              if (validChats.length > 0) {
+                setChats(validChats);
+                setLoading(false);
+              }
             }
           } catch (e) {
             console.error('Error parsing cached chats:', e);
@@ -132,338 +131,129 @@ export default function ChatsTab() {
     }
   }, [user?.uid]);
 
-  // 1. Listen for sent messages
+  // Global migration: populate conversations collection (runs once on load)
   useEffect(() => {
-    if (!user) return;
-    const q = query(
-      collection(db, 'messages'),
-      where('senderId', '==', user.uid),
-      orderBy('timestamp', 'desc'),
-      limit(1000)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      console.log(`[ChatsTab] Sent messages received: ${snap.docs.length} for user ${user.uid}`);
-      setSentMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setInitialFetchesDone(prev => ({ ...prev, sent: true }));
-    }, (err) => console.warn('SentMessages listener error:', err));
-    return () => unsub();
+    if (!user || migrationDone.current) return;
+    
+    const runMigration = async () => {
+      try {
+        const isMigrated = await AsyncStorage.getItem(`conversations_migration_v2_${user.uid}`);
+        if (isMigrated === 'true') {
+          migrationDone.current = true;
+          return;
+        }
+        
+        console.log('[ChatsTab] Running one-time conversations migration...');
+        const [sentSnap, receivedSnap] = await Promise.all([
+          getDocs(query(collection(db, 'messages'), where('senderId', '==', user.uid), orderBy('timestamp', 'desc'), limit(1000))),
+          getDocs(query(collection(db, 'messages'), where('receiverId', '==', user.uid), orderBy('timestamp', 'desc'), limit(1000)))
+        ]);
+        
+        const allMessages = [...sentSnap.docs, ...receivedSnap.docs].map(d => ({id: d.id, ...d.data()})).sort((a, b) => {
+          const timeA = a.timestamp?.toMillis?.() || 0;
+          const timeB = b.timestamp?.toMillis?.() || 0;
+          return timeB - timeA;
+        });
+
+        const conversationMap = new Map();
+        allMessages.forEach(msg => {
+          const partnerId = msg.senderId === user.uid ? msg.receiverId : msg.senderId;
+          if (!partnerId || partnerId === 'system' || partnerId === 'page_unload' || partnerId === 'page_hidden') return;
+          
+          if (!conversationMap.has(partnerId)) {
+            const chatId = [user.uid, partnerId].sort().join('_');
+            conversationMap.set(partnerId, {
+              id: chatId,
+              participants: [user.uid, partnerId],
+              lastMessage: {
+                text: msg.text || '',
+                senderId: msg.senderId,
+                type: msg.type || 'text',
+                timestamp: msg.timestamp || null,
+                read: msg.read || false
+              },
+              updatedAt: msg.timestamp || null
+            });
+          }
+        });
+
+        if (conversationMap.size > 0) {
+          const batch = writeBatch(db);
+          let count = 0;
+          for (const [partnerId, convData] of conversationMap.entries()) {
+            const convRef = doc(db, 'conversations', convData.id);
+            batch.set(convRef, convData, { merge: true });
+            count++;
+            if (count >= 400) {
+              await batch.commit();
+              count = 0;
+            }
+          }
+          if (count > 0) await batch.commit();
+        }
+        
+        await AsyncStorage.setItem(`conversations_migration_v2_${user.uid}`, 'true');
+        migrationDone.current = true;
+        console.log('[ChatsTab] Migration complete');
+      } catch (e) {
+        console.error('[ChatsTab] Migration error:', e);
+      }
+    };
+    
+    runMigration();
   }, [user?.uid]);
 
-  // 2. Listen for received messages
-  useEffect(() => {
-    if (!user) return;
-    const q = query(
-      collection(db, 'messages'),
-      where('receiverId', '==', user.uid),
-      orderBy('timestamp', 'desc'),
-      limit(1000)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      console.log(`[ChatsTab] Received messages received: ${snap.docs.length} for user ${user.uid}`);
-      setReceivedMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setInitialFetchesDone(prev => ({ ...prev, received: true }));
-    }, (err) => console.warn('ReceivedMessages listener error:', err));
-    return () => unsub();
-  }, [user?.uid]);
-
-  // 2.5 Listen for bidirectional blocks
+  // 1. Listen for conversations
   useEffect(() => {
     if (!user) return;
     
-    // Who I blocked
-    const unsub1 = onSnapshot(query(collection(db, 'blocks'), where('blockerId', '==', user.uid)), (snap) => {
-      setMyBlockedIds(snap.docs.map(d => d.data().blockedId));
-      setProfileFetchCount(prev => prev + 1);
-    }, (err) => console.warn('MyBlockedIds listener error:', err));
-
-    // Who blocked me
-    const unsub2 = onSnapshot(query(collection(db, 'blocks'), where('blockedId', '==', user.uid)), (snap) => {
-      setBlockedMeIds(snap.docs.map(d => d.data().blockerId));
-      setProfileFetchCount(prev => prev + 1);
-    }, (err) => console.warn('BlockedMeIds listener error:', err));
-
-    setBlocksLoaded(true);
-    return () => {
-      unsub1();
-      unsub2();
-    };
-  }, [user?.uid]);
-
-  // 2.6 Listen for typing statuses
-  useEffect(() => {
-    if (!user) return;
     const q = query(
-      collection(db, 'typingStatus'),
-      where('receiverId', '==', user.uid),
-      where('isTyping', '==', true)
+      collection(db, 'conversations'),
+      where('participants', 'array-contains', user.uid)
     );
+    
     const unsub = onSnapshot(q, (snap) => {
-      const typing = {};
-      snap.docs.forEach(d => {
-        const data = d.data();
-        if (data.senderId) {
-          typing[data.senderId] = true;
-        }
-      });
-      setTypingUsers(typing);
-    }, (err) => console.warn('TypingUsers listener error:', err));
-    return () => unsub();
-  }, [user?.uid]);
-
-  // 2.7 Listen for active stories of chat partners to show rings
-  // Only show ring if there's at least one UNVIEWED story.
-  const storiesUnsubsRef = useRef([]);
-  useEffect(() => {
-    if (!user || initialFetchesDone.sent === false || initialFetchesDone.received === false) return;
-
-    // Get unique partner IDs from all messages
-    const partnerUids = [...new Set([
-      ...sentMessages.map(m => m.receiverId),
-      ...receivedMessages.map(m => m.senderId)
-    ])].filter(id => id && id !== user.uid);
-
-    if (partnerUids.length === 0) {
-      setActiveStoryUserIds(new Set());
-      return;
-    }
-
-    // Clean previous
-    storiesUnsubsRef.current.forEach(u => u());
-    storiesUnsubsRef.current = [];
-
-    // Chunk by 10 to fit in 'in' query
-    const chunks = [];
-    for (let i = 0; i < partnerUids.length; i += 10) {
-      chunks.push(partnerUids.slice(i, i + 10));
-    }
-
-    chunks.forEach(chunk => {
-      const q = query(
-        collection(db, 'stories'),
-        where('userId', 'in', chunk),
-        where('status', '==', 'approved')
-      );
-
-      const unsub = onSnapshot(q, (snap) => {
-        const now = new Date();
-        
-        // We update two sets: one for ANY active stories, one for UNVIEWED stories
-        setActiveStoryUserIds(prevActive => {
-          const nextActive = new Set(prevActive);
-          chunk.forEach(id => nextActive.delete(id));
-          
-          setUnviewedStoryUserIds(prevUnviewed => {
-            const nextUnviewed = new Set(prevUnviewed);
-            chunk.forEach(id => nextUnviewed.delete(id));
-            
-            snap.docs.forEach(doc => {
-              const data = doc.data();
-              const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
-              const viewedBy = data.viewedBy || [];
-              const isUnviewed = !viewedBy.includes(user.uid);
-
-              if (expiresAt && expiresAt > now) {
-                // Add to active regardless of viewed status
-                nextActive.add(data.userId);
-                
-                if (isUnviewed) {
-                  // Add to unviewed tracking
-                  nextUnviewed.add(data.userId);
-                }
-              }
-            });
-            return nextUnviewed;
-          });
-          
-          return nextActive;
-        });
-      }, (err) => console.warn('Stories listener error:', err));
-      storiesUnsubsRef.current.push(unsub);
-    });
-
-    return () => {
-      storiesUnsubsRef.current.forEach(u => u());
-      storiesUnsubsRef.current = [];
-    };
-  }, [user?.uid, sentMessages.length, receivedMessages.length, initialFetchesDone]);
-
-  // Global migration: patch old messages without chatId (runs once on load)
-  useEffect(() => {
-    if (!user || migrationDone.current) return;
-    const allMsgs = [...sentMessages, ...receivedMessages];
-    const toPatch = allMsgs.filter(m => !m.chatId && m.senderId && m.receiverId);
-    if (toPatch.length === 0) {
-      if (initialFetchesDone.sent && initialFetchesDone.received) {
-        migrationDone.current = true;
-      }
-      return;
-    }
-
-    (async () => {
-      try {
-        // Firestore batches support max 500 writes
-        for (let i = 0; i < toPatch.length; i += 400) {
-          const chunk = toPatch.slice(i, i + 400);
-          const batch = writeBatch(db);
-          chunk.forEach(m => {
-            const chatId = [m.senderId, m.receiverId].sort().join('_');
-            batch.update(doc(db, 'messages', m.id), { chatId });
-          });
-          await batch.commit();
-        }
-        console.log(`Migrated ${toPatch.length} messages with chatId`);
-      } catch (e) {
-        console.error('Migration error:', e);
-      }
-    })();
-  }, [sentMessages, receivedMessages, user?.uid]);
-
-  // 3. Aggregate messages into conversations
-  useEffect(() => {
-    const aggregate = async () => {
-      if (!user) return;
-      // Relaxed check: aggregate if at least one is done or if we already have some data
-      const isPartiallyDone = initialFetchesDone.sent || initialFetchesDone.received;
-      console.log(`[ChatsTab] Aggregating... state: sentDone=${initialFetchesDone.sent}, receivedDone=${initialFetchesDone.received}, sentCount=${sentMessages.length}, receivedCount=${receivedMessages.length}`);
+      console.log(`[ChatsTab] Conversations received: ${snap.docs.length} for user ${user.uid}`);
+      const convs = snap.docs.map(d => d.data());
       
-      const allMessages = [...sentMessages, ...receivedMessages].sort((a, b) => {
-        const timeA = a.timestamp?.toMillis?.() || 0;
-        const timeB = b.timestamp?.toMillis?.() || 0;
-        return timeB - timeA;
-      });
-
-      const conversationMap = new Map();
-      const uniquePartnerIds = new Set();
-
-      allMessages.forEach(msg => {
-        const partnerId = msg.senderId === user.uid ? msg.receiverId : msg.senderId;
-        if (!partnerId) return;
+      const chatList = convs.map(conv => {
+        const partnerId = conv.participants.find(p => p !== user.uid) || user.uid;
+        const lastMsg = conv.lastMessage || {};
         
-        if (!conversationMap.has(partnerId)) {
-          conversationMap.set(partnerId, {
-            id: partnerId,
-            lastMessage: msg,
-            unreadCount: 0
-          });
-          uniquePartnerIds.add(partnerId);
-        }
-
-        // Count unread (only for received messages)
-        if (msg.receiverId === user.uid && !msg.read) {
-          conversationMap.get(partnerId).unreadCount++;
-        }
-      });
-
-      // Fetch user profiles for each conversation asynchronously
-      const chatList = [...conversationMap.values()].map((chat) => {
-        const cached = userProfileCache[chat.id];
+        const chatObj = {
+          id: partnerId,
+          lastMessage: lastMsg,
+          unreadCount: (lastMsg.senderId !== user.uid && !lastMsg.read) ? 1 : 0
+        };
         
-        // If profile is missing or stale, start a subscription
-        if ((!cached || (!cached._fresh && !cached._fetching)) && chat.id !== 'system' && chat.id !== 'admin') {
-          if (!cached) {
-            userProfileCache[chat.id] = { _fetching: true };
-          } else {
-            userProfileCache[chat.id]._fetching = true;
-          }
-          
-          // Perform a ONE-OFF background fetch instead of a permanent DB listener
-          getDoc(doc(db, 'users', chat.id)).then(userDoc => {
-            if (userDoc.exists()) {
-              userProfileCache[chat.id] = { 
-                ...userProfileCache[chat.id], 
-                ...userDoc.data(), 
-                _fresh: true, 
-                _fetching: false 
-              };
-            } else {
-              userProfileCache[chat.id] = { 
-                ...userProfileCache[chat.id], 
-                _notFound: true, 
-                _fresh: true, 
-                _fetching: false 
-              };
-            }
-            
-            // Incrementally update the existing chats state without re-triggering the full aggregate effect
-            setChats(prevChats => {
-              let changed = false;
-              const next = prevChats.map(c => {
-                if (c.id === chat.id) {
-                  changed = true;
-                  return {
-                    ...c,
-                    partner: { 
-                      ...(userProfileCache[chat.id]._notFound ? {} : userProfileCache[chat.id]), 
-                      name: userProfileCache[chat.id].name || c.partner.name,
-                      uid: chat.id 
-                    }
-                  };
-                }
-                return c;
-              });
-              
-              // Sync to backup cache
-              if (changed && user?.uid) {
-                AsyncStorage.setItem(`chats_cache_${user.uid}`, JSON.stringify(next)).catch(()=>{});
-              }
-              return changed ? next : prevChats;
-            });
-          }).catch(e => {
-            if (userProfileCache[chat.id]) userProfileCache[chat.id]._fetching = false;
-            console.error(`Error fetching user ${chat.id}:`, e);
-          });
-        }
+        // Profile listener will handle data fetching
+        const p = userProfileCache[partnerId] || {};
         
-        const updatedCached = userProfileCache[chat.id];
-
-        // Use cached name, or fallback to the message metadata, or "User"
-        const partnerName = updatedCached?.name || 
-                           (chat.lastMessage.senderId === chat.id ? chat.lastMessage.senderName : chat.lastMessage.receiverName) || 
-                           'User';
-        const partnerAge = updatedCached?.age || 
-                           (chat.lastMessage.senderId === chat.id ? chat.lastMessage.senderAge : chat.lastMessage.receiverAge) || 
-                           null;
-
         return {
-          ...chat,
-          partner: { 
-            ...(updatedCached?._notFound ? {} : updatedCached), 
-            name: partnerName, 
-            age: partnerAge,
-            uid: chat.id
+          ...chatObj,
+          partner: {
+            ...p,
+            uid: partnerId,
+            name: p.name || '...'
           }
         };
       });
 
-      // Filter out technical chats, phantom users, AND blocked users
-      console.log('[ChatsTab] Pre-filter chat count:', chatList.length, 'partners:', chatList.map(c => c.id));
+      // Filter blocked and hidden
       const filteredChats = chatList.filter(chat => {
         const cached = userProfileCache[chat.id];
-        
-        // Profile is known if we have a cached name (from DB or message metadata)
-        const hasKnownProfile = cached && !cached._notFound && cached.name;
-        
-        // Bidirectional Block Filter (Sync with Web: chat disappears for both)
+        if (cached && cached._notFound) return false;
+        if (cached && cached._fresh && !cached.name) return false;
+
         const isBlocked = (myBlockedIds && myBlockedIds.includes(chat.id)) || 
                           (blockedMeIds && blockedMeIds.includes(chat.id));
         if (isBlocked) return false;
-
-        const lastMsgText = chat.lastMessage.text || '';
-        const isTechnical = chat.lastMessage.type === 'video_call_ended' || 
-                            chat.lastMessage.type === 'video_call_declined' ||
-                            lastMsgText.toLowerCase().includes('video call');
-        
-        // Hide if it's a technical record AND we have no profile name yet
-        if (!hasKnownProfile && isTechnical) return false;
-        
         if (chat.id === 'system' || chat.id === 'admin') return false;
         if (hiddenChats.has(chat.id)) return false;
 
         return true;
       });
-      console.log(`[ChatsTab] Final filtered chat count: ${filteredChats.length}. Partners:`, filteredChats.map(c => c.id));
 
-      // Final sort by latest message
       const sortedChats = filteredChats.sort((a, b) => {
         const timeA = a.lastMessage.timestamp?.toMillis?.() || 0;
         const timeB = b.lastMessage.timestamp?.toMillis?.() || 0;
@@ -474,16 +264,81 @@ export default function ChatsTab() {
       setLoading(false);
       setRefreshing(false);
       
-      // Save the updated computed list to local cache (instantly cached)
       if (user?.uid) {
-        AsyncStorage.setItem(`chats_cache_${user.uid}`, JSON.stringify(sortedChats)).catch(e => {
-          console.error("Failed to cache chats:", e);
-        });
+        AsyncStorage.setItem(`chats_cache_${user.uid}`, JSON.stringify(sortedChats)).catch(()=>{});
       }
-    };
+    }, (err) => {
+      console.warn('Conversations listener error:', err);
+      setLoading(false);
+    });
+    
+    return () => unsub();
+  }, [user?.uid, hiddenChats, myBlockedIds, blockedMeIds]);
 
-    aggregate();
-  }, [sentMessages, receivedMessages, initialFetchesDone, user?.uid, hiddenChats, myBlockedIds, blockedMeIds]);
+  // 2. Profile Listeners for visible chats (parity with Web)
+  const userListenersRef = useRef(new Map());
+  useEffect(() => {
+    if (!user || !Array.isArray(chats) || chats.length === 0) return;
+
+    const currentUids = new Set(chats.map(c => c.id));
+    const listeners = userListenersRef.current;
+
+    chats.forEach(chat => {
+      const uid = chat.id;
+      if (!uid || uid === 'system' || uid === 'admin' || listeners.has(uid)) return;
+
+      const unsub = onSnapshot(doc(db, 'users', uid), (snap) => {
+        if (!snap.exists()) {
+          userProfileCache[uid] = { _notFound: true, _fresh: true };
+          return;
+        }
+
+        const fresh = snap.data();
+        const old = userProfileCache[uid] || {};
+
+        // Only update if critical UI data has changed to avoid redundant renders
+        if (old.avatar === fresh.avatar && 
+            old.name === fresh.name && 
+            old.status === fresh.status &&
+            old.age === fresh.age) {
+          userProfileCache[uid] = { ...old, ...fresh, _fresh: true };
+          return;
+        }
+
+        userProfileCache[uid] = { ...old, ...fresh, _fresh: true };
+        
+        setChats(prev => {
+          const next = prev.map(c => {
+            if (c.id === uid) {
+              return { ...c, partner: { ...c.partner, ...fresh, uid } };
+            }
+            return c;
+          });
+          
+          if (user?.uid) AsyncStorage.setItem(`chats_cache_${user.uid}`, JSON.stringify(next)).catch(()=>{});
+          return next;
+        });
+      });
+
+      listeners.set(uid, unsub);
+    });
+
+    // Cleanup listeners for users no longer in list
+    for (const [uid, unsub] of listeners.entries()) {
+      if (!currentUids.has(uid)) {
+        unsub();
+        listeners.delete(uid);
+      }
+    }
+  }, [chats.length, user?.uid]);
+
+  // Global cleanup for listeners on unmount
+  useEffect(() => {
+    return () => {
+      userListenersRef.current.forEach(u => u());
+      userListenersRef.current.clear();
+    };
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -535,8 +390,8 @@ export default function ChatsTab() {
           query(messagesRef, where('senderId', '==', partnerId), where('receiverId', '==', user.uid))
         ];
 
-        for (const q of queriesToClear) {
-          const snap = await getDocs(q);
+        for (const baseQuery of queriesToClear) {
+          const snap = await getDocs(baseQuery);
           if (snap.empty) continue;
           
           const docs = snap.docs;
@@ -546,8 +401,11 @@ export default function ChatsTab() {
             await batch.commit();
           }
         }
+        
+        // Also delete the conversation document
+        await deleteDoc(doc(db, 'conversations', chatId));
 
-        console.log(`[Nexus] Deleted chat with ${partnerId}`);
+        setChats(prev => prev.filter(c => c.id !== partnerId));
       } catch (e) {
         console.error("Error deleting chat:", e);
         // If deletion failed, we bring it back to the UI
@@ -607,68 +465,58 @@ export default function ChatsTab() {
       >
         <View style={styles.chatCardWrapper}>
           <View style={styles.accentBorder} />
-          <View style={styles.chatCardRow}>
-            <View style={styles.avatarContainerWrapper}>
-              <StoryAvatar 
-                userId={partner.uid || item.id} 
-                avatarUrl={partner.avatar} 
-                name={partner.name} 
-                size={50}
-                hasStories={activeStoryUserIds.has(partner.uid || item.id)}
-                allViewed={!unviewedStoryUserIds.has(partner.uid || item.id)}
-                onPress={() => router.push({
-                  pathname: `/chat/${partner.uid || item.id}`,
-                  params: { 
-                    name: partner.name,
-                    avatar: partner.avatar,
-                    gender: partner.gender
-                  }
-                })}
-                onStoryPress={async () => {
-                  try {
-                    const q = query(
-                      collection(db, 'stories'),
-                      where('userId', '==', partner.uid || item.id),
-                      where('status', '==', 'approved')
-                    );
-                    // Single fetch for the modal
-                    const storiesSnap = await getDocs(q);
-                    const now = new Date();
-                    const userStories = storiesSnap.docs
-                      .map(d => ({ id: d.id, ...d.data() }))
-                      .filter(s => {
-                        const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
-                        return expiresAt && expiresAt > now;
-                      })
-                      .sort((a, b) => {
-                        const timeA = a.createdAt?.toMillis?.() || 0;
-                        const timeB = b.createdAt?.toMillis?.() || 0;
-                        return timeA - timeB;
-                      });
-                    if (userStories.length > 0) {
-                      setViewerStories(userStories);
-                      setViewerUser({ name: partner.name, avatar: partner.avatar });
-                      setViewerVisible(true);
+          <TouchableOpacity 
+            style={styles.chatCardInfoBtn}
+            activeOpacity={0.6}
+            onPress={() => router.push({
+              pathname: `/chat/${partner.uid || item.id}`,
+              params: { 
+                name: partner.name,
+                avatar: partner.avatar,
+                gender: partner.gender
+              }
+            })}>
+            <View style={styles.chatCardRow}>
+              <View style={styles.avatarContainerWrapper}>
+                <StoryAvatar 
+                  userId={partner.uid || item.id} 
+                  avatarUrl={partner.avatar} 
+                  name={partner.name} 
+                  size={50}
+                  hasStories={activeStoryUserIds.has(partner.uid || item.id)}
+                  allViewed={!unviewedStoryUserIds.has(partner.uid || item.id)}
+                  onStoryPress={async () => {
+                    try {
+                      const q = query(
+                        collection(db, 'stories'),
+                        where('userId', '==', partner.uid || item.id),
+                        where('status', '==', 'approved')
+                      );
+                      const storiesSnap = await getDocs(q);
+                      const now = new Date();
+                      const userStories = storiesSnap.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .filter(s => {
+                          const expiresAt = s.expiresAt ? (s.expiresAt.toDate ? s.expiresAt.toDate() : new Date(s.expiresAt)) : null;
+                          return expiresAt && expiresAt > now;
+                        })
+                        .sort((a, b) => {
+                          const timeA = a.createdAt?.toMillis?.() || 0;
+                          const timeB = b.createdAt?.toMillis?.() || 0;
+                          return timeA - timeB;
+                        });
+                      if (userStories.length > 0) {
+                        setViewerStories(userStories);
+                        setViewerUser({ name: partner.name, avatar: partner.avatar });
+                        setViewerVisible(true);
+                      }
+                    } catch (e) {
+                      console.error("Error loading stories for viewer:", e);
                     }
-                  } catch (e) {
-                    console.error("Error loading stories for viewer:", e);
-                  }
-                }}
-              />
-            </View>
+                  }}
+                />
+              </View>
 
-            <RectButton 
-              style={styles.chatCardInfoBtn}
-              underlayColor="rgba(255,255,255,0.1)"
-              activeOpacity={0.6}
-              onPress={() => router.push({
-                pathname: `/chat/${partner.uid || item.id}`,
-                params: { 
-                  name: partner.name,
-                  avatar: partner.avatar,
-                  gender: partner.gender
-                }
-              })}>
               <View style={styles.chatInfo}>
                 <View style={styles.chatHeader}>
                   <Text style={styles.userName} numberOfLines={1}>{partner.name || 'User'}{partner.age ? `, ${partner.age}` : ''}</Text>
@@ -712,10 +560,10 @@ export default function ChatsTab() {
                 )}
             </View>
           </View>
-        </RectButton>
-      </View>
+        </View>
+        </TouchableOpacity>
     </View>
-      </Swipeable>
+  </Swipeable>
     );
   };
 
@@ -779,6 +627,9 @@ export default function ChatsTab() {
           }
           maxToRenderPerBatch={10}
           windowSize={5}
+          initialNumToRender={12}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={50}
         />
       )}
 
@@ -883,16 +734,14 @@ const styles = StyleSheet.create({
   },
   avatarContainerWrapper: {
     paddingLeft: 16,
-    paddingVertical: 16,
-    zIndex: 20,
   },
   chatCardInfoBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: 16,
-    paddingLeft: 12,
     paddingRight: 16,
+  },
+  chatInfo: {
+    flex: 1,
+    marginLeft: 15,
   },
   deleteAction: {
     backgroundColor: 'transparent',
@@ -925,7 +774,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary
   },
   avatarInitial: { color: Colors.dark.primary, fontSize: 20, fontWeight: '700' },
-  chatInfo: { flex: 1, marginLeft: 0 },
   chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   chatHeaderRight: { flexDirection: 'row', alignItems: 'center' },
   userName: { color: '#fff', fontSize: 18, fontWeight: '700', flex: 1, marginRight: 8 },

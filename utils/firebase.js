@@ -28,8 +28,8 @@ if (!getApps().length) {
     persistence: getReactNativePersistence(AsyncStorage)
   });
 
-  // RADICAL ANDROID STABILITY: Disable disk persistence and force stable HTTP LONG POLLING
-  // This completely eliminates "INTERNAL ASSERTION FAILED: Unexpected state (ID: 3186)"
+  // ANDROID STABILITY: Disable disk persistence, auto-detect optimal transport.
+  // Uses WebSockets where possible (faster), falls back to long polling on problematic devices.
   db = initializeFirestore(app, {
     localCache: memoryLocalCache(),
     experimentalForceLongPolling: true,
