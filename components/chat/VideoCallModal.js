@@ -34,6 +34,9 @@ import GiftAnimationOverlay from './GiftAnimationOverlay';
 import GiftModal from './GiftModal';
 import { StoryAvatar } from '../ui/StoryAvatar';
 import { updateConversation } from '../../utils/conversationHelper';
+import useGameChannel from './games/useGameChannel';
+import GameMenuPanel from './games/GameMenuPanel';
+import GameOverlay from './games/GameOverlay';
 
 const EXPO_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -87,6 +90,12 @@ export default function VideoCallModal({
   const [activeGiftAnimation, setActiveGiftAnimation] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showControls, setShowControls] = useState(true);
+
+  // Game system state
+  const [showGameMenu, setShowGameMenu] = useState(false);
+  const [activeGame, setActiveGame] = useState(null);
+  const [incomingGameInvite, setIncomingGameInvite] = useState(null);
+  const gameChannel = useGameChannel();
 
   const [secondsInMinute, setSecondsInMinute] = useState(0);
   const [callStartMs, setCallStartMs] = useState(null);
@@ -322,6 +331,9 @@ export default function VideoCallModal({
         });
         pcRef.current = pc;
 
+        // Initialize game data channel (peer-to-peer, zero Firebase load)
+        gameChannel.initChannel(pc, isActuallyCaller);
+
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
         pc.ontrack = (event) => {
@@ -487,6 +499,21 @@ export default function VideoCallModal({
       setIsCameraOff(!isCameraOff);
     }
   };
+
+  // Game channel listeners (invite, end, cancel)
+  useEffect(() => {
+    if (!gameChannel?.isReady) return;
+    const unsub1 = gameChannel.onMessage('game_invite', (msg) => {
+      setIncomingGameInvite(msg);
+    });
+    const unsub2 = gameChannel.onMessage('game_end', () => {
+      setActiveGame(null);
+    });
+    const unsub3 = gameChannel.onMessage('game_cancel', () => {
+      setIncomingGameInvite(null);
+    });
+    return () => { unsub1(); unsub2(); unsub3(); };
+  }, [gameChannel?.isReady]);
 
   // Real-time listener for male user's minutes balance
   useEffect(() => {
@@ -907,7 +934,7 @@ export default function VideoCallModal({
                       <Ionicons name="call" size={32} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={() => Alert.alert(t('common.info', 'Info'), t('chat.games_coming_soon', 'Games are coming soon!'))} style={styles.glassBtn}>
+                    <TouchableOpacity onPress={() => setShowGameMenu(true)} style={styles.glassBtn}>
                       <Ionicons name="game-controller-outline" size={26} color="#fff" />
                     </TouchableOpacity>
                   </View>
@@ -961,6 +988,37 @@ export default function VideoCallModal({
         )}
 
         <EmojiPicker open={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} onEmojiSelected={(emoji) => setInputText(prev => prev + emoji.emoji)} />
+
+        <GameMenuPanel
+          isOpen={showGameMenu}
+          onClose={() => setShowGameMenu(false)}
+          onSelectGame={(gameId) => { setActiveGame(gameId); setShowGameMenu(false); }}
+          gameChannel={gameChannel}
+          incomingInvite={incomingGameInvite}
+          onAcceptInvite={() => {
+            if (incomingGameInvite && gameChannel?.isReady) {
+              gameChannel.sendMessage({ type: 'game_accept', gameId: incomingGameInvite.gameId });
+              setActiveGame(incomingGameInvite.gameId);
+              setIncomingGameInvite(null);
+              setShowGameMenu(false);
+            }
+          }}
+          onDeclineInvite={() => {
+            if (gameChannel?.isReady) gameChannel.sendMessage({ type: 'game_decline' });
+            setIncomingGameInvite(null);
+          }}
+          partnerName={partnerNameResolved}
+        />
+
+        {activeGame && (
+          <GameOverlay
+            gameId={activeGame}
+            gameChannel={gameChannel}
+            isCaller={isActuallyCaller}
+            onClose={() => setActiveGame(null)}
+            partnerName={partnerNameResolved}
+          />
+        )}
           </>
         )}
       </View>
