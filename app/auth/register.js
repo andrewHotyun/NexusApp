@@ -9,7 +9,7 @@ import { Country, City, State } from 'country-state-city';
 import { deduplicateCities } from '../../utils/locationUtils';
 import { SearchablePicker } from '../../components/ui/SearchablePicker';
 import {
-  ActivityIndicator,
+  ActivityIndicator, 
   Alert,
   Image,
   KeyboardAvoidingView,
