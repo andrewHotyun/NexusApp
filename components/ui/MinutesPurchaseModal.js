@@ -51,6 +51,8 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
   const [errors, setErrors] = useState({});
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [toastTitle, setToastTitle] = useState('');
+  const [toastType, setToastType] = useState('success');
   const [methodIndexToDelete, setMethodIndexToDelete] = useState(null);
   const [alertConfig, setAlertConfig] = useState({ 
     visible: false, 
@@ -104,6 +106,8 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
       });
       setErrors({});
       setToastVisible(false);
+      setToastTitle('');
+      setToastType('success');
 
       if (userProfile?.uid) {
         loadSavedMethods();
@@ -257,6 +261,14 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
         });
 
         await batch.commit();
+        
+        // Show success toast
+        setToastTitle(t('success_toast.minutes_added'));
+        setToastMessage(t('success_toast.added_minutes_desc', { count: pkg.minutes }));
+        setToastType('success');
+        setToastVisible(true);
+
+        // Close immediately
         onClose();
       }
     } catch (e) {
@@ -284,9 +296,11 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
           }
 
           setToastMessage(t('purchase.method_deleted_toast'));
+          setToastType('success');
           setToastVisible(true);
         } catch (err) {
           setToastMessage(t('purchase.method_delete_error'));
+          setToastType('error');
           setToastVisible(true);
         }
       }
@@ -416,6 +430,7 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
                   handleManualPurchase(selectedPackage);
                 } else {
                   setToastMessage(t('purchase.error_select_method'));
+                  setToastType('error');
                   setToastVisible(true);
                 }
               }}
@@ -698,58 +713,61 @@ export function MinutesPurchaseModal({ visible, onClose, userProfile }) {
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      statusBarTranslucent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.container}>
-        <View style={styles.overlayWrapper}>
-          <TouchableOpacity
-            style={styles.overlay}
-            activeOpacity={1}
-            onPress={onClose}
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent
+        statusBarTranslucent={true}
+        onRequestClose={onClose}
+      >
+        <View style={styles.container}>
+          <View style={styles.overlayWrapper}>
+            <TouchableOpacity
+              style={styles.overlay}
+              activeOpacity={1}
+              onPress={onClose}
+            />
+          </View>
+  
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={['rgba(30, 45, 75, 0.98)', 'rgba(11, 18, 32, 1)']}
+              style={styles.gradient}
+            >
+              <View style={styles.header}>
+                <View style={styles.headerTitleContainer}>
+                  <IconSymbol name="timer" size={28} color="#0d8bd1" style={{ marginBottom: -2 }} />
+                  <Text style={styles.title}>{t('purchase.title')}</Text>
+                </View>
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                  <IconSymbol name="xmark.circle.fill" size={32} color="rgba(255, 255, 255, 0.4)" />
+                </TouchableOpacity>
+              </View>
+  
+              {renderContent()}
+            </LinearGradient>
+          </View>
+  
+          <ActionModal 
+            {...alertConfig} 
+            onClose={closeAlert}
+            onConfirm={() => {
+              if (alertConfig.onConfirm) alertConfig.onConfirm();
+              closeAlert();
+            }}
           />
         </View>
+      </Modal>
 
-        <View style={styles.modalContent}>
-          <LinearGradient
-            colors={['rgba(30, 45, 75, 0.98)', 'rgba(11, 18, 32, 1)']}
-            style={styles.gradient}
-          >
-            <View style={styles.header}>
-              <View style={styles.headerTitleContainer}>
-                <IconSymbol name="timer" size={28} color="#0d8bd1" style={{ marginBottom: -2 }} />
-                <Text style={styles.title}>{t('purchase.title')}</Text>
-              </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <IconSymbol name="xmark.circle.fill" size={32} color="rgba(255, 255, 255, 0.4)" />
-              </TouchableOpacity>
-            </View>
-
-            {renderContent()}
-          </LinearGradient>
-        </View>
-
-        <Toast
-          visible={toastVisible}
-          message={toastMessage}
-          type="error"
-          onHide={() => setToastVisible(false)}
-        />
-
-        <ActionModal 
-          {...alertConfig} 
-          onClose={closeAlert}
-          onConfirm={() => {
-            if (alertConfig.onConfirm) alertConfig.onConfirm();
-            closeAlert();
-          }}
-        />
-      </View>
-    </Modal>
+      <Toast
+        visible={toastVisible}
+        title={toastTitle}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
+    </>
   );
 }
 

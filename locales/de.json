@@ -1502,5 +1502,12 @@
     "reward_dollars": "+${{amount}}",
     "your_reward": "Deine Belohnung:",
     "claim": "🎉 Beanspruchen!"
+  },
+  "success_toast": {
+    "minutes_added": "🎉 Minuten hinzugefügt!",
+    "success": "✅ Erfolg!",
+    "added_minutes_desc": "{{count}} Minuten wurden Ihrem Konto hinzugefügt!",
+    "success_desc": "Vorgang erfolgreich abgeschlossen!",
+    "new_balance": "Neues Guthaben: {{count}} Minuten"
   }
 }

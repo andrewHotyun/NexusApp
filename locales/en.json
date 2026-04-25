@@ -1513,5 +1513,12 @@
     "reward_dollars": "+${{amount}}",
     "your_reward": "Your reward:",
     "claim": "🎉 Claim!"
+  },
+  "success_toast": {
+    "minutes_added": "🎉 Minutes Added!",
+    "success": "✅ Success!",
+    "added_minutes_desc": "Added {{count}} minutes to your account!",
+    "success_desc": "Operation completed successfully!",
+    "new_balance": "New balance: {{count}} minutes"
   }
 }

@@ -1496,5 +1496,12 @@
     "reward_dollars": "+${{amount}}",
     "your_reward": "Tu recompensa:",
     "claim": "🎉 ¡Reclamar!"
+  },
+  "success_toast": {
+    "minutes_added": "🎉 ¡Minutos añadidos!",
+    "success": "✅ ¡Éxito!",
+    "added_minutes_desc": "¡Se han añadido {{count}} minutos a tu cuenta!",
+    "success_desc": "¡Operación completada con éxito!",
+    "new_balance": "Nuevo saldo: {{count}} minutos"
   }
 }
