@@ -6,7 +6,7 @@ import {
   FlatList, 
   Image, 
   TouchableOpacity, 
-  SafeAreaView,
+  SafeAreaView, 
   ActivityIndicator,
   RefreshControl,
   Platform,
