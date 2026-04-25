@@ -8,7 +8,7 @@ if (Platform.OS === 'android') {
     'INTERNAL ASSERTION FAILED',
     'Unexpected state',
     'Unable to activate keep awake',
-  ]);
+  ]); 
 }
 import { ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
