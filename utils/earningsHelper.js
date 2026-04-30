@@ -1,7 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
-/**
+/** 
  * Fetches the current earnings rate from admin settings.
  * Default is 0.20 if not set or if fetching fails.
  */
