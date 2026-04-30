@@ -1,7 +1,7 @@
 import { db } from './firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-/**
+/** 
  * Updates the 'conversations' collection with the latest message metadata.
  * This should be called every time a message is successfully sent.
  * 
