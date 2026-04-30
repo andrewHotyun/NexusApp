@@ -4,7 +4,7 @@ import i18next from 'i18next';
 
 // Track user's online status (React Native compatible)
 import { AppState } from 'react-native';
-
+ 
 export const trackUserOnlineStatus = (userId) => {
   if (!userId) return null;
 
