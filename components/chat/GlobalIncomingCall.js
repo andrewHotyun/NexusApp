@@ -1,20 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../utils/firebase';
-import { useAppData } from '../../utils/AppDataProvider';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StoryAvatar } from '../ui/StoryAvatar';
+import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/theme';
+import { useAppData } from '../../utils/AppDataProvider';
+import { db } from '../../utils/firebase';
+import { StoryAvatar } from '../ui/StoryAvatar';
 
 export default function GlobalIncomingCall() {
   const { t } = useTranslation();
   const router = useRouter();
   const { activeIncomingCall, setActiveIncomingCall, startGlobalCall } = useAppData();
-  
+
   const [sound, setSound] = useState(null);
   // 1. Handle Ringing Animation & Sound
   // Animation removed as per user request
@@ -25,10 +25,10 @@ export default function GlobalIncomingCall() {
       const playSound = async () => {
         try {
           const { sound: newSound } = await Audio.Sound.createAsync(
-             // Using a standard system-like sound. 
-             // In a real app we'd have a local asset, but for now we use a remote one or fallback.
-             { uri: 'https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3' }, 
-             { shouldPlay: true, isLooping: true, volume: 1.0 }
+            // Using a standard system-like sound. 
+            // In a real app we'd have a local asset, but for now we use a remote one or fallback.
+            { uri: 'https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3' },
+            { shouldPlay: true, isLooping: true, volume: 1.0 }
           );
           setSound(newSound);
         } catch (e) {
@@ -49,7 +49,7 @@ export default function GlobalIncomingCall() {
         await sound.stopAsync();
         await sound.unloadAsync();
         setSound(null);
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -57,15 +57,16 @@ export default function GlobalIncomingCall() {
     if (!activeIncomingCall) return;
     const callId = activeIncomingCall.id;
     const callerId = activeIncomingCall.callerId;
-    
+
     try {
       // Stop ringing first
       await stopRinging();
-      
+
       // Update Firestore
       await updateDoc(doc(db, 'calls', callId), {
         status: 'accepted',
-        acceptedAt: serverTimestamp()
+        acceptedAt: serverTimestamp(),
+        calleeDeviceType: 'mobile'
       });
 
       // Open video call modal instantly over current screen
@@ -90,7 +91,7 @@ export default function GlobalIncomingCall() {
   const handleDecline = async () => {
     if (!activeIncomingCall) return;
     const callId = activeIncomingCall.id;
-    
+
     try {
       await stopRinging();
       await updateDoc(doc(db, 'calls', callId), {
@@ -111,15 +112,21 @@ export default function GlobalIncomingCall() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.avatarContainer}>
-               <View style={styles.ring} />
-               <StoryAvatar userId={activeIncomingCall.callerId} avatarUrl={activeIncomingCall.callerAvatar} size={60} showStatus={false} />
+              <View style={styles.ring} />
+              <StoryAvatar
+                userId={activeIncomingCall.callerId}
+                avatarUrl={activeIncomingCall.callerAvatar}
+                name={activeIncomingCall.callerName}
+                size={60}
+                showStatus={false}
+              />
             </View>
             <View style={styles.headerInfo}>
               <Text style={styles.callerName}>{activeIncomingCall.callerName || t('common.unknown_user')}</Text>
               <Text style={styles.callType}>{t('common.incoming_video_call', 'Incoming Video Call')}</Text>
             </View>
           </View>
-          
+
           <View style={styles.actions}>
             <TouchableOpacity style={[styles.btn, styles.acceptBtn]} onPress={handleAccept}>
               <Ionicons name="call" size={20} color="#000" />

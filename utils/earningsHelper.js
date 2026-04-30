@@ -36,7 +36,14 @@ export const addCallEarnings = async (femaleId, maleId, minutesToCharge, callId 
     if (!userSnap.exists()) return;
 
     const femaleData = userSnap.data();
-    if (femaleData.gender !== 'woman' && femaleData.gender !== 'female') return;
+    const normalizeGender = (g) => {
+      if (!g || typeof g !== 'string') return '';
+      const lower = g.toLowerCase();
+      if (['female', 'f', 'woman', 'girl', 'жінка', 'дівчина', 'ж', 'жін', 'femme', 'mujer', 'weiblich'].includes(lower)) return 'female';
+      return '';
+    };
+
+    if (normalizeGender(femaleData.gender || femaleData.sex) !== 'female') return;
 
     const rate = await getEarningsRate();
     const earningsAmount = minutesToCharge * rate;

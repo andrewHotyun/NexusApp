@@ -326,6 +326,36 @@ export default function ChatsTab() {
       }
     }
   }, [chats.length, user?.uid]);
+  
+  // 4. Typing Status Listener for all chats
+  useEffect(() => {
+    if (!user || !user.uid) {
+      setTypingUsers({});
+      return;
+    }
+
+    const typingQuery = query(
+      collection(db, 'typingStatus'),
+      where('receiverId', '==', user.uid),
+      where('isTyping', '==', true)
+    );
+
+    const unsub = onSnapshot(typingQuery, (snap) => {
+      const typingMap = {};
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.senderId) {
+          typingMap[data.senderId] = true;
+        }
+      });
+      setTypingUsers(typingMap);
+    }, (err) => {
+      console.warn('Typing status listener error:', err);
+    });
+
+    return () => unsub();
+  }, [user?.uid]);
+
 
   // Global cleanup for listeners on unmount
   useEffect(() => {
@@ -612,7 +642,6 @@ export default function ChatsTab() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.primary} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <IconSymbol name="bubble.left.and.bubble.right.fill" size={64} color="#34495e" />
               <Text style={styles.emptyTitle}>{t('chats.no_chats_title', 'No Messages Yet')}</Text>
               <Text style={styles.emptySubtitle}>{t('chats.no_chats_desc', 'Start chatting with your friends to see them here.')}</Text>
               <TouchableOpacity style={styles.findFriendsBtn} onPress={() => router.push('/(tabs)/friends')}>
@@ -696,7 +725,7 @@ const styles = StyleSheet.create({
     width: '100%'
   },
   headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  listContent: { paddingBottom: 100, paddingTop: 12 },
+  listContent: { flexGrow: 1, paddingBottom: 100, paddingTop: 12 },
   swipeableContainer: {
     marginHorizontal: 16,
     marginBottom: 12,
@@ -789,9 +818,9 @@ const styles = StyleSheet.create({
   },
   unreadText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100, paddingHorizontal: 40 },
-  emptyTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 20 },
-  emptySubtitle: { color: '#7f8c8d', fontSize: 15, textAlign: 'center', marginTop: 8 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
+  emptyTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 20 },
+  emptySubtitle: { color: '#7f8c8d', fontSize: 16, textAlign: 'center', marginTop: 10 },
   findFriendsBtn: { marginTop: 24, backgroundColor: Colors.dark.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   findFriendsText: { color: '#fff', fontSize: 16, fontWeight: '700' }
 });

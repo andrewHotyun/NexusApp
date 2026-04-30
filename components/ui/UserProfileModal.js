@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -123,6 +123,35 @@ export const UserProfileModal = ({ isVisible, onClose, userId, initialMediaUrl =
         speed: 20,
       })
     ]).start();
+  };
+
+  const normalizeGender = (g) => {
+    if (!g || typeof g !== 'string') return '';
+    const lower = g.toLowerCase();
+    if (['male', 'm', 'man', 'boy', 'чоловік', 'хлопець', 'ч', 'чол', 'homme', 'hombre', 'männlich'].includes(lower)) return 'male';
+    if (['female', 'f', 'woman', 'girl', 'жінка', 'дівчина', 'ж', 'жін', 'femme', 'mujer', 'weiblich'].includes(lower)) return 'female';
+    return '';
+  };
+
+  const getGenderDisplay = (gender) => {
+    const normalized = normalizeGender(gender);
+    if (normalized === 'male') {
+      return t('profile.gender_man');
+    } else if (normalized === 'female') {
+      return t('profile.gender_woman');
+    }
+    return t('common.not_specified');
+  };
+
+  const getChatTypeDisplay = (chatType) => {
+    if (!chatType) return t('common.not_specified');
+    const type = chatType.toString().toLowerCase();
+    if (type === 'normal' || type === 'звичайне' || type === 'звичайне спілкування' || type === 'standard') {
+      return t('profile.chat_type_normal');
+    } else if (type === '18+' || type === '18' || type === 'adult' || type === 'mature') {
+      return t('profile.chat_type_18_plus');
+    }
+    return chatType;
   };
 
   // Helper to remove tokens/params from URL for consistent comparison
@@ -503,7 +532,9 @@ export const UserProfileModal = ({ isVisible, onClose, userId, initialMediaUrl =
                     />
                   </View>
 
-                  <Text style={styles.name}>{profile.name}, {profile.age}</Text>
+                  <Text style={styles.name}>
+                    {profile.name || t('common.unknown_user')}{profile.age ? `, ${profile.age}` : ''}
+                  </Text>
                   {profile.city && profile.country && (
                     <View style={styles.locationContainer}>
                       <IconSymbol name="location.fill" size={16} color={Colors.dark.primary} />
@@ -525,8 +556,16 @@ export const UserProfileModal = ({ isVisible, onClose, userId, initialMediaUrl =
                 {/* Quick Stats Grid */}
                 <View style={styles.statsContainer}>
                   <View style={styles.statsRow}>
-                    {renderQuickStat(profile.gender?.toLowerCase() === 'woman' ? 'female' : 'male', t('profile.gender_label'), t(`profile.gender_${profile.gender}`))}
-                    {renderQuickStat('message.fill', t('profile.chat_type'), profile.chatType === '18+' ? '18+' : t('profile.chat_type_normal'))}
+                    {renderQuickStat(
+                      (normalizeGender(profile.gender || profile.sex) === 'female') ? 'female' : 'male',
+                      t('profile.gender_label'),
+                      getGenderDisplay(profile.gender || profile.sex)
+                    )}
+                    {renderQuickStat(
+                      'message.fill',
+                      t('profile.chat_type_label') || t('profile.chat_type'),
+                      getChatTypeDisplay(profile.chatType || profile.preferredChatType || profile.communicationType)
+                    )}
                   </View>
                   <View style={styles.statsRow}>
                     {renderQuickStat('birthday.cake.fill', t('profile.age_label'), t('profile.age_value', { count: profile.age }))}
@@ -745,12 +784,13 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
   },
   dragHandle: {
-    width: 36,
+    width: 40,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginTop: 12,
+    marginBottom: 8,
     zIndex: 10,
   },
   scrollContent: {

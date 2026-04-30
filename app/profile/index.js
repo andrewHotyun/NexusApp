@@ -402,7 +402,7 @@ export default function ProfileScreen() {
               ) : (
                 <View style={styles.avatarPlaceholder}>
                   <Text style={styles.avatarInitial}>
-                    {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+                    {profile?.name ? profile.name.charAt(0).toUpperCase() : '?'}
                   </Text>
                 </View>
               )}
@@ -460,20 +460,56 @@ export default function ProfileScreen() {
                     style={[styles.genderBtn, editForm.gender === 'man' && styles.genderBtnActive]}
                     onPress={() => setEditForm(prev => ({ ...prev, gender: 'man' }))}>
                     <Text style={[styles.genderBtnText, editForm.gender === 'man' && styles.genderBtnTextActive]}>
-                      {t('auth.male')}
+                      {t('auth.man')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.genderBtn, editForm.gender === 'woman' && styles.genderBtnActive]}
                     onPress={() => setEditForm(prev => ({ ...prev, gender: 'woman' }))}>
                     <Text style={[styles.genderBtnText, editForm.gender === 'woman' && styles.genderBtnTextActive]}>
-                      {t('auth.female')}
+                      {t('auth.woman')}
                     </Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <Text style={styles.infoValue}>
-                  {profile?.gender === 'woman' ? t('auth.female') : t('auth.male')}
+                  {(() => {
+                    const g = (profile?.gender || profile?.sex || '').toLowerCase();
+                    if (['female', 'woman', 'girl', 'жінка', 'дівчина'].includes(g)) return t('auth.woman');
+                    if (['male', 'man', 'boy', 'чоловік', 'хлопець'].includes(g)) return t('auth.man');
+                    return t('common.not_specified');
+                  })()}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>{t('profile.chat_type_label') || t('profile.chat_type')}</Text>
+              {isEditing ? (
+                <View style={styles.genderSelect}>
+                  <TouchableOpacity 
+                    style={[styles.genderBtn, editForm.chatType === 'normal' && styles.genderBtnActive]}
+                    onPress={() => setEditForm(prev => ({ ...prev, chatType: 'normal' }))}>
+                    <Text style={[styles.genderBtnText, editForm.chatType === 'normal' && styles.genderBtnTextActive]}>
+                      {t('profile.chat_type_normal')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.genderBtn, editForm.chatType === '18+' && styles.genderBtnActive]}
+                    onPress={() => setEditForm(prev => ({ ...prev, chatType: '18+' }))}>
+                    <Text style={[styles.genderBtnText, editForm.chatType === '18+' && styles.genderBtnTextActive]}>
+                      {t('profile.chat_type_18_plus')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.infoValue}>
+                  {(() => {
+                    const ct = (profile?.chatType || profile?.preferredChatType || profile?.communicationType || '').toString().toLowerCase();
+                    if (ct === '18+' || ct === '18' || ct === 'adult') return t('profile.chat_type_18_plus');
+                    if (ct === 'normal' || ct === 'standard' || ct === 'звичайне') return t('profile.chat_type_normal');
+                    return t('common.not_specified');
+                  })()}
                 </Text>
               )}
             </View>

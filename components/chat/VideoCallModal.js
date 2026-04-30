@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 
 import { LinearGradient } from 'expo-linear-gradient';
-import { addDoc, collection, doc, getDoc, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, orderBy } from 'firebase/firestore';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'expo-router';
+import { addDoc, collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -12,31 +13,32 @@ import {
   FlatList,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Pressable
+  View
 } from 'react-native';
 import { RTCIceCandidate, RTCPeerConnection, RTCSessionDescription, RTCView, mediaDevices } from 'react-native-webrtc';
 import EmojiPicker from 'rn-emoji-keyboard';
-import { useRouter, usePathname } from 'expo-router';
 import { getGiftById } from '../../constants/gifts';
 import { Colors } from '../../constants/theme';
-import { auth, db } from '../../utils/firebase';
-import { addCallEarnings, getEarningsRate } from '../../utils/earningsHelper';
-import GiftAnimationOverlay from './GiftAnimationOverlay';
-import GiftModal from './GiftModal';
-import { StoryAvatar } from '../ui/StoryAvatar';
+import { useAppData } from '../../utils/AppDataProvider';
+import { getAvatarColor } from '../../utils/avatarUtils';
 import { updateConversation } from '../../utils/conversationHelper';
-import useGameChannel from './games/useGameChannel';
+import { addCallEarnings, getEarningsRate } from '../../utils/earningsHelper';
+import { auth, db } from '../../utils/firebase';
+import { ActionModal } from '../ui/ActionModal';
+import { StoryAvatar } from '../ui/StoryAvatar';
 import GameMenuPanel from './games/GameMenuPanel';
 import GameOverlay from './games/GameOverlay';
+import useGameChannel from './games/useGameChannel';
+import GiftAnimationOverlay from './GiftAnimationOverlay';
+import GiftModal from './GiftModal';
 
 const EXPO_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -55,6 +57,9 @@ export default function VideoCallModal({
   currentUserGender,
   currentUserProfile,
   onEndCall,
+  isRandomChat = false,
+  onNext,
+  initialLocalStream = null,
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -65,12 +70,11 @@ export default function VideoCallModal({
   const normalizeGender = (g) => {
     if (!g || typeof g !== 'string') return '';
     const lower = g.toLowerCase();
-    if (lower === 'man' || lower === 'male') return 'male';
-    if (lower === 'woman' || lower === 'female') return 'female';
-    return lower;
+    if (['male', 'm', 'man', 'boy', 'чоловік', 'хлопець', 'ч', 'чол', 'homme', 'hombre', 'männlich'].includes(lower)) return 'male';
+    if (['female', 'f', 'woman', 'girl', 'жінка', 'дівчина', 'ж', 'жін', 'femme', 'mujer', 'weiblich'].includes(lower)) return 'female';
+    return '';
   };
   const myGender = normalizeGender(currentUserGender || currentUserProfile?.gender || currentUserProfile?.sex);
-  console.log("[VideoCallModal] myGender:", myGender, "currentUserGender prop:", currentUserGender);
 
   const initialRoleRef = useRef(isCaller);
   const isActuallyCaller = initialRoleRef.current === true;
@@ -80,11 +84,25 @@ export default function VideoCallModal({
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const wasConnectedRef = useRef(false);
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [isChatExpanded, setIsChatExpanded] = useState(true);
+
+  const { friendIds, sentRequests, incomingRequests } = useAppData();
+  const [isFriendLoading, setIsFriendLoading] = useState(false);
+
+  // Derive friendship status from global AppData
+  const { friendshipStatus, incomingRequestId } = useMemo(() => {
+    if (friendIds.includes(remoteUserId)) return { friendshipStatus: 'friends', incomingRequestId: null };
+    const sent = sentRequests.find(r => r.toUserId === remoteUserId);
+    if (sent) return { friendshipStatus: 'pending', incomingRequestId: null };
+    const incoming = incomingRequests.find(r => r.fromUserId === remoteUserId);
+    if (incoming) return { friendshipStatus: 'request_received', incomingRequestId: incoming.id };
+    return { friendshipStatus: 'not_friends', incomingRequestId: null };
+  }, [friendIds, sentRequests, incomingRequests, remoteUserId]);
 
   const [showGiftModal, setShowGiftModal] = useState(false);
   const [activeGiftAnimation, setActiveGiftAnimation] = useState(null);
@@ -101,11 +119,20 @@ export default function VideoCallModal({
   const [callStartMs, setCallStartMs] = useState(null);
   const [minutesBalance, setMinutesBalance] = useState(null);
   const [error, setError] = useState(null);
+  // Derived from AppDataProvider
 
-  const [remoteData, setRemoteData] = useState({ 
-    name: remoteUserName, 
-    avatar: remoteUserAvatar, 
-    gender: remoteUserGender 
+  // Already declared above
+
+  // Already declared above
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalTitle, setSuccessModalTitle] = useState('');
+  const [successModalMessage, setSuccessModalMessage] = useState('');
+
+  const [remoteData, setRemoteData] = useState({
+    name: remoteUserName,
+    avatar: remoteUserAvatar,
+    gender: remoteUserGender
   });
 
   // Auto-hide controls after 3 seconds ONLY when the call is active
@@ -125,7 +152,7 @@ export default function VideoCallModal({
 
   useEffect(() => {
     if (!remoteUserId || !visible) return;
-    
+
     const fetchRemoteData = async () => {
       try {
         const snap = await getDoc(doc(db, 'users', remoteUserId));
@@ -146,8 +173,14 @@ export default function VideoCallModal({
     fetchRemoteData();
   }, [remoteUserId, visible]);
 
+  // Removed local listeners as we now use useAppData global state
+
+
   const partnerGenderResolved = normalizeGender(remoteData.gender || remoteUserGender);
   const partnerNameResolved = remoteData.name || remoteUserName || t('common.user');
+  const isSameGender = myGender && partnerGenderResolved && myGender === partnerGenderResolved;
+
+  console.log("[VideoCallModal] myGender:", myGender, "partnerGenderResolved:", partnerGenderResolved, "isSameGender:", isSameGender);
 
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -162,6 +195,9 @@ export default function VideoCallModal({
 
   const callIdRef = useRef(callId);
   useEffect(() => { callIdRef.current = callId; }, [callId]);
+
+  const onNextRef = useRef(onNext);
+  useEffect(() => { onNextRef.current = onNext; }, [onNext]);
 
   const callEndedRef = useRef(false);
   const isEndingRef = useRef(false);
@@ -190,13 +226,15 @@ export default function VideoCallModal({
 
   const getUIState = () => {
     if (isFinishing || isEndingRef.current) return 'ending';
+    // For regular calls, callers should see 'waiting' immediately to avoid connecting spinner
+    if (isActuallyCaller && !isRandomChat && !remoteStream && !callStartMs) return 'waiting';
     if (!localStream) return 'initializing';
     // If we have a remote stream, we are active, period.
     if (remoteStream) return 'active';
     if (isActuallyCaller && !callStartMs) return 'waiting';
     return 'connecting';
   };
-  
+
   const uiState = getUIState();
 
   const keyboardHeightAnim = useRef(new Animated.Value(0)).current;
@@ -258,44 +296,143 @@ export default function VideoCallModal({
 
     const effectiveCallId = callIdRef.current;
     if (effectiveCallId) {
-      updateDoc(doc(db, 'calls', effectiveCallId), {
-        status: 'ended',
-        endedAt: serverTimestamp(),
-        endedBy: currentUserId,
-        duration: billingMinutesRef.current || 0
-      }).catch(() => { });
-
-      if (currentUserId && remoteUserId && isCaller && effectiveCallId) {
-        const messageId = `call_${effectiveCallId}_ended`;
-        setDoc(doc(db, 'chats', currentUserId, 'messages', messageId), {
-          id: messageId, text: t('chat.video_call_ended'), senderId: currentUserId, receiverId: remoteUserId, timestamp: serverTimestamp(), type: 'system', isRead: true, systemType: 'call_ended', duration: billingMinutesRef.current || 0
-        }, { merge: true }).catch(() => { });
-        setDoc(doc(db, 'chats', remoteUserId, 'messages', messageId), {
-          id: messageId, text: t('chat.video_call_ended'), senderId: currentUserId, receiverId: remoteUserId, timestamp: serverTimestamp(), type: 'system', isRead: false, systemType: 'call_ended', duration: billingMinutesRef.current || 0
-        }, { merge: true }).catch(() => { });
-
-        addDoc(collection(db, 'videoCalls'), {
-          callerId: currentUserId, partnerId: remoteUserId, callId: effectiveCallId, status: 'completed', endedAt: serverTimestamp(), duration: billingMinutesRef.current
+      if (isRandomChat) {
+        // Random chat: only set endedBy to signal the web (no status, no chat messages, no videoCalls record)
+        updateDoc(doc(db, 'randomChatMatches', effectiveCallId), {
+          endedBy: currentUserId
         }).catch(() => { });
-      } else if (currentUserId && remoteUserId && !isCaller && effectiveCallId) {
-        let maleId = remoteUserGender === 'man' || remoteUserGender === 'male' ? remoteUserId : currentUserId;
-        let femaleId = remoteUserGender === 'woman' || remoteUserGender === 'female' ? remoteUserId : currentUserId;
-        addDoc(collection(db, 'videoCalls'), {
-          callerId: maleId, partnerId: femaleId, callId: effectiveCallId, status: 'completed', endedAt: serverTimestamp(), duration: billingMinutesRef.current
+      } else {
+        // Regular call: full end-call protocol
+        updateDoc(doc(db, 'calls', effectiveCallId), {
+          status: 'ended',
+          endedAt: serverTimestamp(),
+          endedBy: currentUserId,
+          duration: billingMinutesRef.current || 0
         }).catch(() => { });
+
+        if (currentUserId && remoteUserId && isCaller && effectiveCallId) {
+          const messageId = `call_${effectiveCallId}_ended`;
+          setDoc(doc(db, 'chats', currentUserId, 'messages', messageId), {
+            id: messageId, text: t('chat.video_call_ended'), senderId: currentUserId, receiverId: remoteUserId, timestamp: serverTimestamp(), type: 'system', isRead: true, systemType: 'call_ended', duration: billingMinutesRef.current || 0
+          }, { merge: true }).catch(() => { });
+          setDoc(doc(db, 'chats', remoteUserId, 'messages', messageId), {
+            id: messageId, text: t('chat.video_call_ended'), senderId: currentUserId, receiverId: remoteUserId, timestamp: serverTimestamp(), type: 'system', isRead: false, systemType: 'call_ended', duration: billingMinutesRef.current || 0
+          }, { merge: true }).catch(() => { });
+
+          addDoc(collection(db, 'videoCalls'), {
+            callerId: currentUserId, partnerId: remoteUserId, callId: effectiveCallId, status: 'completed', endedAt: serverTimestamp(), duration: billingMinutesRef.current
+          }).catch(() => { });
+
+          const saveRecent = (uId, pId, pName, pAvatar) => {
+            const ref = doc(db, 'recentCalls', `${uId}_${pId}`);
+            setDoc(ref, {
+              userId: uId, partnerId: pId, partnerName: pName, partnerAvatar: pAvatar,
+              timestamp: serverTimestamp(), callType: 'regular'
+            }, { merge: true }).catch(() => { });
+          };
+          saveRecent(currentUserId, remoteUserId, partnerNameResolved, remoteData?.avatar || remoteUserAvatar);
+          saveRecent(remoteUserId, currentUserId, currentUserProfile?.name || t('common.user'), currentUserProfile?.avatar || null);
+
+        } else if (currentUserId && remoteUserId && !isCaller && effectiveCallId) {
+          let maleId = remoteUserGender === 'man' || remoteUserGender === 'male' ? remoteUserId : currentUserId;
+          let femaleId = remoteUserGender === 'woman' || remoteUserGender === 'female' ? remoteUserId : currentUserId;
+          addDoc(collection(db, 'videoCalls'), {
+            callerId: maleId, partnerId: femaleId, callId: effectiveCallId, status: 'completed', endedAt: serverTimestamp(), duration: billingMinutesRef.current
+          }).catch(() => { });
+
+          const saveRecent = (uId, pId, pName, pAvatar) => {
+            const ref = doc(db, 'recentCalls', `${uId}_${pId}`);
+            setDoc(ref, {
+              userId: uId, partnerId: pId, partnerName: pName, partnerAvatar: pAvatar,
+              timestamp: serverTimestamp(), callType: 'regular'
+            }, { merge: true }).catch(() => { });
+          };
+          saveRecent(currentUserId, remoteUserId, partnerNameResolved, remoteData?.avatar || remoteUserAvatar);
+          saveRecent(remoteUserId, currentUserId, currentUserProfile?.name || t('common.user'), currentUserProfile?.avatar || null);
+        }
       }
     }
 
     cleanupCall();
     onEndCall && onEndCall();
-    
-    // Only redirect to chat if we are not already there
-    if (remoteUserId && !pathname.includes(remoteUserId)) {
+
+    // Only redirect to chat if we are not already there AND it is not a random chat
+    if (!isRandomChat && remoteUserId && !pathname.includes(remoteUserId)) {
       router.push(`/chat/${remoteUserId}`);
     }
   }, [cleanupCall, onEndCall, remoteUserId, router, pathname]);
 
   useEffect(() => { handleEndCallRef.current = handleEndCall; }, [handleEndCall]);
+
+  const handleAddFriend = async () => {
+    if (isFriendLoading || friendshipStatus === 'friends' || friendshipStatus === 'pending') return;
+
+    setIsFriendLoading(true);
+    try {
+      if (friendshipStatus === 'request_received' && incomingRequestId) {
+        // Accept existing request
+        const batch = writeBatch(db);
+
+        // Add current user's friend doc
+        const friendRef1 = doc(collection(db, 'friends'));
+        batch.set(friendRef1, {
+          userId: currentUserId,
+          friendId: remoteUserId,
+          friendName: partnerNameResolved,
+          friendAvatar: remoteData?.avatar || remoteUserAvatar || '',
+          friendCity: remoteData?.city || '',
+          friendCountry: remoteData?.country || '',
+          addedAt: serverTimestamp()
+        });
+
+        // Add remote user's friend doc
+        const friendRef2 = doc(collection(db, 'friends'));
+        batch.set(friendRef2, {
+          userId: remoteUserId,
+          friendId: currentUserId,
+          friendName: currentUserProfile?.name || t('common.user'),
+          friendAvatar: currentUserProfile?.avatar || '',
+          friendCity: currentUserProfile?.city || '',
+          friendCountry: currentUserProfile?.country || '',
+          addedAt: serverTimestamp()
+        });
+
+        // Delete the request
+        batch.delete(doc(db, 'friendRequests', incomingRequestId));
+
+        await batch.commit();
+
+        setSuccessModalTitle(t('common.success'));
+        setSuccessModalMessage(t('friends.friend_added', { name: partnerNameResolved }));
+        setShowSuccessModal(true);
+      } else {
+        // Send new request
+        await addDoc(collection(db, 'friendRequests'), {
+          fromUserId: currentUserId,
+          fromUserName: currentUserProfile?.name || t('common.me'),
+          fromUserAvatar: currentUserProfile?.avatar || null,
+          fromUserCity: currentUserProfile?.city || '',
+          fromUserCountry: currentUserProfile?.country || '',
+          toUserId: remoteUserId,
+          toUserName: partnerNameResolved,
+          toUserAvatar: remoteData?.avatar || remoteUserAvatar || '',
+          toUserCity: remoteData?.city || '',
+          toUserCountry: remoteData?.country || '',
+          status: 'pending',
+          timestamp: serverTimestamp(),
+          type: 'friend'
+        });
+
+        setSuccessModalTitle(t('common.success'));
+        setSuccessModalMessage(t('friends.request_sent', { name: partnerNameResolved }));
+        setShowSuccessModal(true);
+      }
+    } catch (err) {
+      console.error("Add friend error:", err);
+    } finally {
+      setIsFriendLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!visible || !callId || callId === 'null' || !currentUserId || !remoteUserId) {
@@ -310,86 +447,145 @@ export default function VideoCallModal({
     let isCancelled = false;
     const initTimeMs = Date.now();
 
+    const preferH264 = (sdp) => {
+      if (sdp.indexOf('SAVPF') === -1) return sdp;
+      const lines = sdp.split('\r\n');
+      let videoMLine = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].indexOf('m=video') === 0) {
+          videoMLine = i;
+          break;
+        }
+      }
+      if (videoMLine === -1) return sdp;
+
+      let h264Payload = null;
+      for (let i = videoMLine; i < lines.length; i++) {
+        if (lines[i].indexOf('a=rtpmap') === 0 && lines[i].indexOf('H264/90000') !== -1) {
+          const parts = lines[i].split(' ');
+          const payload = parts[0].split(':')[1];
+          // We want the one with packetization-mode=1 if possible, but any H264 is better than none
+          h264Payload = payload;
+          break;
+        }
+      }
+
+      if (h264Payload) {
+        const mLineElements = lines[videoMLine].split(' ');
+        const newMLine = [mLineElements[0], mLineElements[1], mLineElements[2]];
+        newMLine.push(h264Payload);
+        for (let i = 3; i < mLineElements.length; i++) {
+          if (mLineElements[i] !== h264Payload) newMLine.push(mLineElements[i]);
+        }
+        lines[videoMLine] = newMLine.join(' ');
+      }
+      return lines.join('\r\n');
+    };
+
     let pc;
     const initWebRTC = async () => {
       try {
-        const stream = await mediaDevices.getUserMedia({
-          audio: true,
-          video: true
-        });
-
-        if (isCancelled || callEndedRef.current) {
-          stream.getTracks().forEach(track => { try { track.stop(); } catch (_) { } });
-          return;
-        }
-
-        setLocalStream(stream);
-        localStreamRef.current = stream;
-
-        pc = new RTCPeerConnection({ 
-          iceServers: EXPO_ICE_SERVERS
+        // 1. Initialize PeerConnection immediately to start gathering candidates
+        pc = new RTCPeerConnection({
+          iceServers: EXPO_ICE_SERVERS,
+          iceCandidatePoolSize: 10
         });
         pcRef.current = pc;
 
-        // Initialize game data channel (peer-to-peer, zero Firebase load)
+        // Initialize game data channel
         gameChannel.initChannel(pc, isActuallyCaller);
 
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
+        // 2. Setup handlers early
         pc.ontrack = (event) => {
           console.log("[WebRTC] Track received:", event.track.kind);
           if (event.track.kind === 'video') event.track.enabled = true;
+
           if (event.streams && event.streams[0]) {
             setRemoteStream(event.streams[0]);
+          } else {
+            setRemoteStream(prev => {
+              if (prev) {
+                const tracks = prev.getTracks();
+                if (!tracks.find(t => t.id === event.track.id)) {
+                  prev.addTrack(event.track);
+                  return new MediaStream(prev.getTracks());
+                }
+                return prev;
+              }
+              const newStream = new MediaStream();
+              newStream.addTrack(event.track);
+              return newStream;
+            });
           }
         };
 
         pc.onaddstream = (event) => {
-          console.log("[WebRTC] Stream added");
-          event.stream.getVideoTracks().forEach(t => t.enabled = true);
+          console.log("[WebRTC] Stream added (fallback)");
           setRemoteStream(event.stream);
         };
 
         let disconnectTimeout;
+        let reconnectUITimeout;
         pc.onconnectionstatechange = () => {
           if (pc.connectionState === 'connected' || pc.connectionState === 'completed') {
             setConnectionStatus('connected');
+            wasConnectedRef.current = true;
             if (disconnectTimeout) clearTimeout(disconnectTimeout);
+            if (reconnectUITimeout) clearTimeout(reconnectUITimeout);
+            if (isRandomChat && !callStartMs) setCallStartMs(Date.now());
           } else if (pc.connectionState === 'disconnected') {
-            setConnectionStatus('connecting'); // temporary drop, show reconnecting UI
+            // Wait 3 seconds before showing the reconnecting UI to avoid flashing on brief hiccups
+            if (reconnectUITimeout) clearTimeout(reconnectUITimeout);
+            reconnectUITimeout = setTimeout(() => {
+              if (pc && (pc.connectionState === 'disconnected' || pc.connectionState === 'failed')) {
+                setConnectionStatus('connecting');
+              }
+            }, 3000);
             if (disconnectTimeout) clearTimeout(disconnectTimeout);
             disconnectTimeout = setTimeout(() => {
               if (pc && pc.connectionState === 'disconnected') {
                 handleEndCallRef.current && handleEndCallRef.current();
               }
-            }, 15000); // 15s drop timeout
+            }, 15000);
           } else if (pc.connectionState === 'failed') {
-            setConnectionStatus('connecting');
+            // Wait 3 seconds before showing the reconnecting UI
+            if (reconnectUITimeout) clearTimeout(reconnectUITimeout);
+            reconnectUITimeout = setTimeout(() => {
+              if (pc && (pc.connectionState === 'disconnected' || pc.connectionState === 'failed')) {
+                setConnectionStatus('connecting');
+              }
+            }, 3000);
             if (disconnectTimeout) clearTimeout(disconnectTimeout);
             disconnectTimeout = setTimeout(() => {
               if (pc && pc.connectionState === 'failed') {
                 handleEndCallRef.current && handleEndCallRef.current();
               }
-            }, 15000); // 15 seconds grace period
+            }, 15000);
           }
         };
 
-        const callDocRef = doc(db, 'calls', callId);
+        const collectionName = isRandomChat ? 'randomChatMatches' : 'calls';
+        const callDocRef = doc(db, collectionName, callId);
 
+        // 3. Start signaling listeners BEFORE getUserMedia (parallelize)
         unsubscribeCallRef.current = onSnapshot(callDocRef, async (snap) => {
-          if (!snap.exists()) {
-            // Safety: only end call if it's been more than 5 seconds (to avoid sync races)
-            if (!isCaller && !isFinishing) {
-               if (Date.now() - initTimeMs > 5000) {
-                 handleEndCallRef.current && handleEndCallRef.current();
-               }
-            }
-            return;
-          }
+          if (!snap.exists()) return;
           const callData = snap.data();
           if (callData.status === 'ended' || callData.status === 'declined') {
             handleEndCallRef.current && handleEndCallRef.current();
             return;
+          }
+
+          if (isRandomChat) {
+            if ((callData.endedBy && callData.endedBy !== currentUserId) ||
+              (callData.skippedBy && callData.skippedBy !== currentUserId)) {
+              if (onNextRef.current) {
+                onNextRef.current();
+              } else {
+                handleEndCallRef.current && handleEndCallRef.current();
+              }
+              return;
+            }
           }
 
           if (callData.status === 'accepted' && !callStartMs) {
@@ -401,39 +597,32 @@ export default function VideoCallModal({
             processingSignalingRef.current = true;
             try {
               await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
-              
-              // Flush buffered candidates for callee
               candidateBufferRef.current.forEach(cand => pc.addIceCandidate(cand).catch(() => { }));
               candidateBufferRef.current = [];
-
               const answer = await pc.createAnswer();
               if (pc.signalingState === 'have-remote-offer') {
-                await pc.setLocalDescription(answer);
-                await updateDoc(callDocRef, { answer: { type: answer.type, sdp: answer.sdp } });
+                const modifiedAnswer = { type: answer.type, sdp: preferH264(answer.sdp) };
+                await pc.setLocalDescription(modifiedAnswer);
+                await setDoc(callDocRef, { answer: modifiedAnswer }, { merge: true });
               }
-            } catch (err) { console.warn("[WebRTC] Callee signaling error:", err); } finally { processingSignalingRef.current = false; }
+            } catch (err) { console.warn("[WebRTC] Callee error:", err); } finally { processingSignalingRef.current = false; }
           } else if (isCaller && callData.answer && pc.signalingState === 'have-local-offer' && !processingSignalingRef.current) {
             processingSignalingRef.current = true;
             try {
               await pc.setRemoteDescription(new RTCSessionDescription(callData.answer));
-              
-              // Flush buffered candidates for caller
               candidateBufferRef.current.forEach(cand => pc.addIceCandidate(cand).catch(() => { }));
               candidateBufferRef.current = [];
-            } catch (err) { console.warn("[WebRTC] Caller signaling error:", err); } finally { processingSignalingRef.current = false; }
+            } catch (err) { console.warn("[WebRTC] Caller error:", err); } finally { processingSignalingRef.current = false; }
           }
         });
 
-        const callerCandidatesCol = collection(callDocRef, isCaller ? 'answerCandidates' : 'offerCandidates');
-        onSnapshot(callerCandidatesCol, (snap) => {
+        const otherCandidatesCol = collection(callDocRef, isCaller ? 'answerCandidates' : 'offerCandidates');
+        onSnapshot(otherCandidatesCol, (snap) => {
           snap.docChanges().forEach(change => {
             if (change.type === 'added') {
               const candidate = new RTCIceCandidate(change.doc.data());
-              if (pc.remoteDescription) {
-                pc.addIceCandidate(candidate).catch(() => { });
-              } else {
-                candidateBufferRef.current.push(candidate);
-              }
+              if (pc.remoteDescription) pc.addIceCandidate(candidate).catch(() => { });
+              else candidateBufferRef.current.push(candidate);
             }
           });
         });
@@ -445,10 +634,32 @@ export default function VideoCallModal({
           }
         };
 
+        // 4. Finally, get media and add tracks
+        let stream = initialLocalStream;
+        if (!stream) {
+          stream = await mediaDevices.getUserMedia({
+            audio: true,
+            video: {
+              facingMode: 'user',
+              width: { ideal: 720 },
+              height: { ideal: 1280 }
+            }
+          });
+        }
+        if (isCancelled || callEndedRef.current) {
+          if (!initialLocalStream) stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        setLocalStream(stream);
+        localStreamRef.current = stream;
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+        // 5. If caller, create offer
         if (isCaller) {
           const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-          await pc.setLocalDescription(offer);
-          await updateDoc(callDocRef, { offer: { type: offer.type, sdp: offer.sdp } });
+          const modifiedOffer = { type: offer.type, sdp: preferH264(offer.sdp) };
+          await pc.setLocalDescription(modifiedOffer);
+          await setDoc(callDocRef, { offer: modifiedOffer }, { merge: true });
         }
 
       } catch (err) {
@@ -478,7 +689,7 @@ export default function VideoCallModal({
     return () => {
       isCancelled = true;
       const stream = localStreamRef.current;
-      if (stream) stream.getTracks().forEach(track => { try { track.stop(); } catch (_) { } });
+      if (stream && !initialLocalStream) stream.getTracks().forEach(track => { try { track.stop(); } catch (_) { } });
       if (pcRef.current) { try { pcRef.current.close(); } catch (_) { } pcRef.current = null; }
       if (unsubscribeCallRef.current) { unsubscribeCallRef.current(); unsubscribeCallRef.current = null; }
       if (billingTimerRef.current) clearInterval(billingTimerRef.current);
@@ -515,21 +726,24 @@ export default function VideoCallModal({
     return () => { unsub1(); unsub2(); unsub3(); };
   }, [gameChannel?.isReady]);
 
-  // Real-time listener for male user's minutes balance
+  // Real-time listener for minutes balance
   useEffect(() => {
-    if (!visible || !currentUserId) return;
-    if (myGender === 'female') return;
+    if (!visible || !currentUserId || !remoteUserId || isSameGender) return;
 
-    const unsub = onSnapshot(doc(db, 'users', currentUserId), (snap) => {
+    // If I'm a man, watch my own balance
+    // If I'm a woman, watch the man's (partner's) balance
+    const targetUserId = myGender === 'female' ? remoteUserId : currentUserId;
+
+    const unsub = onSnapshot(doc(db, 'users', targetUserId), (snap) => {
       if (snap.exists()) {
         setMinutesBalance(parseInt(snap.data().minutesBalance || 0, 10));
       }
-    }, () => {});
+    }, (err) => console.warn("[VideoCallModal] Balance listener error:", err));
     return () => unsub();
-  }, [visible, currentUserId, currentUserGender]);
+  }, [visible, currentUserId, remoteUserId, myGender, isSameGender]);
 
   useEffect(() => {
-    if (!visible || !callStartMs || connectionStatus !== 'connected') return;
+    if (!visible || !callStartMs || connectionStatus !== 'connected' || isSameGender) return;
 
     let isMale = myGender !== 'female';
     let partnerIsFemale = partnerGenderResolved === 'female';
@@ -545,8 +759,9 @@ export default function VideoCallModal({
         const elapsedMs = Date.now() - callStartMs;
         const expectedChargedMinutes = Math.floor(elapsedMs / 60000);
 
-        const secs = Math.floor((elapsedMs % 60000) / 1000);
-        setSecondsInMinute(secs);
+        // Countdown timer: 60 -> 0 seconds
+        const secsPassed = Math.floor((elapsedMs % 60000) / 1000);
+        setSecondsInMinute(60 - secsPassed);
 
         if (expectedChargedMinutes >= billingMinutesRef.current) {
           isChargingRef.current = true;
@@ -570,7 +785,7 @@ export default function VideoCallModal({
             if (hasBalance) {
               billingMinutesRef.current += 1;
               // Determine who is female to credit earnings
-              if (remoteUserGender === 'woman' || remoteUserGender === 'female') {
+              if (partnerGenderResolved === 'female') {
                 await addCallEarnings(remoteUserId, currentUserId, 1, callIdRef.current);
               } else if (myGender === 'female') {
                 await addCallEarnings(currentUserId, remoteUserId, 1, callIdRef.current);
@@ -585,33 +800,35 @@ export default function VideoCallModal({
     } else {
       billingTimerRef.current = setInterval(() => {
         const elapsedMs = Date.now() - callStartMs;
-        setSecondsInMinute(Math.floor((elapsedMs % 60000) / 1000));
+        const secsPassed = Math.floor((elapsedMs % 60000) / 1000);
+        setSecondsInMinute(60 - secsPassed); // Countdown for women too
         billingMinutesRef.current = Math.floor(elapsedMs / 60000);
       }, 1000);
     }
 
     return () => { if (billingTimerRef.current) clearInterval(billingTimerRef.current); };
-  }, [visible, callStartMs, connectionStatus]);
+  }, [visible, callStartMs, connectionStatus, partnerGenderResolved]);
 
   const handleSendMessage = async () => {
     const textToSend = inputText.trim();
     if (!textToSend) return;
-    
+
     setInputText('');
-    
+
     try {
       const chatId = [currentUserId, remoteUserId].sort().join('_');
       // Write to liveMessages for the in-call overlay
       await addDoc(collection(db, 'liveMessages'), {
-        callId, 
-        senderId: currentUserId, 
+        callId,
+        senderId: currentUserId,
         senderName: currentUserProfile?.name || t('common.me'),
-        receiverId: remoteUserId, 
-        text: textToSend, 
-        type: 'text', 
+        receiverId: remoteUserId,
+        text: textToSend,
+        type: 'text',
         timestamp: serverTimestamp()
       });
       // Also write to the main messages collection so it appears in regular chat
+      // Mark as read: true because both users see the message live during the call
       await addDoc(collection(db, 'messages'), {
         chatId,
         senderId: currentUserId,
@@ -619,15 +836,16 @@ export default function VideoCallModal({
         text: textToSend,
         type: 'text',
         timestamp: serverTimestamp(),
-        read: false,
+        read: true,
         participants: [currentUserId, remoteUserId],
         callId: callId
       });
-      
+
       updateConversation(chatId, [currentUserId, remoteUserId], {
         text: textToSend,
         senderId: currentUserId,
-        type: 'text'
+        type: 'text',
+        read: true
       });
     } catch (error) {
       setInputText(textToSend);
@@ -655,11 +873,11 @@ export default function VideoCallModal({
         const femaleMoney = femaleDoc.exists() ? (femaleDoc.data().totalEarnings || 0) : 0;
 
         tx.update(femaleRef, {
-          minutesBalance: femaleBal + gift.minutes, 
-          totalMinutesEarned: femaleEarned + gift.minutes, 
+          minutesBalance: femaleBal + gift.minutes,
+          totalMinutesEarned: femaleEarned + gift.minutes,
           totalEarnings: femaleMoney + (gift.minutes * rate)
         });
-        
+
         const earningsRef = doc(collection(db, 'earnings'));
         tx.set(earningsRef, {
           userId: remoteUserId,
@@ -721,8 +939,8 @@ export default function VideoCallModal({
             <Ionicons name="alert-circle" size={64} color="#ff3b30" />
             <Text style={[styles.waitingName, { marginTop: 20, textAlign: 'center' }]}>{t('chat.call_error')}</Text>
             <Text style={[styles.waitingMessage, { color: '#ff3b30' }]}>{error}</Text>
-            <TouchableOpacity 
-              style={[styles.glassBtn, { backgroundColor: '#ff3b30', marginTop: 30, width: 200 }]} 
+            <TouchableOpacity
+              style={[styles.glassBtn, { backgroundColor: '#ff3b30', marginTop: 30, width: 200 }]}
               onPress={() => { Alert.alert(t('common.alert'), t('chat.closing_call')); handleEndCall(); }}
             >
               <Text style={{ color: '#fff', fontWeight: 'bold' }}>{t('common.close')}</Text>
@@ -741,18 +959,18 @@ export default function VideoCallModal({
     return (
       <View style={[styles.container, (isConnecting || isInitializing) && { backgroundColor: 'transparent' }]}>
         {/* Main Background Gradient - Only visible when active */}
-        <LinearGradient 
-          colors={['#0c1427', '#1a2a44', '#2a446a']} 
-          style={[StyleSheet.absoluteFill, !isActive && { opacity: 0 }]} 
+        <LinearGradient
+          colors={['#0c1427', '#1a2a44', '#2a446a']}
+          style={[StyleSheet.absoluteFill, !isActive && { opacity: 0 }]}
         />
 
         {/* === FULL SCREEN VIDEO (Remote) === */}
         {/* We mount it as soon as we have a stream, but keep it hidden/tiny if not active to pre-warm the surface */}
         {remoteStream && (
-          <RTCView 
+          <RTCView
             key={`remote-${remoteStream.id}`}
-            streamURL={remoteStream.toURL()} 
-            style={[StyleSheet.absoluteFill, !isActive && { top: 0, left: 0, width: 1, height: 1, opacity: 0.01 }]} 
+            streamURL={remoteStream.toURL()}
+            style={[StyleSheet.absoluteFill, !isActive && { top: 0, left: 0, width: 1, height: 1, opacity: 0.01 }]}
             objectFit="contain"
           />
         )}
@@ -764,15 +982,15 @@ export default function VideoCallModal({
             Keep on-screen at 1x1 size when connecting so OS doesn't pause it. */}
         {localStream && (
           <View style={[
-            styles.pipContainer, 
+            styles.pipContainer,
             !isActive && { position: 'absolute', top: 0, right: 0, width: 1, height: 1, opacity: 0.01 }
           ]} pointerEvents={!isActive ? 'none' : 'auto'}>
             <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden' }}>
-              <RTCView 
+              <RTCView
                 key={`local-${localStream.id}`}
-                streamURL={localStream.toURL()} 
-                style={styles.pipVideo} 
-                objectFit="cover" 
+                streamURL={localStream.toURL()}
+                style={styles.pipVideo}
+                objectFit="cover"
                 mirror={true}
                 zOrder={1}
               />
@@ -781,7 +999,7 @@ export default function VideoCallModal({
         )}
 
         {/* === INITIALIZING STATE OVERLAY === */}
-        {isInitializing && (
+        {isInitializing && !isRandomChat && (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 10 }]}>
             <ActivityIndicator size="large" color={Colors.dark.primary} />
             <Text style={{ color: '#fff', marginTop: 20, fontSize: 16 }}>{t('chat.connecting', 'Connecting...')}</Text>
@@ -789,7 +1007,7 @@ export default function VideoCallModal({
         )}
 
         {/* === WAITING/CONNECTING STATE OVERLAY === */}
-        {isConnecting && (
+        {(isConnecting || (isActuallyCaller && !isRandomChat && isInitializing)) && !isRandomChat && (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', zIndex: 10 }]}>
             <Animated.View style={[styles.waitingCard, { transform: [{ scale: 1 }] }]}>
               <View style={styles.waitingCardContent}>
@@ -802,22 +1020,22 @@ export default function VideoCallModal({
                   >
                     <View style={styles.cardAvatarInner}>
                       {(remoteData?.avatar || remoteUserAvatar) ? (
-                        <Image 
+                        <Image
                           key={remoteData?.avatar || remoteUserAvatar}
-                          source={{ uri: remoteData?.avatar || remoteUserAvatar }} 
-                          style={styles.cardAvatar} 
+                          source={{ uri: remoteData?.avatar || remoteUserAvatar }}
+                          style={styles.cardAvatar}
                         />
                       ) : (
-                        <View style={styles.cardAvatarPlaceholder}>
-                          <Text style={styles.cardAvatarText}>{(remoteData?.name || remoteUserName) ? (remoteData?.name || remoteUserName)[0].toUpperCase() : 'U'}</Text>
+                        <View style={[styles.cardAvatarPlaceholder, { backgroundColor: getAvatarColor(remoteUserId) }]}>
+                          <Text style={styles.cardAvatarText}>{partnerNameResolved[0].toUpperCase()}</Text>
                         </View>
                       )}
                     </View>
                   </LinearGradient>
                 </View>
-                
+
                 <Text style={styles.cardName}>{remoteUserName || t('common.user')}</Text>
-                
+
                 <View style={styles.statusRow}>
                   <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginRight: 8 }} />
                   <Text style={styles.cardStatusText}>
@@ -835,190 +1053,228 @@ export default function VideoCallModal({
           </View>
         )}
 
+        {/* === RESTORING CONNECTION OVERLAY === */}
+        {connectionStatus === 'connecting' && wasConnectedRef.current && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', zIndex: 10 }]} pointerEvents="box-none">
+            <ActivityIndicator size="large" color="#00fbff" />
+            <Text style={{ color: '#fff', marginTop: 16, fontSize: 16, fontWeight: '600' }}>
+              {t('chat.restoring_connection', 'Restoring connection...')}
+            </Text>
+          </View>
+        )}
+
         {/* Controls and Chat (only if active) */}
         {isActive && (
           <>
-            {/* === RESTORING CONNECTION OVERLAY === */}
-            {connectionStatus === 'connecting' && (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 20 }]} pointerEvents="box-none">
-                <ActivityIndicator size="large" color="#00fbff" />
-                <Text style={{ color: '#fff', marginTop: 16, fontSize: 16, fontWeight: '600' }}>
-                  {t('chat.restoring_connection', 'Restoring connection...')}
-                </Text>
-              </View>
+
+            {/* === SMALL FLOATING INFO & TIMER === */}
+            {showControls && (
+              <SafeAreaView style={styles.floatingContainer} pointerEvents="box-none">
+                {/* Avatar + Name */}
+                <View style={styles.floatingInfo}>
+                  <StoryAvatar userId={remoteUserId} avatarUrl={remoteData?.avatar || remoteUserAvatar} name={partnerNameResolved} size={32} showStatus={false} />
+                  <Text style={styles.floatingName} numberOfLines={1}>{partnerNameResolved}</Text>
+                </View>
+
+                {/* Timer (Hidden if same gender) */}
+                {!isSameGender && (
+                  <View style={styles.floatingTimer}>
+                    <Ionicons name="time-outline" size={11} color="#00fbff" />
+                    <Text style={styles.floatingTimerText}>
+                      {myGender === 'female' ? t('chat.partner_balance', 'Баланс партнера') : ''} {minutesBalance !== null ? minutesBalance : '—'} {t('chat.minutes_unit')}
+                    </Text>
+                    <View style={styles.timerDivider} />
+                    <Text style={styles.timerCountdown}>{secondsInMinute}{t('chat.seconds_unit')}</Text>
+                  </View>
+                )}
+              </SafeAreaView>
             )}
 
-        {/* === SMALL FLOATING INFO & TIMER === */}
-        {showControls && (
-          <SafeAreaView style={styles.floatingContainer} pointerEvents="box-none">
-          {/* Avatar + Name */}
-          <View style={styles.floatingInfo}>
-            <StoryAvatar userId={remoteUserId} avatarUrl={remoteData?.avatar || remoteUserAvatar} size={32} showStatus={false} />
-            <Text style={styles.floatingName} numberOfLines={1}>{partnerNameResolved}</Text>
-          </View>
-
-          {/* Timer (Restored exact custom layout) */}
-          <View style={styles.floatingTimer}>
-            <Ionicons name="time-outline" size={11} color="#00fbff" />
-            <Text style={styles.floatingTimerText}>{minutesBalance !== null ? minutesBalance : '—'} {t('chat.minutes_unit')}</Text>
-            <View style={styles.timerDivider} />
-            <Text style={styles.timerCountdown}>{60 - secondsInMinute}{t('chat.seconds_unit')}</Text>
-          </View>
-          </SafeAreaView>
-        )}
-
-        {/* === OVERLAY for chat & controls === */}
-        <View style={[StyleSheet.absoluteFill]} pointerEvents="box-none">
-            <Animated.View style={[styles.chatOverlay, { bottom: Animated.add(200, keyboardHeightAnim) }]} pointerEvents="box-none">
-              <View style={styles.chatHeader}>
-                {messages.length > 0 && (
-                  <TouchableOpacity onPress={() => setIsChatExpanded(!isChatExpanded)} style={styles.toggleChatBtn}>
-                    <Ionicons name={isChatExpanded ? "chevron-down" : "chevron-up"} size={20} color="#fff" />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {isChatExpanded && (
-                <FlatList
-                  data={messages}
-                  keyExtractor={item => item.id}
-                  inverted={true}
-                  style={styles.chatList}
-                  contentContainerStyle={styles.chatContent}
-                  showsVerticalScrollIndicator={true}
-                  renderItem={({ item }) => {
-                    const isMe = item.senderId === currentUserId;
-                    const isGift = item.type === 'gift';
-                    const gift = isGift ? getGiftById(item.giftId) : null;
-                    
-                    return (
-                      <View style={isMe ? styles.chatBubbleRight : styles.chatBubbleLeft}>
-                        <Text style={{ fontSize: 10, color: isMe ? 'rgba(0,251,255,0.8)' : 'rgba(255,255,255,0.6)', marginBottom: 2, textAlign: isMe ? 'right' : 'left', fontWeight: '600' }}>
-                          {isMe ? t('common.me') + ':' : (item.senderName || remoteUserName || t('common.user')) + ':'}
-                        </Text>
-                        
-                        {isGift && gift ? (
-                          <View style={styles.smallGiftBlock}>
-                            <LinearGradient
-                              colors={gift.gradientColors || ['#333', '#666']}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 1 }}
-                              style={styles.smallGiftVisual}
-                            >
-                              <Text style={styles.smallGiftEmoji}>{gift.emoji}</Text>
-                            </LinearGradient>
-                            <Text style={styles.smallGiftText}>{t(gift.nameKey)}</Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.chatText}>{item.text}</Text>
-                        )}
-                      </View>
-                    );
-                  }}
-                />
-              )}
-            </Animated.View>
-
-            {showControls && (
-              <Animated.View style={[styles.footerContainer, { bottom: keyboardHeightAnim }]} pointerEvents="box-none">
-              <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.bottomGradient} pointerEvents="none" />
-
-              <View style={styles.footer}>
-                <Animated.View style={[styles.glassControlsRow, { marginTop: 0, marginBottom: 15, height: glassHeight, opacity: glassOpacity, overflow: 'hidden' }]}>
-                  <View style={styles.glassControlsBackground}>
-                    <TouchableOpacity onPress={toggleMute} style={[styles.glassBtn, isMuted && styles.glassBtnActive]}>
-                      <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={26} color="#fff" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={handleEndCall} style={styles.glassEndBtn}>
-                      <Ionicons name="call" size={32} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => setShowGameMenu(true)} style={styles.glassBtn}>
-                      <Ionicons name="game-controller-outline" size={26} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-
-                <View style={styles.inputRow}>
-                  <View style={styles.chatInputContainer}>
-                    <TouchableOpacity onPress={() => setShowEmojiPicker(true)} style={styles.iconBtn}>
-                      <Ionicons name="happy-outline" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.chatInput}
-                      placeholder={t('chat.message_placeholder', { name: remoteUserName })}
-                      placeholderTextColor="#999"
-                      value={inputText}
-                      onChangeText={setInputText}
-                      onSubmitEditing={handleSendMessage}
-                      maxLength={500}
-                    />
-                    <TouchableOpacity onPress={() => setShowGiftModal(true)} style={styles.iconBtn}>
-                      <Ionicons name="gift-outline" size={24} color="#FFD700" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {inputText.trim().length > 0 && (
-                    <TouchableOpacity onPress={handleSendMessage} style={styles.sendBtnOuter}>
-                      <Ionicons name="send" size={20} color="#fff" style={{ marginLeft: 2 }} />
+            {/* === OVERLAY for chat & controls === */}
+            <View style={[StyleSheet.absoluteFill]} pointerEvents="box-none">
+              <Animated.View style={[styles.chatOverlay, { bottom: Animated.add(200, keyboardHeightAnim) }]} pointerEvents="box-none">
+                <View style={styles.chatHeader}>
+                  {messages.length > 0 && (
+                    <TouchableOpacity onPress={() => setIsChatExpanded(!isChatExpanded)} style={styles.toggleChatBtn}>
+                      <Ionicons name={isChatExpanded ? "chevron-down" : "chevron-up"} size={20} color="#fff" />
                     </TouchableOpacity>
                   )}
                 </View>
-              </View>
-            </Animated.View>
-          )}
-        </View>
 
-        <GiftModal 
-          visible={showGiftModal} 
-          onClose={() => setShowGiftModal(false)} 
-          onSendGift={handleSendGift} 
-          userBalance={minutesBalance !== null ? minutesBalance : 0}
-          recipientName={partnerNameResolved}
-        />
+                {isChatExpanded && (
+                  <FlatList
+                    data={messages}
+                    keyExtractor={item => item.id}
+                    inverted={true}
+                    style={styles.chatList}
+                    contentContainerStyle={styles.chatContent}
+                    showsVerticalScrollIndicator={true}
+                    renderItem={({ item }) => {
+                      const isMe = item.senderId === currentUserId;
+                      const isGift = item.type === 'gift';
+                      const gift = isGift ? getGiftById(item.giftId) : null;
 
-        {activeGiftAnimation && (
-          <GiftAnimationOverlay
-            gift={activeGiftAnimation.gift}
-            partnerName={activeGiftAnimation.partnerName}
-            isSender={activeGiftAnimation.isSender}
-            onComplete={() => setActiveGiftAnimation(null)}
-          />
-        )}
+                      return (
+                        <View style={isMe ? styles.chatBubbleRight : styles.chatBubbleLeft}>
+                          <Text style={{ fontSize: 10, color: isMe ? 'rgba(0,251,255,0.8)' : 'rgba(255,255,255,0.6)', marginBottom: 2, textAlign: isMe ? 'right' : 'left', fontWeight: '600' }}>
+                            {isMe ? t('common.me') + ':' : (item.senderName || remoteUserName || t('common.user')) + ':'}
+                          </Text>
 
-        <EmojiPicker open={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} onEmojiSelected={(emoji) => setInputText(prev => prev + emoji.emoji)} />
+                          {isGift && gift ? (
+                            <View style={styles.smallGiftBlock}>
+                              <LinearGradient
+                                colors={gift.gradientColors || ['#333', '#666']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.smallGiftVisual}
+                              >
+                                <Text style={styles.smallGiftEmoji}>{gift.emoji}</Text>
+                              </LinearGradient>
+                              <Text style={styles.smallGiftText}>{t(gift.nameKey)}</Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.chatText}>{item.text}</Text>
+                          )}
+                        </View>
+                      );
+                    }}
+                  />
+                )}
+              </Animated.View>
 
-        <GameMenuPanel
-          isOpen={showGameMenu}
-          onClose={() => setShowGameMenu(false)}
-          onSelectGame={(gameId) => { setActiveGame(gameId); setShowGameMenu(false); }}
-          gameChannel={gameChannel}
-          incomingInvite={incomingGameInvite}
-          onAcceptInvite={() => {
-            if (incomingGameInvite && gameChannel?.isReady) {
-              gameChannel.sendMessage({ type: 'game_accept', gameId: incomingGameInvite.gameId });
-              setActiveGame(incomingGameInvite.gameId);
-              setIncomingGameInvite(null);
-              setShowGameMenu(false);
-            }
-          }}
-          onDeclineInvite={() => {
-            if (gameChannel?.isReady) gameChannel.sendMessage({ type: 'game_decline' });
-            setIncomingGameInvite(null);
-          }}
-          partnerName={partnerNameResolved}
-        />
+              {showControls && (
+                <Animated.View style={[styles.footerContainer, { bottom: keyboardHeightAnim }]} pointerEvents="box-none">
+                  <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.bottomGradient} pointerEvents="none" />
 
-        {activeGame && (
-          <GameOverlay
-            gameId={activeGame}
-            gameChannel={gameChannel}
-            isCaller={isActuallyCaller}
-            onClose={() => setActiveGame(null)}
-            partnerName={partnerNameResolved}
-          />
-        )}
+                  <View style={styles.footer}>
+                    <Animated.View style={[styles.glassControlsRow, { marginTop: 0, marginBottom: 15, height: glassHeight, opacity: glassOpacity, overflow: 'hidden' }]}>
+                      <View style={styles.glassControlsBackground}>
+                        <TouchableOpacity onPress={toggleMute} style={[styles.glassBtn, isMuted && styles.glassBtnActive]}>
+                          <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={26} color="#fff" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={handleEndCall} style={styles.glassEndBtn}>
+                          <Ionicons name="call" size={32} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+                        </TouchableOpacity>
+
+                        {isRandomChat && (
+                          <TouchableOpacity
+                            onPress={handleAddFriend}
+                            style={[
+                              styles.glassBtn,
+                              friendshipStatus === 'friends' && { backgroundColor: 'rgba(100, 116, 139, 0.5)' },
+                              friendshipStatus === 'pending' && { backgroundColor: 'rgba(234, 179, 8, 0.5)' },
+                              friendshipStatus === 'request_received' && { backgroundColor: 'rgba(52, 152, 219, 0.5)' }
+                            ]}
+                            disabled={(friendshipStatus === 'friends' || friendshipStatus === 'pending') || isFriendLoading}
+                          >
+                            {isFriendLoading ? (
+                              <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                              <Ionicons
+                                name={
+                                  friendshipStatus === 'friends' ? "people" :
+                                    friendshipStatus === 'pending' ? "time" :
+                                      friendshipStatus === 'request_received' ? "person-add" : "person-add"
+                                }
+                                size={26}
+                                color={friendshipStatus === 'friends' ? "#64748b" : "#fff"}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        )}
+
+                        {isRandomChat && (
+                          <TouchableOpacity onPress={onNext} style={[styles.glassBtn, { backgroundColor: 'rgba(14, 240, 255, 0.3)' }]}>
+                            <Ionicons name="play-forward" size={26} color="#0ef0ff" />
+                          </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity onPress={() => setShowGameMenu(true)} style={styles.glassBtn}>
+                          <Ionicons name="game-controller-outline" size={26} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    </Animated.View>
+
+                    <View style={styles.inputRow}>
+                      <View style={styles.chatInputContainer}>
+                        <TouchableOpacity onPress={() => setShowEmojiPicker(true)} style={styles.iconBtn}>
+                          <Ionicons name="happy-outline" size={24} color="#fff" />
+                        </TouchableOpacity>
+                        <TextInput
+                          style={styles.chatInput}
+                          placeholder={isRandomChat ? t('chat.placeholder', 'Type a message...') : t('chat.message_placeholder', { name: remoteUserName || t('common.user') })}
+                          placeholderTextColor="#999"
+                          value={inputText}
+                          onChangeText={setInputText}
+                          onSubmitEditing={handleSendMessage}
+                          maxLength={500}
+                        />
+                        <TouchableOpacity onPress={() => setShowGiftModal(true)} style={styles.iconBtn}>
+                          <Ionicons name="gift-outline" size={24} color="#FFD700" />
+                        </TouchableOpacity>
+                      </View>
+
+                      {inputText.trim().length > 0 && (
+                        <TouchableOpacity onPress={handleSendMessage} style={styles.sendBtnOuter}>
+                          <Ionicons name="send" size={20} color="#fff" style={{ marginLeft: 2 }} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </Animated.View>
+              )}
+            </View>
+
+            <GiftModal
+              visible={showGiftModal}
+              onClose={() => setShowGiftModal(false)}
+              onSendGift={handleSendGift}
+              userBalance={minutesBalance !== null ? minutesBalance : 0}
+              recipientName={partnerNameResolved}
+            />
+
+            {activeGiftAnimation && (
+              <GiftAnimationOverlay
+                gift={activeGiftAnimation.gift}
+                partnerName={activeGiftAnimation.partnerName}
+                isSender={activeGiftAnimation.isSender}
+                onComplete={() => setActiveGiftAnimation(null)}
+              />
+            )}
+
+            <EmojiPicker open={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} onEmojiSelected={(emoji) => setInputText(prev => prev + emoji.emoji)} />
+
+            <GameMenuPanel
+              isOpen={showGameMenu}
+              onClose={() => setShowGameMenu(false)}
+              onSelectGame={(gameId) => { setActiveGame(gameId); setShowGameMenu(false); }}
+              gameChannel={gameChannel}
+              incomingInvite={incomingGameInvite}
+              onAcceptInvite={() => {
+                if (incomingGameInvite && gameChannel?.isReady) {
+                  gameChannel.sendMessage({ type: 'game_accept', gameId: incomingGameInvite.gameId });
+                  setActiveGame(incomingGameInvite.gameId);
+                  setIncomingGameInvite(null);
+                  setShowGameMenu(false);
+                }
+              }}
+              onDeclineInvite={() => {
+                if (gameChannel?.isReady) gameChannel.sendMessage({ type: 'game_decline' });
+                setIncomingGameInvite(null);
+              }}
+              partnerName={partnerNameResolved}
+            />
+
+            {activeGame && (
+              <GameOverlay
+                gameId={activeGame}
+                gameChannel={gameChannel}
+                isCaller={isActuallyCaller}
+                onClose={() => setActiveGame(null)}
+                partnerName={partnerNameResolved}
+              />
+            )}
           </>
         )}
       </View>
@@ -1030,6 +1286,16 @@ export default function VideoCallModal({
       <Animated.View style={animatedStyle}>
         {renderContent()}
       </Animated.View>
+      {/* Success Modal */}
+      <ActionModal
+        visible={showSuccessModal}
+        title={successModalTitle}
+        message={successModalMessage}
+        onClose={() => setShowSuccessModal(false)}
+        onConfirm={() => setShowSuccessModal(false)}
+        showCancel={false}
+        confirmText={t('common.ok')}
+      />
     </Modal>
   );
 }
@@ -1039,7 +1305,7 @@ const styles = StyleSheet.create({
   topGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
   bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 250 },
   overlay: { flex: 1, zIndex: 110 },
-  
+
   // PIP Video (Local)
   pipContainer: {
     position: 'absolute',
@@ -1111,7 +1377,7 @@ const styles = StyleSheet.create({
   chatBubbleLeft: { backgroundColor: 'rgba(0,0,0,0.85)', alignSelf: 'flex-start', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 18, borderBottomLeftRadius: 4, marginBottom: 8, maxWidth: '80%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   chatBubbleRight: { backgroundColor: 'rgba(5, 80, 100, 0.9)', alignSelf: 'flex-end', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 18, borderBottomRightRadius: 4, marginBottom: 8, maxWidth: '80%', borderWidth: 1, borderColor: 'rgba(0,251,255,0.4)' },
   chatText: { color: '#fff', fontSize: 16, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-  
+
   // In-call Gift display
   smallGiftBlock: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 12, padding: 4, marginTop: 4 },
   smallGiftVisual: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },

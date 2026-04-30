@@ -1,0 +1,320 @@
+
+> nexus@1.0.0 lint
+> expo lint
+
+env: load .env
+env: export EXPO_PUBLIC_FIREBASE_API_KEY EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN EXPO_PUBLIC_FIREBASE_PROJECT_ID EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID EXPO_PUBLIC_FIREBASE_APP_ID EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
+
+/Users/andrewhotyun/Desktop/NexusApp/app/(tabs)/chats.js
+    1:55  warning  'useCallback' is defined but never used                                                                                                                                                                                                                                          no-unused-vars
+    7:3   warning  'Image' is defined but never used                                                                                                                                                                                                                                                no-unused-vars
+   13:3   warning  'StatusBar' is defined but never used                                                                                                                                                                                                                                            no-unused-vars
+   16:8   warning  '/Users/andrewhotyun/Desktop/NexusApp/node_modules/react-native/index.js' imported multiple times                                                                                                                                                                                import/no-duplicates
+   25:10  warning  'getAvatarColor' is defined but never used                                                                                                                                                                                                                                       no-unused-vars
+   28:23  warning  '/Users/andrewhotyun/Desktop/NexusApp/node_modules/react-native/index.js' imported multiple times                                                                                                                                                                                import/no-duplicates
+   48:5   warning  'onlineUsers' is assigned a value but never used                                                                                                                                                                                                                                 no-unused-vars
+   57:10  warning  'userProfile' is assigned a value but never used                                                                                                                                                                                                                                 no-unused-vars
+   59:10  warning  'deleting' is assigned a value but never used                                                                                                                                                                                                                                    no-unused-vars
+   85:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                          react-hooks/exhaustive-deps
+  151:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                          react-hooks/exhaustive-deps
+  170:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                          react-hooks/exhaustive-deps
+  271:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                          react-hooks/exhaustive-deps
+  328:6   warning  React Hook useEffect has missing dependencies: 'chats' and 'user'. Either include them or remove the dependency array                                                                                                                                                            react-hooks/exhaustive-deps
+  334:24  warning  The ref value 'userListenersRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'userListenersRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/app/(tabs)/friends.js
+    1:55  warning  'useCallback' is defined but never used                                                                          no-unused-vars
+    8:3   warning  'Image' is defined but never used                                                                                no-unused-vars
+   21:3   warning  'onSnapshot' is defined but never used                                                                           no-unused-vars
+   22:3   warning  'orderBy' is defined but never used                                                                              no-unused-vars
+   27:3   warning  'addDoc' is defined but never used                                                                               no-unused-vars
+   28:3   warning  'serverTimestamp' is defined but never used                                                                      no-unused-vars
+   29:3   warning  'writeBatch' is defined but never used                                                                           no-unused-vars
+   38:10  warning  'getAvatarColor' is defined but never used                                                                       no-unused-vars
+   58:19  warning  'setLoading' is assigned a value but never used                                                                  no-unused-vars
+  155:6   warning  React Hook useEffect has a missing dependency: 'userProfiles'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/app/(tabs)/notifications.js
+   14:3   warning  'updateDoc' is defined but never used                                                                    no-unused-vars
+   78:16  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                             no-unused-vars
+   81:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   94:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  156:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  191:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  241:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  255:13  warning  'friendStories' is assigned a value but never used                                                       no-unused-vars
+  256:13  warning  'seenUsers' is assigned a value but never used                                                           no-unused-vars
+  285:26  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                             no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/app/(tabs)/requests.js
+    9:3   warning  'Image' is defined but never used                                                                                       no-unused-vars
+   12:3   warning  'StatusBar' is defined but never used                                                                                   no-unused-vars
+   15:3   warning  'Keyboard' is defined but never used                                                                                    no-unused-vars
+   30:3   warning  'onSnapshot' is defined but never used                                                                                  no-unused-vars
+   31:3   warning  'orderBy' is defined but never used                                                                                     no-unused-vars
+   49:10  warning  'getAvatarColor' is defined but never used                                                                              no-unused-vars
+   53:10  warning  'LinearGradient' is defined but never used                                                                              no-unused-vars
+  229:6   warning  React Hook useEffect has a missing dependency: 'userProfiles'. Either include it or remove the dependency array         react-hooks/exhaustive-deps
+  318:6   warning  React Hook useCallback has an unnecessary dependency: 'myBlockedIds'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  678:26  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                            no-unused-vars
+  768:26  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                            no-unused-vars
+  861:26  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                            no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/app/(tabs)/videochat.js
+   12:3   warning  'TextInput' is defined but never used                                                                              no-unused-vars
+   21:10  warning  'BlurView' is defined but never used                                                                               no-unused-vars
+   26:36  warning  'orderBy' is defined but never used                                                                                no-unused-vars
+   32:10  warning  'Colors' is defined but never used                                                                                 no-unused-vars
+   39:16  warning  'height' is assigned a value but never used                                                                        no-unused-vars
+   69:10  warning  'activeActionUserId' is assigned a value but never used                                                            no-unused-vars
+  180:6   warning  React Hook useEffect has a missing dependency: 'recentProfiles'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  191:9   warning  'handleAddFriend' is assigned a value but never used                                                               no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/app/_layout.js
+    2:10  warning  'StyleSheet' is defined but never used                                                                     no-unused-vars
+   12:1   warning  Import in body of module; reorder to top                                                                   import/first
+   13:1   warning  Import in body of module; reorder to top                                                                   import/first
+   14:1   warning  Import in body of module; reorder to top                                                                   import/first
+   15:1   warning  Import in body of module; reorder to top                                                                   import/first
+   16:1   warning  Import in body of module; reorder to top                                                                   import/first
+   17:1   warning  Import in body of module; reorder to top                                                                   import/first
+   18:1   warning  Import in body of module; reorder to top                                                                   import/first
+   23:1   warning  Import in body of module; reorder to top                                                                   import/first
+   24:1   warning  Import in body of module; reorder to top                                                                   import/first
+   25:1   warning  Import in body of module; reorder to top                                                                   import/first
+   26:1   warning  Import in body of module; reorder to top                                                                   import/first
+   27:1   warning  Import in body of module; reorder to top                                                                   import/first
+   28:1   warning  Import in body of module; reorder to top                                                                   import/first
+   67:1   warning  Import in body of module; reorder to top                                                                   import/first
+   76:9   warning  'pathname' is assigned a value but never used                                                              no-unused-vars
+  122:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+  166:6   warning  React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  191:6   warning  React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/app/auth/landing.js
+   1:10  warning  'IconSymbol' is defined but never used                                                                                                        no-unused-vars
+   3:36  warning  'useState' is defined but never used                                                                                                          no-unused-vars
+   8:3   warning  'Platform' is defined but never used                                                                                                          no-unused-vars
+  17:10  warning  'Colors' is defined but never used                                                                                                            no-unused-vars
+  25:10  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                                                  no-unused-vars
+  29:9   warning  'width' is assigned a value but never used                                                                                                    no-unused-vars
+  43:6   warning  React Hook useEffect has missing dependencies: 'fadeAnim', 'globeScale', and 'slideAnim'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/app/auth/login.js
+   12:3   warning  'SafeAreaView' is defined but never used                                          no-unused-vars
+   13:3   warning  'Alert' is defined but never used                                                 no-unused-vars
+   14:3   warning  'Modal' is defined but never used                                                 no-unused-vars
+   36:10  warning  'showRecoveryModal' is assigned a value but never used                            no-unused-vars
+  142:9   warning  'handleRecoverAccount' is assigned a value but never used                         no-unused-vars
+  149:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  155:9   warning  'handleLogoutAndCancel' is assigned a value but never used                        no-unused-vars
+  278:48  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                   react/no-unescaped-entities
+
+/Users/andrewhotyun/Desktop/NexusApp/app/auth/register.js
+   3:13  warning  'ImageManipulator' is defined but never used  no-unused-vars
+   8:25  warning  'State' is defined but never used             no-unused-vars
+  13:3   warning  'Alert' is defined but never used             no-unused-vars
+  17:3   warning  'SafeAreaView' is defined but never used      no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/app/auth/verification.js
+  10:3   warning  'Alert' is defined but never used   no-unused-vars
+  21:10  warning  'Colors' is defined but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/app/blocked-users/index.js
+  10:3  warning  'Alert' is defined but never used                                                                               no-unused-vars
+  82:6  warning  React Hook useEffect has a missing dependency: 'currentUser'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/app/chat/[id].js
+    53:3   warning  'LinearTransition' is defined but never used                                                                                                                                                                                                                           no-unused-vars
+    66:10  warning  'getAvatarColor' is defined but never used                                                                                                                                                                                                                             no-unused-vars
+    72:8   warning  Using exported name 'GiftModal' as identifier for default import                                                                                                                                                                                                       import/no-named-as-default
+    73:8   warning  Using exported name 'GiftAnimationOverlay' as identifier for default import                                                                                                                                                                                            import/no-named-as-default
+    75:10  warning  'GIFTS' is defined but never used                                                                                                                                                                                                                                      no-unused-vars
+    76:8   warning  'VideoCallModal' is defined but never used                                                                                                                                                                                                                             no-unused-vars
+    77:10  warning  'mediaDevices' is defined but never used                                                                                                                                                                                                                               no-unused-vars
+   110:10  warning  'blocking' is assigned a value but never used                                                                                                                                                                                                                          no-unused-vars
+   160:6   warning  React Hook useEffect has a missing dependency: 'startGlobalCall'. Either include it or remove the dependency array                                                                                                                                                     react-hooks/exhaustive-deps
+   187:6   warning  React Hook useEffect has missing dependencies: 'typingDot1', 'typingDot2', and 'typingDot3'. Either include them or remove the dependency array                                                                                                                        react-hooks/exhaustive-deps
+   331:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                react-hooks/exhaustive-deps
+   362:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                react-hooks/exhaustive-deps
+   397:6   warning  React Hook useEffect has a missing dependency: 'user?.uid'. Either include it or remove the dependency array                                                                                                                                                           react-hooks/exhaustive-deps
+   414:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                react-hooks/exhaustive-deps
+   594:6   warning  React Hook useEffect has missing dependencies: 'partner?.name' and 'user'. Either include them or remove the dependency array. You can also replace multiple useState variables with useReducer if 'setActiveGiftAnimation' needs the current value of 'partner.name'  react-hooks/exhaustive-deps
+   617:6   warning  React Hook useCallback has a missing dependency: 'partnerId'. Either include it or remove the dependency array                                                                                                                                                         react-hooks/exhaustive-deps
+  1265:16  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                                                                                                                                                                           no-unused-vars
+  1281:6   warning  React Hook useCallback has a missing dependency: 'jumpToMatch'. Either include it or remove the dependency array                                                                                                                                                       react-hooks/exhaustive-deps
+  1391:6   warning  React Hook useCallback has missing dependencies: 'handleLongPress', 'onDeletionComplete', 'selectedIds', and 'toggleMessageSelection'. Either include them or remove the dependency array                                                                              react-hooks/exhaustive-deps
+  2011:5   error    Duplicate key 'paddingHorizontal'                                                                                                                                                                                                                                      no-dupe-keys
+  2433:3   error    Duplicate key 'searchBarContainer'                                                                                                                                                                                                                                     no-dupe-keys
+  2443:3   error    Duplicate key 'searchBarInput'                                                                                                                                                                                                                                         no-dupe-keys
+
+/Users/andrewhotyun/Desktop/NexusApp/app/cleanup_nexus.js
+  3:22  warning  'query' is defined but never used      no-unused-vars
+  3:38  warning  'deleteDoc' is defined but never used  no-unused-vars
+  3:66  warning  'where' is defined but never used      no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/app/index.js
+    8:3   warning  'Easing' is defined but never used                                                                                                  no-unused-vars
+   19:10  warning  'Colors' is defined but never used                                                                                                  no-unused-vars
+   46:1   warning  Import in body of module; reorder to top                                                                                            import/first
+   49:3   warning  'useDerivedValue' is defined but never used                                                                                         no-unused-vars
+   58:22  error    Component definition is missing display name                                                                                        react/display-name
+   87:6   warning  React Hook useEffect has missing dependencies: 'handleComplete' and 'progress'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  179:6   warning  React Hook useEffect has missing dependencies: 'fadeAnim' and 'slideAnim'. Either include them or remove the dependency array       react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/app/media/index.js
+   42:8   warning  Using exported name 'StoryViewer' as identifier for default import                                                import/no-named-as-default
+  106:10  warning  'ticker' is assigned a value but never used                                                                       no-unused-vars
+  251:6   warning  React Hook useEffect has a missing dependency: 'currentFolder'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  461:26  error    'isLiked' is not defined                                                                                          no-undef
+  910:56  warning  'finalDisplayCount' is assigned a value but never used                                                            no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/app/profile/index.js
+    8:3   warning  'Image' is defined but never used                                                                          no-unused-vars
+   11:3   warning  'Alert' is defined but never used                                                                          no-unused-vars
+   26:3   warning  'deleteDoc' is defined but never used                                                                      no-unused-vars
+   36:25  warning  'State' is defined but never used                                                                          no-unused-vars
+  131:6   warning  React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  293:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                               no-unused-vars
+  316:9   warning  'handleLogout' is assigned a value but never used                                                          no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/DisintegrationEffect.js
+  99:6  warning  React Hook useEffect has missing dependencies: 'duration', 'onComplete', and 'progress'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/GiftAnimationOverlay.js
+   2:10  warning  'Modal' is defined but never used                                                                                                                          no-unused-vars
+   7:3   warning  'withDelay' is defined but never used                                                                                                                      no-unused-vars
+   8:3   warning  'withSequence' is defined but never used                                                                                                                   no-unused-vars
+  11:3   warning  'Easing' is defined but never used                                                                                                                         no-unused-vars
+  12:3   warning  'interpolate' is defined but never used                                                                                                                    no-unused-vars
+  16:10  warning  'Colors' is defined but never used                                                                                                                         no-unused-vars
+  26:10  warning  'visible' is assigned a value but never used                                                                                                               no-unused-vars
+  73:6   warning  React Hook useEffect has missing dependencies: 'handleComplete', 'opacity', 'scale', and 'translateY'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/GiftModal.js
+  18:8   warning  Using exported name 'GIFTS' as identifier for default import  import/no-named-as-default
+  20:16  warning  'SCREEN_WIDTH' is assigned a value but never used             no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/GlobalIncomingCall.js
+   1:28  warning  'useRef' is defined but never used                                                                              no-unused-vars
+   2:59  warning  'Animated' is defined but never used                                                                            no-unused-vars
+  15:9   warning  'router' is assigned a value but never used                                                                     no-unused-vars
+  44:6   warning  React Hook useEffect has a missing dependency: 'stopRinging'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  52:16  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                    no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/MessageItem.js
+  55:6  warning  React Hook useEffect has a missing dependency: 'selectionAnim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/VideoCallModal.js
+    4:43   warning  'getDocs' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+    4:64   warning  'query' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                           no-unused-vars
+    4:123  warning  'where' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                           no-unused-vars
+    4:130  warning  'orderBy' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+   15:3    warning  'KeyboardAvoidingView' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                            no-unused-vars
+   33:8    warning  Using exported name 'GiftAnimationOverlay' as identifier for default import                                                                                                                                                                                                                                                                                                                                                                 import/no-named-as-default
+   34:8    warning  Using exported name 'GiftModal' as identifier for default import                                                                                                                                                                                                                                                                                                                                                                            import/no-named-as-default
+   92:10   warning  'isKeyboardVisible' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                      no-unused-vars
+  175:6    warning  React Hook useEffect has a missing dependency: 't'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  359:6    warning  React Hook useCallback has missing dependencies: 'currentUserId', 'currentUserProfile?.avatar', 'currentUserProfile?.name', 'isCaller', 'isRandomChat', 'partnerNameResolved', 'remoteData?.avatar', 'remoteUserAvatar', 'remoteUserGender', and 't'. Either include them or remove the dependency array                                                                                                                                    react-hooks/exhaustive-deps
+  444:11   warning  'initTimeMs' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                             no-unused-vars
+  679:6    warning  React Hook useEffect has missing dependencies: 'callStartMs', 'currentUserId', 'gameChannel', 'initialLocalStream', 'isActuallyCaller', 'isCaller', 'isRandomChat', 'remoteUserId', 'remoteUserName', and 't'. Either include them or remove the dependency array. If 'setActiveGiftAnimation' needs the current value of 'remoteUserName', you can also switch to useReducer instead of useState and read 'remoteUserName' in the reducer  react-hooks/exhaustive-deps
+  688:9    warning  'toggleCamera' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                           no-unused-vars
+  708:6    warning  React Hook useEffect has a missing dependency: 'gameChannel'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                              react-hooks/exhaustive-deps
+  721:6    warning  React Hook useEffect has a missing dependency: 'myGender'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                 react-hooks/exhaustive-deps
+  774:20   warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                                                                                                                                                                                                                                                                                                                                                            no-unused-vars
+  786:6    warning  React Hook useEffect has missing dependencies: 'currentUserId', 'myGender', 'remoteUserId', and 't'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                     react-hooks/exhaustive-deps
+  826:14   warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                                                                                                                                                                                                                                                                                                                                                            no-unused-vars
+  897:14   warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                                                                                                                                                                                                                                                                                                                                              no-unused-vars
+  930:11   warning  'HEADER_HEIGHT' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/games/EmojiMemory.js
+  87:6  warning  React Hook useEffect has missing dependencies: 'checkMatch', 'gameChannel', 'handlePlayAgain', and 'theirPairs'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/games/RockPaperScissors.js
+  65:6  warning  React Hook useEffect has missing dependencies: 'myScore' and 'theirScore'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/games/WhoIsTheKiller.js
+  70:6  warning  React Hook useEffect has a missing dependency: 'TOTAL'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/chat/games/WouldYouRather.js
+  41:6  warning  React Hook useEffect has a missing dependency: 'gameChannel'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/ActionMenu.js
+  7:17  warning  'SCREEN_HEIGHT' is assigned a value but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/ActionModal.js
+   1:10  warning  'BlurView' is defined but never used        no-unused-vars
+   5:3   warning  'Modal' is defined but never used           no-unused-vars
+   6:3   warning  'Platform' is defined but never used        no-unused-vars
+  14:9   warning  'width' is assigned a value but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/EarningsStatsModal.js
+   14:8   warning  Using exported name 'GIFTS' as identifier for default import                                                          import/no-named-as-default
+   21:16  warning  'SCREEN_WIDTH' is assigned a value but never used                                                                     no-unused-vars
+   41:9   warning  'showAlert' is assigned a value but never used                                                                        no-unused-vars
+  232:6   warning  React Hook useEffect has a missing dependency: 'buildWeekSkeleton'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/MainHeader.js
+   2:89   warning  'TouchableHighlight' is defined but never used  no-unused-vars
+   2:119  warning  'StatusBar' is defined but never used           no-unused-vars
+  13:10   warning  'ActionModal' is defined but never used         no-unused-vars
+  17:11   warning  't' is assigned a value but never used          no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/MessageContextMenu.js
+  10:3   warning  'Platform' is defined but never used   no-unused-vars
+  11:3   warning  'StatusBar' is defined but never used  no-unused-vars
+  14:10  warning  'Colors' is defined but never used     no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/MinutesPurchaseModal.js
+   56:10  warning  'methodIndexToDelete' is assigned a value but never used                                                             no-unused-vars
+   56:31  warning  'setMethodIndexToDelete' is assigned a value but never used                                                          no-unused-vars
+  116:6   warning  React Hook useEffect has a missing dependency: 'loadSavedMethods'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  301:18  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                       no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/NexusSwitch.js
+  25:6  warning  React Hook useEffect has missing dependencies: 'progress' and 'translateX'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/PaymentDetailsModal.js
+   88:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                                             no-unused-vars
+   91:6   warning  React Hook useEffect has a missing dependency: 'currentDetails'. Either include it or remove the dependency array                        react-hooks/exhaustive-deps
+  129:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                                             no-unused-vars
+  140:6   warning  React Hook useEffect has missing dependencies: 'allMethods' and 'primaryMethod'. Either include them or remove the dependency array      react-hooks/exhaustive-deps
+  166:6   warning  React Hook useEffect has missing dependencies: 'errors', 'formData', and 'isSaving'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  268:9   warning  'isMethodFilled' is assigned a value but never used                                                                                      no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/ProfileMenuSheet.js
+  1:59  warning  'Platform' is defined but never used            no-unused-vars
+  9:8   warning  'EarningsStatsModal' is defined but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/ReportUserModal.js
+   1:27  warning  'useEffect' is defined but never used   no-unused-vars
+  19:10  warning  'IconSymbol' is defined but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/SearchablePicker.js
+  14:3  warning  'StatusBar' is defined but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/StoryAvatar.js
+   3:19  warning  'ExpoImage' is defined but never used           no-unused-vars
+   6:10  warning  'Colors' is defined but never used              no-unused-vars
+  37:9   warning  'innerSize' is assigned a value but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/StoryViewer.js
+  58:6  warning  React Hook useEffect has missing dependencies: 'currentUserId' and 'stories'. Either include them or remove the dependency array. If 'setIsLiked' needs the current value of 'stories', you can also switch to useReducer instead of useState and read 'stories' in the reducer  react-hooks/exhaustive-deps
+  71:6  warning  React Hook useEffect has missing dependencies: 'currentStory' and 'currentUserId'. Either include them or remove the dependency array                                                                                                                                            react-hooks/exhaustive-deps
+  80:6  warning  React Hook useEffect has a missing dependency: 'startProgress'. Either include it or remove the dependency array                                                                                                                                                                 react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/Toast.js
+   3:10  warning  'Colors' is defined but never used                                                                                                           no-unused-vars
+  33:6   warning  React Hook useEffect has missing dependencies: 'hideToast', 'opacity', and 'translateY'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/UserProfileModal.js
+  180:11  warning  'normalizedUrl' is assigned a value but never used  no-unused-vars
+
+/Users/andrewhotyun/Desktop/NexusApp/components/ui/WithdrawalModal.js
+   18:8   warning  Using exported name 'payoutManager' as identifier for default import          import/no-named-as-default
+  112:16  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  196:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+✖ 226 problems (6 errors, 220 warnings)
+  0 errors and 16 warnings potentially fixable with the `--fix` option.
+

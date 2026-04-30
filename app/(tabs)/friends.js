@@ -374,11 +374,6 @@ export default function FriendsTab() {
             contentContainerStyle={styles.listContainer}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <IconSymbol 
-                  name={searchQuery ? "magnifyingglass" : "person.2.fill"} 
-                  size={60} 
-                  color="#34495e" 
-                />
                 <Text style={styles.emptyText}>
                   {searchQuery 
                     ? t('friends.no_users_found', 'No users found matching your search.')
@@ -470,7 +465,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', 
     fontWeight: '600' 
   },
-  listContainer: { padding: 16, paddingBottom: 100 },
+  listContainer: { flexGrow: 1, padding: 16, paddingBottom: 100 },
   card: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -538,6 +533,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(14, 240, 255, 0.15)'
   },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', opacity: 0.7, paddingTop: 60 },
-  emptyText: { color: '#7f8c8d', fontSize: 15, marginTop: 16, textAlign: 'center', paddingHorizontal: 40 }
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', opacity: 0.7 },
+  emptyText: { color: '#7f8c8d', fontSize: 18, marginTop: 16, textAlign: 'center', paddingHorizontal: 40 }
 });

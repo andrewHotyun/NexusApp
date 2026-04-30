@@ -239,8 +239,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    maxHeight: SCREEN_HEIGHT * 0.85,
-    height: SCREEN_HEIGHT * 0.7, // Definitive height to prevent collapse
+    maxHeight: SCREEN_HEIGHT * 0.9,
+    height: SCREEN_HEIGHT * 0.85, // Increased from 0.7 to 0.85
     marginBottom: -100, // Aggressive bleed for Android bottom gaps
     paddingBottom: 100,
   },
@@ -252,9 +252,9 @@ const styles = StyleSheet.create({
   },
   dragIndicator: {
     width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     marginBottom: 16,
   },
   sheetTitle: {

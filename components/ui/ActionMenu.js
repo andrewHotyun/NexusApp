@@ -105,9 +105,9 @@ const styles = StyleSheet.create({
   },
   dragIndicator: {
     width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     marginBottom: 16,
   },
   sheetTitle: {

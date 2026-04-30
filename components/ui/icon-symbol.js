@@ -31,6 +31,7 @@ const MAPPING = {
   'person.badge.plus': 'person-add-outline',
   'person.badge.minus': 'custom:person-remove-circle',
   'person.badge.xmark': 'person-remove-outline',
+  'person.badge.checkmark': 'custom:person-check',
   'bell.fill': 'mat:notifications',
   'bell.slash.fill': 'mat:notifications-off',
   'clock.fill': 'time',
@@ -74,7 +75,7 @@ const MAPPING = {
   'person.crop.circle.badge.questionmark': 'custom:person-question',
   'ellipsis.circle': 'ellipsis-horizontal-circle',
   'person.slash.fill': 'mat:person-off',
-  'person.fill.checkmark': 'lock-open',
+  'person.fill.checkmark': 'custom:person-check',
   'person.crop.circle.badge.checkmark': 'mat:account-circle',
   'slash.circle': 'ban',
   'paperclip': 'attach',
@@ -82,13 +83,11 @@ const MAPPING = {
   'mic': 'mic-outline',
   'gift': 'gift-outline',
   'timer': 'time-outline',
-  'clock.fill': 'time',
   'creditcard': 'card-outline',
   'creditcard.fill': 'card',
   'wallet.pass': 'mat:account-balance-wallet',
   'wallet.pass.fill': 'mat:account-balance-wallet',
   'plus.circle.fill': 'add-circle',
-  'xmark.circle.fill': 'close-circle',
   'p.square.fill': 'logo-paypal',
   'bitcoinsign.circle.fill': 'logo-bitcoin',
   'chart.bar.fill': 'stats-chart',
@@ -112,6 +111,24 @@ export function IconSymbol({
 }) {
   // Internal helper to render the actual vector icon based on mapped name or prefix
   const renderBaseIcon = (targetName) => {
+    if (targetName === 'custom:person-check') {
+      return (
+        <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
+          <Ionicons name="person-outline" size={size} color={color} />
+          <View style={{ 
+            position: 'absolute', 
+            bottom: -size * 0.05, 
+            right: -size * 0.05, 
+            backgroundColor: 'transparent',
+            borderRadius: size * 0.25,
+            padding: 0
+          }}>
+            <Ionicons name="checkmark-circle" size={size * 0.55} color={color} />
+          </View>
+        </View>
+      );
+    }
+
     if (targetName === 'custom:person-question') {
       return (
         <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>

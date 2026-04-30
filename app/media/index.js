@@ -454,6 +454,11 @@ export default function MediaGalleryScreen() {
     });
   };
 
+  const isLiked = (item) => {
+    if (!item || !user) return false;
+    return (item.likedBy || []).includes(user.uid) || likedItems.has(item.url);
+  };
+
   const handleLikePhoto = async (item, index) => {
     if (!user || !item || isLiking || !currentFolder) return;
     setIsLiking(true);

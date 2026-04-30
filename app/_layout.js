@@ -7,7 +7,6 @@ if (Platform.OS === 'android') {
     'FIRESTORE',
     'INTERNAL ASSERTION FAILED',
     'Unexpected state',
-    'Unable to activate keep awake',
   ]);
 }
 import { ThemeProvider } from '@react-navigation/native';
@@ -25,9 +24,8 @@ import { auth, db } from '../utils/firebase';
 import { useColorScheme } from '../hooks/use-color-scheme';
 import '../i18n'; // Initialize i18n
 import LoadingScreen from '../components/ui/LoadingScreen';
-import { trackUserOnlineStatus } from '../utils/onlineStatus';
 import { AppDataProvider } from '../utils/AppDataProvider';
-import GlobalIncomingCall from '../components/chat/GlobalIncomingCall';
+import { trackUserOnlineStatus } from '../utils/onlineStatus';
 
 // Custom theme defined safely to avoid "Property doesn't exist" errors
 const NexusDarkTheme = {
@@ -237,7 +235,6 @@ export default function RootLayout() {
             <Stack.Screen name="auth/verification" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
           </Stack>
-          <GlobalIncomingCall />
           <StatusBar style="auto" />
         </ThemeProvider>
       </AppDataProvider>

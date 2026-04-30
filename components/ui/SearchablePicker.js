@@ -27,6 +27,7 @@ export const SearchablePicker = ({
   data = [],
   title = 'Select Option',
   placeholder = 'Search...',
+  noResultsText = 'No results found',
   loading = false,
   selectedValue = '',
   searchable = true
@@ -113,7 +114,7 @@ export const SearchablePicker = ({
             </View>
           ) : filteredData.length === 0 ? (
             <View style={styles.centerContent}>
-              <Text style={styles.noResultsText}>No results found</Text>
+              <Text style={styles.noResultsText}>{noResultsText}</Text>
             </View>
           ) : (
             <FlatList
@@ -142,12 +143,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: Platform.OS === 'android' ? 15 : 0,
+    paddingTop: Platform.OS === 'android' ? 40 : 25,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },

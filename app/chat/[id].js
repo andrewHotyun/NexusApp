@@ -10,16 +10,16 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
+  orderBy,
   query,
-  serverTimestamp, 
+  runTransaction,
+  serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  writeBatch,
-  limit,
-  orderBy,
-  runTransaction
+  writeBatch
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -49,33 +49,29 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
-  withTiming,
-  LinearTransition
+  withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EmojiPicker from 'rn-emoji-keyboard';
+import GiftAnimationOverlay from '../../components/chat/GiftAnimationOverlay';
+import GiftModal from '../../components/chat/GiftModal';
 import MessageItem from '../../components/chat/MessageItem';
 import ActionMenu from '../../components/ui/ActionMenu';
 import { ActionModal } from '../../components/ui/ActionModal';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import MessageContextMenu from '../../components/ui/MessageContextMenu';
 import ReportUserModal from '../../components/ui/ReportUserModal';
-import { Toast } from '../../components/ui/Toast';
-import { UserProfileModal } from '../../components/ui/UserProfileModal';
-import { Colors } from '../../constants/theme';
-import { getAvatarColor } from '../../utils/avatarUtils';
-import { auth, db, storage } from '../../utils/firebase';
-import { formatLastSeen, getUserOnlineStatus } from '../../utils/onlineStatus';
-import { useAppData } from '../../utils/AppDataProvider';
 import { StoryAvatar } from '../../components/ui/StoryAvatar';
 import { StoryViewer } from '../../components/ui/StoryViewer';
-import GiftModal from '../../components/chat/GiftModal';
-import GiftAnimationOverlay from '../../components/chat/GiftAnimationOverlay';
-import { getEarningsRate } from '../../utils/earningsHelper';
+import { Toast } from '../../components/ui/Toast';
+import { UserProfileModal } from '../../components/ui/UserProfileModal';
 import { GIFTS, getGiftById } from '../../constants/gifts';
-import VideoCallModal from '../../components/chat/VideoCallModal';
-import { mediaDevices } from 'react-native-webrtc';
+import { Colors } from '../../constants/theme';
+import { useAppData } from '../../utils/AppDataProvider';
 import { updateConversation } from '../../utils/conversationHelper';
+import { getEarningsRate } from '../../utils/earningsHelper';
+import { auth, db, storage } from '../../utils/firebase';
+import { formatLastSeen, getUserOnlineStatus } from '../../utils/onlineStatus';
 
 export default function ChatScreen() {
   const { id, name, gender, autoAcceptCallId } = useLocalSearchParams();
@@ -108,7 +104,6 @@ export default function ChatScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [clearConfirmVisible, setClearConfirmVisible] = useState(false);
   const [blocking, setBlocking] = useState(false);
-  const [friendshipStatus, setFriendshipStatus] = useState('loading'); // loading, friends, not_friends, request_sent, request_received
   const [isBlockedByMe, setIsBlockedByMe] = useState(false);
   const [isBlockedByPartner, setIsBlockedByPartner] = useState(false);
   const [reportModalVisible, setReportModalVisible] = useState(false);
@@ -118,6 +113,21 @@ export default function ChatScreen() {
   const [removeFriendConfirmVisible, setRemoveFriendConfirmVisible] = useState(false);
   const [blockConfirmVisible, setBlockConfirmVisible] = useState(false);
   const [currentUserData, setCurrentUserData] = useState(null);
+
+  const {
+    friendIds,
+    sentRequests,
+    incomingRequests
+  } = useAppData();
+
+  // Derive friendship status from global AppData
+  const friendshipStatus = useMemo(() => {
+    if (friendIds.includes(partnerId)) return 'friends';
+    if (sentRequests.some(r => r.toUserId === partnerId)) return 'request_sent';
+    if (incomingRequests.some(r => r.fromUserId === partnerId)) return 'request_received';
+    return 'not_friends';
+  }, [friendIds, sentRequests, incomingRequests, partnerId]);
+
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [fullScreenMedia, setFullScreenMedia] = useState(null);
@@ -139,7 +149,7 @@ export default function ChatScreen() {
   // Handle global call acceptance redirect
   useEffect(() => {
     if (autoAcceptCallId && autoAcceptCallId !== 'null' && autoAcceptCallId !== 'undefined'
-        && partner && !handledAutoAcceptIds.current.has(autoAcceptCallId)) {
+      && partner && !handledAutoAcceptIds.current.has(autoAcceptCallId)) {
       handledAutoAcceptIds.current.add(autoAcceptCallId);
       startGlobalCall(autoAcceptCallId, false, partner);
     }
@@ -201,6 +211,7 @@ export default function ChatScreen() {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [replyingToMessage, setReplyingToMessage] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
+
   const [deletingMessageIds, setDeletingMessageIds] = useState([]);
   const [editText, setEditText] = useState('');
   const [originalEditText, setOriginalEditText] = useState('');  // Stores original text for the preview bar
@@ -226,8 +237,8 @@ export default function ChatScreen() {
   const normalizeGender = (g) => {
     if (!g) return '';
     const v = String(g).trim().toLowerCase();
-    if (['male', 'm', 'man', 'boy', 'чоловік', 'хлопець', 'ч', 'чол'].includes(v)) return 'male';
-    if (['female', 'f', 'woman', 'girl', 'жінка', 'дівчина', 'ж', 'жін'].includes(v)) return 'female';
+    if (['male', 'm', 'man', 'boy', 'чоловік', 'хлопець', 'ч', 'чол', 'homme', 'hombre', 'männlich'].includes(v)) return 'male';
+    if (['female', 'f', 'woman', 'girl', 'жінка', 'дівчина', 'ж', 'жін', 'femme', 'mujer', 'weiblich'].includes(v)) return 'female';
     return '';
   };
 
@@ -346,58 +357,8 @@ export default function ChatScreen() {
     };
   }, [user?.uid, partnerId]);
 
-  // 1.1 Listen for Friendship Status
-  useEffect(() => {
-    if (!user || !partnerId) return;
+  // Removed local listeners as we now use useAppData global state
 
-    setFriendshipStatus('loading');
-
-    // Check if they are friends
-    const friendsQuery = query(
-      collection(db, 'friends'),
-      where('userId', '==', user.uid),
-      where('friendId', '==', partnerId)
-    );
-
-    const unsubFriends = onSnapshot(friendsQuery, (snap) => {
-      if (!snap.empty) {
-        setFriendshipStatus('friends');
-      } else {
-        // Checking for pending requests
-        const sentReqQuery = query(
-          collection(db, 'friendRequests'),
-          where('fromUserId', '==', user.uid),
-          where('toUserId', '==', partnerId),
-          where('status', '==', 'pending')
-        );
-
-        const unsubSent = onSnapshot(sentReqQuery, (sentSnap) => {
-          if (!sentSnap.empty) {
-            setFriendshipStatus('request_sent');
-          } else {
-            const receivedReqQuery = query(
-              collection(db, 'friendRequests'),
-              where('fromUserId', '==', partnerId),
-              where('toUserId', '==', user.uid),
-              where('status', '==', 'pending')
-            );
-
-            const unsubReceived = onSnapshot(receivedReqQuery, (recSnap) => {
-              if (!recSnap.empty) {
-                setFriendshipStatus('request_received');
-              } else {
-                setFriendshipStatus('not_friends');
-              }
-            }, (err) => console.warn('ReceivedReq listener error:', err));
-            return () => unsubReceived();
-          }
-        }, (err) => console.warn('SentReq listener error:', err));
-        return () => unsubSent();
-      }
-    }, (err) => console.warn('Friends listener error:', err));
-
-    return () => unsubFriends();
-  }, [user?.uid, partnerId]);
 
   // 1.05 Listen for partner's active stories to show ring in header
   // Uses userId + status only (index exists from web version).
@@ -413,7 +374,7 @@ export default function ChatScreen() {
       const now = new Date();
       let active = false;
       let unviewed = false;
-      
+
       snap.docs.forEach(doc => {
         const data = doc.data();
         const expiresAt = data.expiresAt ? (data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt)) : null;
@@ -424,7 +385,7 @@ export default function ChatScreen() {
           }
         }
       });
-      
+
       setHasPartnerStories(active);
       setAreStoriesAllViewed(active && !unviewed);
     }, (err) => console.warn('Stories listener error:', err));
@@ -500,6 +461,7 @@ export default function ChatScreen() {
         calleeAvatar: calleeData?.avatar || partner?.avatar || null,
         callerGender: callerGender,
         calleeGender: calleeGender,
+        callerDeviceType: 'mobile',
         type: 'video',
         status: 'ringing',
         participants: [user.uid, partnerId],
@@ -593,9 +555,9 @@ export default function ChatScreen() {
         setMessages(merged);
 
         // Check for new gifts to animate (scan all messages for un-animated fresh gifts)
-        const freshGifts = merged.filter(m => 
-          m.type === 'gift' && 
-          !animatedGiftsRef.current.has(m.id) && 
+        const freshGifts = merged.filter(m =>
+          m.type === 'gift' &&
+          !animatedGiftsRef.current.has(m.id) &&
           (Date.now() - extractTs(m)) < 15000 // 15s window for better reliability
         );
 
@@ -780,7 +742,7 @@ export default function ChatScreen() {
         const messagesRef = collection(db, 'messages');
         const newMessageRef = doc(messagesRef);
         transaction.set(newMessageRef, messageData);
-        
+
         // Add conversation update via transaction
         const conversationRef = doc(db, 'conversations', chatId);
         transaction.set(conversationRef, {
@@ -916,7 +878,7 @@ export default function ChatScreen() {
         setTimeout(() => {
           setDeletingMessageIds(prev => prev.filter(id => !idsToDelete.includes(id)));
         }, 300);
-        
+
         setToastMessage(t('chat.delete_success_toast'));
         setToastVisible(true);
       } catch (e) {
@@ -1103,17 +1065,69 @@ export default function ChatScreen() {
   };
 
   const performAddFriend = async () => {
-    if (!user || !partnerId || friendshipStatus !== 'not_friends') return;
+    if (!user || !partnerId || (friendshipStatus !== 'not_friends' && friendshipStatus !== 'request_received')) return;
+
     try {
       setSending(true);
+
+      // Check if there is an incoming request to accept
+      const incoming = incomingRequests.find(r => r.fromUserId === partnerId);
+      if (incoming) {
+        const batch = writeBatch(db);
+
+        // Add both directions
+        const friendRef1 = doc(collection(db, 'friends'));
+        batch.set(friendRef1, {
+          userId: user.uid,
+          friendId: partnerId,
+          friendName: partner?.name || 'User',
+          friendAvatar: partner?.avatar || '',
+          friendCity: partner?.city || '',
+          friendCountry: partner?.country || '',
+          addedAt: serverTimestamp()
+        });
+
+        const friendRef2 = doc(collection(db, 'friends'));
+        batch.set(friendRef2, {
+          userId: partnerId,
+          friendId: user.uid,
+          friendName: currentUserData?.name || 'User',
+          friendAvatar: currentUserData?.avatar || '',
+          friendCity: currentUserData?.city || '',
+          friendCountry: currentUserData?.country || '',
+          addedAt: serverTimestamp()
+        });
+
+        batch.delete(doc(db, 'friendRequests', incoming.id));
+        await batch.commit();
+
+        setToastMessage(t('friends.friend_added', { name: partner?.name || t('common.user') }));
+        setToastVisible(true);
+        return;
+      }
+
+      // Otherwise, send a new request
       await addDoc(collection(db, 'friendRequests'), {
         fromUserId: user.uid,
+        fromUserName: currentUserData?.name || t('common.me'),
+        fromUserAvatar: currentUserData?.avatar || '',
+        fromUserCity: currentUserData?.city || '',
+        fromUserCountry: currentUserData?.country || '',
         toUserId: partnerId,
+        toUserName: partner?.name || 'User',
+        toUserAvatar: partner?.avatar || '',
+        toUserCity: partner?.city || '',
+        toUserCountry: partner?.country || '',
         status: 'pending',
-        timestamp: serverTimestamp()
+        createdAt: serverTimestamp()
       });
+
+      setToastMessage(t('friends.request_sent', { name: partner?.name || t('common.user') }));
+      setToastVisible(true);
+
     } catch (e) {
-      console.error("Error sending friend request:", e);
+      console.error("Error with friend action:", e);
+      Alert.alert(t('common.error'), t('common.try_again'));
     } finally {
       setSending(false);
     }
@@ -1411,10 +1425,10 @@ export default function ChatScreen() {
         </TouchableOpacity>
         <View style={styles.partnerInfo}>
           <View style={styles.avatarBadgeWrapper}>
-            <StoryAvatar 
-              userId={partnerId} 
-              avatarUrl={partner?.avatar} 
-              name={partner?.name} 
+            <StoryAvatar
+              userId={partnerId}
+              avatarUrl={partner?.avatar}
+              name={partner?.name}
               size={40}
               hasStories={hasPartnerStories}
               allViewed={areStoriesAllViewed}
@@ -1457,8 +1471,8 @@ export default function ChatScreen() {
           </View>
           <View style={{ flex: 1, justifyContent: 'center', marginLeft: 10, marginRight: 85 }}>
             <Text style={styles.headerName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{partner?.name || 'Loading...'}{partner?.age ? `, ${partner.age}` : ''}</Text>
-            <Text 
-              style={[styles.onlineStatus, { color: isOnline ? Colors.dark.primary : 'rgba(255,255,255,0.5)' }]} 
+            <Text
+              style={[styles.onlineStatus, { color: isOnline ? Colors.dark.primary : 'rgba(255,255,255,0.5)' }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
@@ -1471,9 +1485,9 @@ export default function ChatScreen() {
         </View>
 
 
-        <TouchableOpacity 
-          onPress={performStartCall} 
-          style={[styles.callHeaderBtn, !isOnline && { opacity: 0.5 }]} 
+        <TouchableOpacity
+          onPress={performStartCall}
+          style={[styles.callHeaderBtn, !isOnline && { opacity: 0.5 }]}
           disabled={!isOnline}
         >
           <Ionicons name="videocam" size={24} color="#fff" />
@@ -1539,6 +1553,25 @@ export default function ChatScreen() {
               <Ionicons name="close-circle" size={24} color="rgba(255,255,255,0.6)" />
             </TouchableOpacity>
           </View>
+        </View>
+      )}
+
+      {/* Gifts Hint Panel for Female Users (Browser-style) */}
+      {currentUserData && normalizeGender(currentUserData.gender || currentUserData.sex) === 'female' && normalizeGender(partner.gender || partner.sex) === 'male' && (
+        <View style={styles.giftsHintPanel}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={GIFTS}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.giftsHintList}
+            renderItem={({ item }) => (
+              <View style={styles.giftHintItem}>
+                <Text style={styles.giftHintEmoji}>{item.emoji}</Text>
+                <Text style={styles.giftHintMinutes}>{item.minutes}</Text>
+              </View>
+            )}
+          />
         </View>
       )}
 
@@ -1629,7 +1662,13 @@ export default function ChatScreen() {
           </View>
         ) : isPartnerTyping && !isBlockedByMe && !isBlockedByPartner && (
           <View style={styles.typingContainer}>
-            <Text style={styles.typingText}>{t('chat.is_typing', { name: name || 'Partner' })}</Text>
+            {partner?.avatar ? (
+              <Image source={{ uri: partner.avatar }} style={styles.typingAvatar} />
+            ) : (
+              <View style={[styles.typingAvatarPlaceholder, { backgroundColor: getAvatarColor(partner?.uid) }]}>
+                <Text style={styles.typingAvatarPlaceholderText}>{partner?.name?.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
             <View style={styles.typingDots}>
               <Animated.View style={[styles.typingDot, dotStyle1]} />
               <Animated.View style={[styles.typingDot, dotStyle2]} />
@@ -1777,10 +1816,9 @@ export default function ChatScreen() {
               color: '#95a5a6',
               onPress: () => { }
             } : friendshipStatus === 'request_received' ? {
-              label: t('chat.check_requests'),
-              icon: 'bell.fill',
-              color: '#9b59b6',
-              onPress: () => router.push('/(tabs)/friends')
+              label: t('friends.accept_btn', 'Accept Request'),
+              icon: 'person-add',
+              onPress: performAddFriend
             } : null,
             {
               label: t('chat.clear_chat'),
@@ -1992,7 +2030,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
-    paddingHorizontal: 16,
     zIndex: 100,
   },
   searchBarContainer: {
@@ -2003,6 +2040,36 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
+  },
+  giftsHintPanel: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 6,
+  },
+  giftsHintList: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  giftHintItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  giftHintEmoji: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  giftHintMinutes: {
+    color: '#f1c40f',
+    fontSize: 12,
+    fontWeight: '700',
   },
   searchBarInput: {
     flex: 1,
@@ -2137,9 +2204,27 @@ const styles = StyleSheet.create({
   typingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingHorizontal: 0,
+    paddingVertical: 10,
+    marginLeft: 16,
+    gap: 12,
+  },
+  typingAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  typingAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  typingAvatarPlaceholderText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   typingText: {
     color: 'rgba(255,255,255,0.5)',
@@ -2150,7 +2235,7 @@ const styles = StyleSheet.create({
   typingDots: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4, // Lower the dots a bit
+    marginTop: 24,
   },
   typingDot: {
     width: 5,
@@ -2413,48 +2498,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 77, 77, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-    zIndex: 100,
-  },
-  searchBarInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    paddingVertical: 4,
-  },
-  searchClearBtn: {
-    marginLeft: 8,
-  },
-  searchBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 4,
-  },
-  scrollArrowsContainer: {
-    position: 'absolute',
-    right: 12,
-    bottom: 100,
-    zIndex: 1000,
-  },
-  scrollArrowBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   searchNavControls: {
     flexDirection: 'row',

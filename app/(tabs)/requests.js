@@ -982,7 +982,6 @@ export default function RequestsTab() {
                 keyboardShouldPersistTaps="handled"
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <IconSymbol name="magnifyingglass" size={60} color="#34495e" />
                     <Text style={styles.emptyText}>{t('friends.no_users_found', 'No users found matching your search.')}</Text>
                   </View>
                 }
@@ -1042,11 +1041,6 @@ export default function RequestsTab() {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <IconSymbol 
-                      name={activeTab === 'incoming' ? "person.badge.plus" : "person.crop.circle.badge.questionmark"} 
-                      size={60} 
-                      color="#34495e" 
-                    />
                     <Text style={styles.emptyText}>
                       {activeTab === 'incoming' 
                         ? t('friends.no_incoming_requests', 'No incoming requests.') 
@@ -1153,7 +1147,7 @@ const styles = StyleSheet.create({
   segmentTextActive: { color: Colors.dark.primary },
   searchResultsContainer: { flex: 1 },
   sectionHeaderTitle: { color: '#7f8c8d', fontSize: 13, textTransform: 'uppercase', paddingHorizontal: 16, paddingTop: 16, fontWeight: '600' },
-  listContainer: { padding: 16, paddingBottom: 100 },
+  listContainer: { flexGrow: 1, padding: 16, paddingBottom: 100 },
   card: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -1227,8 +1221,8 @@ const styles = StyleSheet.create({
   btnCancel: { paddingHorizontal: 14, height: 36, borderRadius: 12, backgroundColor: 'rgba(231, 76, 60, 0.1)', borderWidth: 1, borderColor: 'rgba(231, 76, 60, 0.3)', justifyContent: 'center' },
   cancelText: { color: '#e74c3c', fontWeight: '600', fontSize: 13 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', opacity: 0.7, paddingBottom: 100 },
-  emptyText: { color: '#7f8c8d', fontSize: 15, marginTop: 16, textAlign: 'center' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', opacity: 0.7 },
+  emptyText: { color: '#7f8c8d', fontSize: 18, marginTop: 16, textAlign: 'center', paddingHorizontal: 40 },
   bulkActionsBar: {
     flexDirection: 'row',
     paddingHorizontal: 12,

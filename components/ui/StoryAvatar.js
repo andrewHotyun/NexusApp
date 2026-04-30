@@ -96,7 +96,7 @@ export const StoryAvatar = ({
     }
 
     // Placeholder
-    const initial = name ? name.charAt(0).toUpperCase() : 'U';
+    const initial = (name || '?').charAt(0).toUpperCase();
     const bgColor = getAvatarColor(userId);
 
     return (

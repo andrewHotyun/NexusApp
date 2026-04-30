@@ -7,6 +7,7 @@ import {
   setDoc, serverTimestamp, deleteDoc
 } from 'firebase/firestore';
 import VideoCallModal from '../components/chat/VideoCallModal';
+import GlobalIncomingCall from '../components/chat/GlobalIncomingCall';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -703,6 +704,9 @@ export function AppDataProvider({ children, userId }) {
           onEndCall={endGlobalCall}
         />
       )}
+
+      {/* Global Incoming Call Banner/Modal */}
+      <GlobalIncomingCall />
     </AppDataContext.Provider>
   );
 }

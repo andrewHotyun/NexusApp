@@ -15,7 +15,7 @@ export default function ProfileMenuSheet({ isVisible, onClose, userProfile, onOp
   const [showStoryUpload, setShowStoryUpload] = useState(false);
 
   const getInitials = (name) => {
-    return name ? name.charAt(0).toUpperCase() : 'U';
+    return (name || '?').charAt(0).toUpperCase();
   };
 
   const getAvatarColor = (uid) => {
@@ -158,7 +158,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827', // Darker gray/blue for the sheet
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 0, // Reset to let SafeArea handle it
     elevation: 0, // Forcefully remove Android elevation highlight
     borderTopWidth: 1, // Add very subtle border for definition
     borderColor: 'rgba(255, 255, 255, 0.05)',

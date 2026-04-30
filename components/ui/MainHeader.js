@@ -35,7 +35,7 @@ export default function MainHeader() {
   };
 
   const getInitials = (name) => {
-    return name ? name.charAt(0).toUpperCase() : 'U';
+    return (name || '?').charAt(0).toUpperCase();
   };
 
   const getAvatarColor = (uid) => {

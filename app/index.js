@@ -143,6 +143,8 @@ const ReanimFlight = React.memo(({ msg, onComplete }) => {
   );
 });
 
+ReanimFlight.displayName = 'ReanimFlight';
+
 export default function LandingScreen() {
   const router = useRouter();
   
